@@ -111,9 +111,20 @@
 | $$\mathbf{P} \in \mathbb{R}^{L_{ctx} \times d_{model}}$$ | 可学习位置嵌入表 | 第 3 章 |
 | $$p$$ | 位置索引（与 $$t$$ 同义，用于位置编码语境） | 第 4 章 |
 | $$\mathbf{p}_t$$ | 位置 $$t$$ 的编码向量（$$\mathbf{P}$$ 的第 $$t$$ 行） | 第 4 章 |
-| $$\theta_i$$ | RoPE 第 $$i$$ 个旋转频率 | 第 4 章 |
-| $$b$$ | RoPE 基频（base），通常取 10000 | 第 4 章 |
-| $$s_{rope}$$ | 位置缩放因子（PI/NTK/YaRN） | 第 4 章 |
+| $$\omega_i$$ | 正弦编码第 $$i$$ 对维度的角频率，$$\omega_i=b^{-2i/d_{model}}$$ | 第 4 章 |
+| $$\theta_i$$ | RoPE 第 $$i$$ 个旋转频率，$$\theta_i=b^{-2i/d_h}$$ | 第 4 章 |
+| $$b$$ | 位置编码基频（base），通常取 10000 | 第 4 章 |
+| $$b_{\mathrm{clip}(j-i)}$$ | T5 相对位置偏置，按截断距离索引 | 第 4 章 |
+| $$\lambda_i$$ | 第 $$i$$ 个频率的波长 | 第 4 章 |
+| $$\Delta$$ | 位置平移量 | 第 4 章 |
+| $$\mathbf{R}_{t,i},\ \mathbf{R}_t$$ | 第 $$i$$ 个二维块的旋转矩阵、整体分块对角旋转矩阵 | 第 4 章 |
+| $$\nu_h$$ | ALiBi 第 $$h$$ 个头的距离惩罚斜率 | 第 4 章 |
+| $$L_{\mathrm{train}},\ L_{\mathrm{test}}$$ | 训练长度、测试长度 | 第 4 章 |
+| $$s_{\mathrm{rope}}$$ | 位置缩放因子（PI/NTK/YaRN），$$L_{\mathrm{test}}/L_{\mathrm{train}}$$ | 第 4 章 |
+| $$L_{\mathrm{eff}}(\epsilon)$$ | 有效上下文长度，任务指标不低于阈值 $$\epsilon$$ | 第 4 章 |
+| $$r_i$$ | YaRN 波长比，$$r_i=L_{\mathrm{train}}/\lambda_i$$ | 第 4 章 |
+| $$w_i$$ | YaRN 第 $$i$$ 个频率的分段插值权重 | 第 4 章 |
+| $$t_y$$ | YaRN 温度缩放因子 | 第 4 章 |
 
 ## B.6 损失与评估
 

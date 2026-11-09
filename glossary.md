@@ -66,6 +66,23 @@
 | 位置编码 | Positional Encoding | 向模型注入 Token 顺序信息的机制 | 第 3 章 |
 | 绝对位置编码 | Absolute Positional Encoding | 为每个绝对位置分配一个编码向量 | 第 3 章 |
 
+## 第 4 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 正弦位置编码 | Sinusoidal Positional Encoding | 用不同频率的正弦与余弦函数生成的无参数位置编码 | 第 4 章 |
+| 相对位置编码 | Relative Positional Encoding | 只编码位置之间相对距离的位置编码 | 第 4 章 |
+| 旋转位置编码 | Rotary Position Embedding (RoPE) | 通过旋转查询与键使内积只依赖相对位移的位置编码 | 第 4 章 |
+| 相对位移性质 | Relative Shift Property | 同一对查询与键平移相同距离后内积不变的性质 | 第 4 章 |
+| ALiBi | Attention with Linear Biases | 在注意力打分上按距离加线性惩罚的位置编码 | 第 4 章 |
+| 无位置编码 | No Positional Encoding (NoPE) | 不显式注入位置、依赖因果结构隐式恢复顺序的方案 | 第 4 章 |
+| 长度外推 | Length Extrapolation | 在比训练长度更长的序列上保持性能的能力 | 第 4 章 |
+| 位置插值 | Position Interpolation (PI) | 把超长位置线性压缩回训练范围的扩展方法 | 第 4 章 |
+| NTK-aware 缩放 | NTK-aware Scaling | 通过调整 RoPE 基频、按频率拉伸波长的扩展方法 | 第 4 章 |
+| 分频插值 | NTK-by-Parts | 按波长比例分段决定哪些频率插值的 YaRN 组件 | 第 4 章 |
+| YaRN | YaRN | 结合分频插值与温度缩放的长度外推方法 | 第 4 章 |
+| 有效上下文 | Effective Context Length | 任务指标仍不低于阈值的最长序列长度 | 第 4 章 |
+
 ## 术语一致性约定
 
 - 正文统一使用 "Token"，首次出现时注明"词元"；不混用"标记""词块"。
@@ -81,4 +98,9 @@
 - "多头注意力"统一对应 MHA；当 KV 头数少于查询头数时，按第 6 章写作 GQA 或 MQA，不笼统称为多头。
 - "前馈网络"统一对应 FFN，不写作"全连接层"；中间维度统一用 $$d_{ff}$$。
 - "位置编码"是机制，"位置嵌入"是可学习的查表实现；首次出现时注明二者关系。
+- "RoPE" 固定为全大写，首次出现附中文"旋转位置编码"，之后可直接用缩写；不写作 "rope"。
+- "ALiBi" 固定大小写，不展开为 "alibi"；首次出现附中文"带线性偏置的注意力"。
+- "外推"指在训练长度之外测试，"内插"指把长位置映射回训练范围；"扩展上下文"是工程目标，不替代这两个术语。
+- "有效上下文"统一对应 effective context length，不写作"实际上下文"或"真实窗口"。
+- "位置插值"指 PI 方法，不泛指任何位置缩放；"分频插值"专指 YaRN 的 NTK-by-parts 组件。
 - Pre-LN/Post-LN 首次出现附中文"前置/后置归一化"，之后可混用英文缩写。

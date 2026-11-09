@@ -6,8 +6,9 @@
 
 - **公共 API**：`tinylm/tokenizer/bpe.py` 的核心实现已在第 2 章给出，接口与附录 F 的 `Tokenizer` 协议一致；但代码目前以章节内嵌形式存在，尚未落盘到包目录。
 - **模型**：第 3 章的 Transformer 基线已在章节内给出完整实现，接口与附录 F 对齐；同样尚未落盘。
+- **位置编码**：第 4 章在基线上增加 `sine`、`rope`、`nope`、`alibi` 四种 `pos_encoding`，并接入 PI/NTK/YaRN 三种 RoPE 缩放；代码仍以章节内嵌形式存在。
 - **接口契约**：未修改。`TinyLM.forward` 保持附录 F 的签名，新增字段只出现在 `ModelConfig` 与 `CausalLMOutput` 中。
-- **配置**：`ModelConfig` 首次落地（见第 3 章变更）。其中部分字段为后续章节预留，当前实现只接受默认值。
+- **配置**：`ModelConfig` 首次落地（见第 3 章变更）。`pos_encoding` 与 `rope_theta` 在第 4 章启用，新增 `rope_scaling`；部分字段仍为后续章节预留。
 
 ## 第 1 章变更
 
@@ -61,8 +62,8 @@
 | `norm` | `"layernorm"` | 仅 `"layernorm"`，第 5 章扩展 |
 | `norm_eps` | `1e-5` | 是 |
 | `ffn` | `"mlp"` | 仅 `"mlp"`，第 5 章扩展 |
-| `pos_encoding` | `"learned"` | 仅 `"learned"`，第 4 章扩展 |
-| `rope_theta` | `10000.0` | 预留，第 4 章启用 |
+| `pos_encoding` | `"learned"` | 是；第 4 章起分派 `learned`/`sine`/`rope`/`nope`/`alibi` |
+| `rope_theta` | `10000.0` | 是（仅 `rope` 模式）；第 4 章启用 |
 | `bias` | `True` | 是 |
 | `tie_embeddings` | `False` | 是 |
 | `dropout` | `0.0` | 预留，暂不生效（小于 0.1 时对收敛无实质影响） |
@@ -77,6 +78,34 @@
 - 初始化：除残差输出投影按 `0.02 / sqrt(2 n_layers)` 缩放外，其余线性层与嵌入为标准正态 `std=0.02`；
 - `forward` 接受 `attention_mask`、`position_ids`、`past_kv`、`use_cache`、`labels`、`logits_to_keep`；当前实现前两者与 `labels`，后三者（`past_kv`、`use_cache`、`logits_to_keep`）为后续章节预留；
 - 损失按 Token 平均，`ignore_index=-100`，与第 1、2 章口径一致。
+
+## 第 4 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/position.py` | 章节内嵌实现 | `sinusoidal_positions`、`rope_inv_freq`、`RoPE`、`alibi_slopes`、`ALiBi` |
+| `tinylm/model.py` | 章节内嵌实现 | `PositionAwareAttention` 按 `pos_encoding` 分派；超表长时动态生成因果掩码 |
+| `tinylm/config.py` | 章节内嵌实现 | 新增 `RoPEScalingConfig`；`ModelConfig` 增加 `rope_scaling` |
+| `tests/test_position.py` | 章节内嵌实现 | 9 个用例：正弦平移、RoPE 相对性与保范数、缩放形状、ALiBi、超表长、越界、因果性 |
+| `examples/ch04_length_extrapolation.py` | 章节内嵌实现 | 复制任务上的外推曲线与 RoPE 波长表 |
+
+配置字段变化：
+
+| 字段 | 默认值 | 第 4 章行为 |
+| --- | --- | --- |
+| `pos_encoding` | `"learned"` | 接受 `"learned"`、`"sine"`、`"rope"`、`"nope"`、`"alibi"` |
+| `rope_theta` | `10000.0` | RoPE 基频 `b`，仅 `pos_encoding="rope"` 时生效 |
+| `rope_scaling` | `RoPEScalingConfig(method="none", factor=1.0)` | `method` 接受 `"none"`、`"pi"`、`"ntk"`、`"yarn"` |
+
+实现要点：
+
+- `learned` 与 `sine` 把位置向量加到 Token 嵌入上，序列长度受 `max_seq_len` 限制；
+- `rope` 在注意力内部旋转 Q/K，不修改嵌入；采用**分半式**约定（前一半与后一半配对），与 GPT-NeoX、Llama 一致；
+- `alibi` 在打分上加 `-ν_h(i-j)`，斜率为固定缓冲区，不参与训练；
+- `nope` 不注入任何位置信息，仅保留因果掩码；
+- 注意力在 `T > max_seq_len` 时动态生成因果掩码，使 RoPE 可测试超表长序列；`learned` 与 `sine` 仍会断言失败；
+- `position_ids` 从 `TinyLM.forward` 透传到每个注意力层；KV Cache 接入时复用同一路径；
+- YaRN 的温度缩放通过把打分除以 `sqrt(t_y)` 实现，`t_y = 0.1 ln(factor) + 1`。
 
 ## 本章固定的约定
 
@@ -94,13 +123,18 @@
 
 ## 下一章待实现
 
+第 5 章《现代 LLM 的架构演进》要在第 3、4 章基线上增加：
+
 | 文件 | 内容 |
 | --- | --- |
-| `tinylm/position.py` | 正弦位置编码与 RoPE 的旋转实现 |
-| `tinylm/model.py` | 按 `pos_encoding` 分派位置编码，支持 `"learned"`、`"rope"` |
-| `tinylm/config.py` | 启用 `rope_theta`；如需 NTK/YaRN，新增缩放字段 |
-| `tests/test_position.py` | 位置编码形状、相对位移性质、外推行为 |
-| `examples/ch04_length_extrapolation.py` | 训练长度与测试长度不同时的困惑度曲线 |
+| `tinylm/norm.py` | RMSNorm，替换 `LayerNorm`，由 `norm="rmsnorm"` 分派 |
+| `tinylm/ffn.py` | SwiGLU 三个投影与 `d_ff` 重算，由 `ffn="swiglu"` 分派 |
+| `tinylm/model.py` | 支持 `tie_embeddings`、可选偏置、并行注意力/前馈层的消融 |
+| `tinylm/config.py` | 启用 `norm`、`ffn`、`dropout` 等预留字段 |
+| `tests/test_modern.py` | RMSNorm 与 LayerNorm 的关系、SwiGLU 参数量、权重绑定、并行层等价性 |
+| `examples/ch05_ablation.py` | 相同参数量与算力预算下的架构消融 |
+
+第 5 章不得修改 `TinyLM.forward` 签名；`pos_encoding` 的既有分支必须保持可用。
 
 ## 验收门槛
 
@@ -113,4 +147,9 @@
 - 因果性测试通过：位置 $t$ 的 logits 只依赖前 $t$ 个 Token；
 - 注意力权重每行和为 1，且上三角严格为 0；
 - 精确参数公式 (3.22) 与实测参数量逐位一致；
-- 切换位置编码实现时，`TinyLM.forward` 签名不得改变。
+- 切换位置编码实现时，`TinyLM.forward` 签名不得改变；
+- RoPE 保范数：旋转前后 Q、K 的逐 Token 范数误差小于 `1e-5`；
+- RoPE 相对性：同一对 Q/K 平移相同距离后，打分矩阵对应元素误差小于 `1e-4`；
+- 位置显式由 `position_ids` 传入，缓存与打包序列复用同一路径；
+- `rope="pi"` 只缩放位置，`"ntk"` 改基频，`"yarn"` 分频缩放并加温度；三者的频率表均与公式逐项一致；
+- 任何位置编码改动都必须通过因果性测试：改动位置 `t` 的输入，`t` 之前的 logits 不变。

@@ -73,13 +73,18 @@
 | --- | --- | --- | --- |
 | 位置编码 | Positional Encoding | 向模型注入 Token 顺序信息的机制 | 第 3 章 |
 | 绝对位置编码 | Absolute Positional Encoding | 为每个绝对位置分配一个编码向量 | 第 3 章 |
+| 正弦位置编码 | Sinusoidal Positional Encoding | 用不同频率的正弦与余弦函数生成的无参数位置编码 | 第 4 章 |
 | 相对位置编码 | Relative Positional Encoding | 只编码位置之间的相对距离 | 第 4 章 |
 | 旋转位置编码 | Rotary Position Embedding (RoPE) | 通过旋转查询与键来注入相对位置信息 | 第 4 章 |
+| 相对位移性质 | Relative Shift Property | 同一对查询与键平移相同距离后内积不变 | 第 4 章 |
 | ALiBi | Attention with Linear Biases | 用与距离成正比的线性偏置惩罚远距离注意力 | 第 4 章 |
-| 位置插值 | Position Interpolation (PI) | 把超长位置压缩到训练范围内以扩展上下文 | 第 4 章 |
-| NTK-aware 缩放 | NTK-aware Scaling | 按频率分段调整 RoPE 基频的外推方法 | 第 4 章 |
-| YaRN | YaRN | 结合温度缩放与分段频率调整的长度外推方法 | 第 4 章 |
 | 无位置编码 | NoPE | 完全不显式编码位置，依赖因果结构隐式推断 | 第 4 章 |
+| 长度外推 | Length Extrapolation | 在比训练长度更长的序列上保持性能 | 第 4 章 |
+| 位置插值 | Position Interpolation (PI) | 把超长位置线性压缩回训练范围以扩展上下文 | 第 4 章 |
+| NTK-aware 缩放 | NTK-aware Scaling | 通过调整 RoPE 基频、按频率拉伸波长的外推方法 | 第 4 章 |
+| 分频插值 | NTK-by-Parts | 按波长比例分段决定哪些频率插值的 YaRN 组件 | 第 4 章 |
+| YaRN | YaRN | 结合分频插值与温度缩放的长度外推方法 | 第 4 章 |
+| 有效上下文 | Effective Context Length | 任务指标仍不低于阈值的最长序列长度 | 第 4 章 |
 
 ## C.4 注意力变体与 KV Cache
 

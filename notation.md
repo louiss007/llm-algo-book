@@ -95,3 +95,28 @@ $$n_{vocab}$$ 已在第 1 章登记；本章新增关系 $$n_{vocab}=|\mathcal{V
 {% hint style="warning" %}
 第 3 章的易混点：$$(h)$$ 是注意力头的上标，不是幂次；$$\mathbf{h}_t$$ 无上标时是第 1 章的 RNN 隐状态，带上标 $$\mathbf{h}_t^{(l)}$$ 时是第 $$l$$ 层残差流的位置表示。$$\mathbf{S}$$ 是打分矩阵，$$s_{ij}$$ 是它的元素；$$\mathbf{O}$$ 是注意力输出，$$\mathbf{o}_i$$ 是它的第 $$i$$ 行。$$N$$ 是参数量，$$N_{\text{pair}}$$ 是第 2 章的相邻对位置数。$$L_{ctx}$$ 是位置表大小，$$L_{\max}$$ 是第 2 章的最长 Token 长度。$$M$$ 是 BPE 合并次数，$$M_{ij}$$ 是因果掩码。$$d$$ 在第 1 章是通用维度，第 3 章起统一写 $$d_{model}$$。
 {% endhint %}
+
+## 第 4 章
+
+| 符号 | 含义 | 首次出现 |
+| --- | --- | --- |
+| $$p$$ | 位置索引，与 $$t$$ 同义 | 第 4 章 |
+| $$\mathbf{p}_t$$ | 位置 $$t$$ 的编码向量 | 第 4 章 |
+| $$\omega_i$$ | 正弦编码第 $$i$$ 对维度的角频率，$$\omega_i=b^{-2i/d_{model}}$$ | 第 4 章 |
+| $$\theta_i$$ | RoPE 第 $$i$$ 个旋转频率，$$\theta_i=b^{-2i/d_h}$$ | 第 4 章 |
+| $$b$$ | 位置编码基频，通常取 10000 | 第 4 章 |
+| $$\lambda_i$$ | 第 $$i$$ 个频率的波长，$$\lambda_i=2\pi/\omega_i$$ 或 $$2\pi/\theta_i$$ | 第 4 章 |
+| $$\Delta$$ | 位置平移量 | 第 4 章 |
+| $$\mathbf{R}_{t,i},\ \mathbf{R}_t$$ | 第 $$i$$ 个二维块的旋转矩阵、整体分块对角旋转矩阵 | 第 4 章 |
+| $$b_{\mathrm{clip}(j-i)}$$ | T5 相对位置偏置，按截断距离索引 | 第 4 章 |
+| $$\nu_h$$ | ALiBi 第 $$h$$ 个头的距离惩罚斜率 | 第 4 章 |
+| $$L_{\mathrm{train}},\ L_{\mathrm{test}}$$ | 训练长度、测试长度 | 第 4 章 |
+| $$s_{\mathrm{rope}}$$ | RoPE 缩放因子，$$s_{\mathrm{rope}}=L_{\mathrm{test}}/L_{\mathrm{train}}$$ | 第 4 章 |
+| $$L_{\mathrm{eff}}(\epsilon)$$ | 阈值为 $$\epsilon$$ 时的有效上下文长度 | 第 4 章 |
+| $$r_i$$ | YaRN 中训练长度与第 $$i$$ 个波长的比值，$$r_i=L_{\mathrm{train}}/\lambda_i$$ | 第 4 章 |
+| $$w_i$$ | YaRN 第 $$i$$ 个频率的分段插值权重 | 第 4 章 |
+| $$t_y$$ | YaRN 温度缩放因子 | 第 4 章 |
+
+{% hint style="warning" %}
+第 4 章的易混点：$$b$$ 单独出现时是位置编码基频，$$b_{\mathrm{clip}(j-i)}$$ 是 T5 的相对位置偏置；$$\omega_i$$ 是正弦编码的角频率，$$\theta_i$$ 是 RoPE 的旋转频率，二者形式相同但定义域不同；$$s_{\mathrm{rope}}$$ 是位置缩放因子，$$s_{ij}$$ 仍是第 3 章的注意力打分；$$r_i$$ 是 YaRN 的波长比，$$r$$ 在第 2 章是压缩比；$$t_y$$ 是温度因子，$$T$$ 是序列长度。
+{% endhint %}

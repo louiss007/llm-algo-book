@@ -31,7 +31,7 @@ tinylm/
 │   ├── model/
 │   │   ├── config.py          # ModelConfig / MoEConfig / RoPEScalingConfig
 │   │   ├── norm.py            # LayerNorm、RMSNorm
-│   │   ├── rope.py            # 第 4 章：RoPE 与长度外推
+│   │   ├── position.py        # 第 4 章：正弦编码、RoPE、ALiBi 与长度外推
 │   │   ├── attention.py       # MHA / MQA / GQA / MLA
 │   │   ├── ffn.py             # MLP / SwiGLU
 │   │   ├── moe.py             # 第 7 章：MoE 层
@@ -136,7 +136,7 @@ class ModelConfig:
     norm: Literal["layernorm", "rmsnorm"] = "layernorm"
     norm_eps: float = 1e-5
     ffn: Literal["mlp", "swiglu"] = "mlp"
-    pos_encoding: Literal["learned", "rope", "nope"] = "learned"
+    pos_encoding: Literal["learned", "sine", "rope", "nope", "alibi"] = "learned"
     rope_theta: float = 10_000.0
     rope_scaling: RoPEScalingConfig = field(default_factory=RoPEScalingConfig)
     bias: bool = True
@@ -147,6 +147,8 @@ class ModelConfig:
 
 {% hint style="warning" %}
 `ModelConfig` 的默认值固定为**第 3 章的基线**（LayerNorm + MLP + 可学习绝对位置 + 偏置项）。第 5 章之后的"现代架构"通过 `configs/*.yaml` 切换，不修改 dataclass 默认值。这样第 3 章的实验永远可复现。
+
+`pos_encoding` 的 `"sine"` 与 `"alibi"` 是第 4 章为受控对照实验加入的选项，生产配置通常只使用 `"learned"` 或 `"rope"`。新增选项不改变 `TinyLM.forward` 的签名。
 {% endhint %}
 
 ### F.2.3 模型前向
@@ -252,7 +254,7 @@ $$
 | --- | --- | --- | --- |
 | 2 | `tokenizer/bpe.py` | — | 往返编解码；未知字节不崩溃 |
 | 3 | `model/{norm,attention,ffn,block,model}.py` | 基线 `ModelConfig` | 输出形状；因果性；梯度可回传 |
-| 4 | `model/rope.py` | `pos_encoding`、`rope_theta`、`rope_scaling` | 位置外推曲线；与手写 RoPE 数值一致 |
+| 4 | `model/position.py` | `pos_encoding`、`rope_theta`、`rope_scaling` | 相对位移性质；保范数；外推曲线 |
 | 5 | `norm.py` 增 RMSNorm；`ffn.py` 增 SwiGLU | `norm`、`ffn`、`bias`、`tie_embeddings` | 同参数量下与基线对照 |
 | 6 | `attention.py` 增 MQA/GQA/MLA；`kv_cache_bytes()` | `attention`、`n_kv_heads` | KV 显存公式核对；变体等价性（$$n_{kv}=n_h$$ 时退化为 MHA） |
 | 7 | `model/moe.py` | `moe` | 负载均衡；容量溢出行为 |

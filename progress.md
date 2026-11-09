@@ -7,6 +7,7 @@
 | 第 1 章 | 完成 | 约 7100 | 已在本机运行 | 含可控马尔可夫链实验 |
 | 第 2 章 | 完成 | 约 8100 | 已在本机运行 | 字节级 BPE 与词表扫描实验 |
 | 第 3 章 | 完成 | 约 10300 | 已在本机运行 | Transformer 基线、因果性测试与复制任务 |
+| 第 4 章 | 完成 | 7579 | 已在本机运行 | 位置编码分派、RoPE/ALiBi、长度外推受控实验 |
 
 ## 第 1 章交接
 
@@ -177,3 +178,55 @@
 - [x] 篇幅：正文约 10300 个中文字符，符合核心章 10000–12000 字预算。
 - [x] 论文信息核对：Vaswani 2017、Radford 2019、Xiong 2020（arXiv:2002.04745）、Kaplan 2020、Geva 2021（arXiv:2012.14913）的作者、年份、标题与编号均无误。
 - [x] 实验诚实报告：复制任务的理论损失下界 0.6261、准确率上界 0.7883 与实测值均已给出；明确标注这是 10.6 万参数的受控实验，不能外推到 LLM 能力。
+
+## 第 4 章交接
+
+### 本章摘要
+
+本章说明纯自注意力对输入排列等变、位置信息必须显式注入。系统比较两条注入路径：加在嵌入上的可学习绝对位置与正弦编码，以及改在注意力打分里的相对偏置、RoPE 与 ALiBi，并把 NoPE 作为对照。推导正弦编码的平移即旋转性质与内积只依赖位置差，推导 RoPE 的旋转矩阵、保范数与相对位移性质，给出 ALiBi 斜率公式。把长度外推拆成"有定义"与"能泛化"两件事，推导有效上下文的定义，比较 PI、NTK-aware、YaRN 分别改变哪些频率。代码上给 TinyLM 增加 `pos_encoding` 分派与 `rope_scaling`，用训练长度 32、lag=8 的复制任务在 32–128 上评测：RoPE 几乎无损外推，ALiBi 随长度改善，可学习绝对位置与正弦编码明显退化，NoPE 未学会规则。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (4.1) | $$\mathrm{PE}(t,2i)=\sin(t/b^{2i/d_{model}}),\ \mathrm{PE}(t,2i+1)=\cos(\cdot)$$ | 正弦位置编码 |
+| (4.2) | $$\omega_i=b^{-2i/d_{model}}$$ | 正弦编码角频率 |
+| (4.3) | $$\mathbf{p}_{t+\Delta,i}=\mathbf{R}(\Delta\omega_i)\mathbf{p}_{t,i}$$ | 平移等于旋转 |
+| (4.4) | $$\mathbf{p}_m^{\top}\mathbf{p}_n=\sum_i\cos((m-n)\omega_i)$$ | 正弦内积只依赖位置差 |
+| (4.5) | $$s_{ij}=\mathbf{q}_i^{\top}\mathbf{k}_j/\sqrt{d_k}+b_{\mathrm{clip}(j-i)}$$ | T5 相对位置偏置 |
+| (4.6) | $$\theta_i=b^{-2i/d_h}$$ | RoPE 频率 |
+| (4.7) | $$\mathbf{q}_t'=\mathbf{R}_t\mathbf{q}_t,\ \mathbf{k}_t'=\mathbf{R}_t\mathbf{k}_t$$ | RoPE 旋转查询与键 |
+| (4.8) | $$\mathbf{R}_{t,i}=\begin{bmatrix}\cos t\theta_i & -\sin t\theta_i\\ \sin t\theta_i & \cos t\theta_i\end{bmatrix}$$ | 二维分块旋转矩阵 |
+| (4.9) | $$(\mathbf{R}_m\mathbf{q})^{\top}(\mathbf{R}_n\mathbf{k})=\mathbf{q}^{\top}\mathbf{R}_{n-m}\mathbf{k}$$ | RoPE 相对位移性质 |
+| (4.10) | 分量展开式，仅含 $$(m-n)\theta_i$$ | 打分只依赖位置差 |
+| (4.11) | $$s_{ij}=\mathbf{q}_i^{\top}\mathbf{k}_j/\sqrt{d_k}-\nu_h(i-j)$$ | ALiBi 打分 |
+| (4.12) | $$\nu_h=2^{-8(h+1)/n_h}$$ | ALiBi 几何斜率 |
+| (4.13) | $$L_{\mathrm{eff}}(\epsilon)=\max\{L:\mathrm{metric}(L)\ge\epsilon\}$$ | 有效上下文定义 |
+| (4.14) | $$t'=t/s,\ s=L_{\mathrm{test}}/L_{\mathrm{train}}$$ | 位置插值 PI |
+| (4.15) | $$b'=b\,s^{d_h/(d_h-2)}$$ | NTK-aware 基频缩放 |
+| (4.16) | $$w_i=\mathrm{clamp}((\beta-r_i)/(\beta-\alpha),0,1)$$ | YaRN 分频权重 |
+| (4.17) | $$\theta_i'=\theta_i[(1-w_i)+w_i/s]$$ | YaRN 分段频率缩放 |
+| (4.18) | $$t_y=0.1\ln s+1$$ | YaRN 温度缩放 |
+
+### 留给后续章节的伏笔
+
+- **第 5 章**：RMSNorm 与 SwiGLU 替换第 3 章结构与本章无关，但本章的因果性测试基线继续沿用；RoPE 与归一化顺序的组合在长上下文下会再次讨论。
+- **第 6 章**：MQA/GQA/MLA 共享 KV 头，缓存里保存的是已旋转的键；`position_ids` 的传递方式与本章一致。
+- **第 13 章**：长上下文训练、RULER 类评测与 (4.13) 的有效上下文会展开；本章只给定义与初步对照。
+- **第 21 章**：KV Cache 复用只缓存已旋转的键，新查询用绝对位置旋转；`position_ids` 是接口。
+- **第 22 章**：投机解码与多 Token 预测在位置上的对齐依赖同一套 `position_ids` 语义。
+- **第 23 章**：RoPE 频率表与缓存可预计算，量化时要注意 cos/sin 的数值精度。
+- **第 26、27 章**：长上下文能力与训练数据、位置缩放共同决定；评测时必须区分标称窗口与有效上下文。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、对比、代码、工业实践、论文、误区、小结、"本章的取舍"、习题齐全。
+- [x] 推导无跳步：正弦平移旋转、内积形式、RoPE 旋转复合与分量展开、ALiBi 斜率、NTK 指数分析、YaRN 分段权重均有完整步骤。
+- [x] 符号与附录 B 一致：新增 $$p$$、$$\mathbf{p}_t$$、$$\theta_i$$、$$b$$、$$s_{\text{rope}}$$、$$\Delta$$、$$\mathbf{R}_{m,i}$$、$$\lambda_i$$、$$\nu_h$$、$$L_{\text{train}}$$、$$L_{\text{test}}$$、$$L_{\text{eff}}$$、$$t_y$$、$$w_i$$、$$r_i$$ 已登记。
+- [x] 代码可运行：从 `part1/chapter04.md` 直接提取代码块，在本机 Python 3.13 + PyTorch 2.9 CPU 上运行，输出与正文逐字一致。
+- [x] 测试可运行：同一 Markdown 提取的 `tests/test_position.py` 通过 9 项测试，覆盖正弦平移、RoPE 相对性与保范数、缩放形状、ALiBi 斜率与偏置、超表长前向、可学习表越界、因果性。
+- [x] 公式与代码对应：代码注释标注 (4.1)、(4.2)、(4.6)、(4.7)、(4.11)、(4.12)、(4.14)–(4.18)。
+- [x] GitBook 语法：hint 仅用 `warning` 与 `success`，1 个 mermaid、1 个 details、2 张对比表；代码块均标注语言；数学全部用双美元符号。
+- [x] 篇幅：正文 7579 个中文字符，符合 6000–9000 字预算。
+- [x] 论文信息核对：Vaswani 2017（arXiv:1706.03762）、Su 2021（arXiv:2104.09864）、Press 2021（arXiv:2108.12409）、Chen 2023（arXiv:2306.15595）、Peng 2023（arXiv:2309.00071）的作者、年份、标题与编号均无误。
+- [x] 实验诚实报告：明确标注这是 2 层、64 维、400 步的受控实验，不能外推到 LLM 长上下文能力；正弦编码"有定义但不保证外推"的反直觉结果已单独解释。
