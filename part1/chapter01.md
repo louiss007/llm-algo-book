@@ -96,17 +96,32 @@ flowchart LR
 
 ### 1.3.1 自回归分解
 
-设一个长度为 $$T$$ 的 Token 序列为 $$x_1, x_2, \dots, x_T$$，由概率的链式法则，其联合概率为 $$p(x_1, x_2, \dots, x_T) = \prod_{t=1}^{T} p(x_t \mid x_1, \dots, x_{t-1}) = \prod_{t=1}^{T} p(x_t \mid x_{<t})$$ (1.1)。
+设一个长度为 $$T$$ 的 Token 序列为 $$x_1, x_2, \dots, x_T$$，由概率的链式法则，其联合概率为
+
+$$
+p(x_1, x_2, \dots, x_T) = \prod_{t=1}^{T} p(x_t \mid x_1, \dots, x_{t-1}) = \prod_{t=1}^{T} p(x_t \mid x_{<t})
+\qquad \text{(1.1)}
+$$
 
 这个等式是**精确的**，没有做任何独立性假设。所谓"自回归"（autoregressive），只是把联合分布拆成一串条件分布的乘积；每个条件分布都以全部历史为条件。
 
-取对数，乘积变成求和：$$\log p(x_{1:T}) = \sum_{t=1}^{T} \log p(x_t \mid x_{<t})$$ (1.2)。
+取对数，乘积变成求和：
+
+$$
+\log p(x_{1:T}) = \sum_{t=1}^{T} \log p(x_t \mid x_{<t})
+\qquad \text{(1.2)}
+$$
 
 这两行是整本书的地基。第 3 章的 Transformer、第 20 章的解码、第 24 章的测试时扩展，都在操作这个分解里的某一项。
 
 ### 1.3.2 最大似然、交叉熵与 KL 散度
 
-训练语言模型，就是让模型给真实数据的概率尽量大。给定数据集，负对数似然（negative log-likelihood，NLL）为 $$\mathcal{L}(\theta) = -\frac{1}{T}\sum_{t=1}^{T}\log p_\theta(x_t \mid x_{<t})$$ (1.3)。
+训练语言模型，就是让模型给真实数据的概率尽量大。给定数据集，负对数似然（negative log-likelihood，NLL）为
+
+$$
+\mathcal{L}(\theta) = -\frac{1}{T}\sum_{t=1}^{T}\log p_\theta(x_t \mid x_{<t})
+\qquad \text{(1.3)}
+$$
 
 这个量还有另一个名字：交叉熵（cross-entropy）。设真实分布为 $$p_{\text{data}}$$，模型分布为 $$p_\theta$$，则
 
@@ -128,15 +143,30 @@ $$
 
 ### 1.3.3 困惑度到底在度量什么
 
-困惑度（perplexity，PPL）定义为交叉熵的指数，即 $$\mathrm{PPL} = \exp\left(\mathcal{L}\right)$$ (1.5)。
+困惑度（perplexity，PPL）定义为交叉熵的指数。
 
-把 (1.3) 代入，得到更常用的形式 $$\mathrm{PPL} = \left(\prod_{t=1}^{T}\frac{1}{p_\theta(x_t \mid x_{<t})}\right)^{1/T}$$ (1.6)。
+$$
+\mathrm{PPL} = \exp\left(\mathcal{L}\right)
+\qquad \text{(1.5)}
+$$
+
+把 (1.3) 代入，得到更常用的形式
+
+$$
+\mathrm{PPL} = \left(\prod_{t=1}^{T}\frac{1}{p_\theta(x_t \mid x_{<t})}\right)^{1/T}
+\qquad \text{(1.6)}
+$$
 
 它可以理解为"模型平均每次要在多少个等概率候选里猜"。这个解释在均匀分布时是严格的：如果词表大小为 $$n_{vocab}$$，模型对每个 Token 都给出 $$1/n_{vocab}$$ 的概率，那么 $$\mathcal{L} = -\frac{1}{T}\sum_{t=1}^{T}\log\frac{1}{n_{vocab}} = \log n_{vocab}$$，因此 $$\mathrm{PPL} = n_{vocab}$$。
 
 如果模型不是均匀分布，PPL 仍然是"有效分支因子"的一种度量，但不再等于候选个数。一个 PPL 为 10 的模型，不意味着它在 10 个词里选，而意味着它的预测等价于在 10 个等概率选项之间犹豫。
 
-交叉熵的单位是 nat（以 $$e$$ 为底）。换成信息论常用的比特，即 $$\text{bits per token} = \frac{\mathcal{L}}{\ln 2}$$ (1.7)。
+交叉熵的单位是 nat（以 $$e$$ 为底）。换成信息论常用的比特。
+
+$$
+\text{bits per token} = \frac{\mathcal{L}}{\ln 2}
+\qquad \text{(1.7)}
+$$
 
 例如交叉熵 2.0 nats 约等于 2.89 比特/Token。这就是压缩率的直接来源：一个 32000 词的词表，如果每个 Token 用 15 比特固定编码，而模型把交叉熵降到 2 nats，那么平均编码长度只有约 2.89 比特，压缩了五倍多。
 
@@ -148,17 +178,32 @@ $$
 
 n-gram 模型把条件概率近似为有限窗口：$$p(x_t \mid x_{<t}) \approx p(x_t \mid x_{t-n+1}, \dots, x_{t-1})$$。
 
-在训练集上做极大似然估计，令 $$c(\cdot)$$ 表示计数，则 $$p_{\text{MLE}}(x_t \mid \text{ctx}) = \frac{c(\text{ctx}, x_t)}{c(\text{ctx})}$$ (1.8)。
+在训练集上做极大似然估计，令 $$c(\cdot)$$ 表示计数，则
+
+$$
+p_{\text{MLE}}(x_t \mid \text{ctx}) = \frac{c(\text{ctx}, x_t)}{c(\text{ctx})}
+\qquad \text{(1.8)}
+$$
 
 这个公式可以从带约束的优化推出来。对每个上下文，最大化 $$\sum_{c} n_c \log p_c$$，约束为 $$\sum_c p_c = 1$$。构造拉格朗日函数 $$\mathcal{J} = \sum_c n_c \log p_c - \lambda\left(\sum_c p_c - 1\right)$$。
 
 对 $$p_c$$ 求偏导并令其为零，得 $$p_c = n_c / \lambda$$；再代入约束，得到 $$\lambda = \sum_c n_c$$，于是 $$p_c = n_c / \sum_c n_c$$，正是 (1.8)。
 
-极大似然有一个致命问题：**没见过的组合概率为零**。只要测试集里出现一个训练集没见过的二元组，它的 $$-\log 0 = \infty$$，整个困惑度就变成无穷大。加性平滑（add-k smoothing）用一个先验把零概率抬起来，即 $$p_{\text{add-}k}(x_t \mid \text{ctx}) = \frac{c(\text{ctx}, x_t) + k}{c(\text{ctx}) + k\, n_{vocab}}$$ (1.9)。
+极大似然有一个致命问题：**没见过的组合概率为零**。只要测试集里出现一个训练集没见过的二元组，它的 $$-\log 0 = \infty$$，整个困惑度就变成无穷大。加性平滑（add-k smoothing）用一个先验把零概率抬起来。
+
+$$
+p_{\text{add-}k}(x_t \mid \text{ctx}) = \frac{c(\text{ctx}, x_t) + k}{c(\text{ctx}) + k\, n_{vocab}}
+\qquad \text{(1.9)}
+$$
 
 $$k=1$$ 时叫拉普拉斯平滑。从贝叶斯角度看，(1.9) 等价于给每个上下文加一个对称的 Dirichlet 先验 $$\mathrm{Dir}(k, \dots, k)$$，取后验均值。$$k$$ 越大，平滑越强，模型越接近均匀分布；$$k$$ 越小，越接近原始计数，但零概率风险越高。
 
-n-gram 的参数量是 $$\left|\theta_{n\text{-gram}}\right| = \mathcal{O}\left(n_{vocab}^{\,n}\right)$$ (1.10)。
+n-gram 的参数量是
+
+$$
+\left|\theta_{n\text{-gram}}\right| = \mathcal{O}\left(n_{vocab}^{\,n}\right)
+\qquad \text{(1.10)}
+$$
 
 这个指数是 n-gram 的死穴。词表 5 万、三元模型有 $$1.25 \times 10^{14}$$ 个可能的上下文；即使训练语料有 1 万亿 Token，平均每个上下文也只见到不到 0.01 次。数据稀疏不是工程问题，而是模型形式的必然结果。
 
@@ -168,7 +213,35 @@ n-gram 的参数量是 $$\left|\theta_{n\text{-gram}}\right| = \mathcal{O}\left(
 
 ### 1.3.5 神经语言模型与参数共享
 
-神经语言模型不再为每个上下文存一个计数，而是学习一个参数化的函数。以最简单的循环网络为例，输入嵌入为 $$\mathbf{e}_t = \mathbf{E} z_t$$ (1.11)，隐状态为 $$\mathbf{h}_t = \tanh\left(\mathbf{W}_x \mathbf{e}_t + \mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{b}\right)$$ (1.12)，输出 logits 为 $$\boldsymbol{\ell}_t = \mathbf{W}_o \mathbf{h}_t$$ (1.13)，下一 Token 的分布为 $$p_\theta(\cdot \mid x_{\le t}) = \mathrm{softmax}(\boldsymbol{\ell}_t)$$ (1.14)；其中 $$z_t$$ 是 Token 的整数 ID，$$\mathbf{E} \in \mathbb{R}^{n_{vocab} \times d}$$ 是嵌入矩阵，$$d$$ 是隐藏维度。参数量约为 $$|\theta| = n_{vocab} d + 3d^2 + d\,n_{vocab}$$。
+神经语言模型不再为每个上下文存一个计数，而是学习一个参数化的函数。以最简单的循环网络为例，输入嵌入为
+
+$$
+\mathbf{e}_t = \mathbf{E} z_t
+\qquad \text{(1.11)}
+$$
+
+隐状态为
+
+$$
+\mathbf{h}_t = \tanh\left(\mathbf{W}_x \mathbf{e}_t + \mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{b}\right)
+\qquad \text{(1.12)}
+$$
+
+输出 logits 为
+
+$$
+\boldsymbol{\ell}_t = \mathbf{W}_o \mathbf{h}_t
+\qquad \text{(1.13)}
+$$
+
+下一 Token 的分布为
+
+$$
+p_\theta(\cdot \mid x_{\le t}) = \mathrm{softmax}(\boldsymbol{\ell}_t)
+\qquad \text{(1.14)}
+$$
+
+其中 $$z_t$$ 是 Token 的整数 ID，$$\mathbf{E} \in \mathbb{R}^{n_{vocab} \times d}$$ 是嵌入矩阵，$$d$$ 是隐藏维度。参数量约为 $$|\theta| = n_{vocab} d + 3d^2 + d\,n_{vocab}$$。
 
 第一项是输入嵌入，第二项是循环层，第三项是输出投影。注意：**参数量与序列长度无关，也与上下文组合数无关**。这正是它绕开 n-gram 指数爆炸的原因。
 
@@ -184,7 +257,12 @@ n-gram 的参数量是 $$\left|\theta_{n\text{-gram}}\right| = \mathcal{O}\left(
 | RNN | $$\mathcal{O}(d_{model}^2)$$ | 否（时间步串行） | $$\mathcal{O}(d_{model})$$ 状态 |
 | Transformer | $$\mathcal{O}(T d_{model} + d_{model}^2)$$ | 是 | $$\mathcal{O}(T^2)$$ 注意力矩阵 |
 
-单层 Transformer 的前向计算量可以写成 $$\mathcal{O}\left(T^2 d_{model} + T d_{model}^2\right)$$ (1.15)。
+单层 Transformer 的前向计算量可以写成
+
+$$
+\mathcal{O}\left(T^2 d_{model} + T d_{model}^2\right)
+\qquad \text{(1.15)}
+$$
 
 第一项来自注意力，第二项来自前馈网络。序列越长，第一项越占主导；这也是长上下文昂贵的根本原因。FlashAttention（第 21 章）优化的是这一项的显存与访存，而不是把它变成线性复杂度。
 
@@ -194,17 +272,34 @@ n-gram 的参数量是 $$\left|\theta_{n\text{-gram}}\right| = \mathcal{O}\left(
 
 ### 1.4.1 自回归目标
 
-这就是 (1.3) 的逐位置形式，即 $$\mathcal{L}_{\text{AR}}(\theta) = -\sum_{t=1}^{T}\log p_\theta(x_t \mid x_{<t})$$ (1.16)。
+这就是 (1.3) 的逐位置形式。
+
+$$
+\mathcal{L}_{\text{AR}}(\theta) = -\sum_{t=1}^{T}\log p_\theta(x_t \mid x_{<t})
+\qquad \text{(1.16)}
+$$
 
 它的监督信号最密集：每个位置都提供一个训练样本。训练和推理的形式完全一致，生成时只需要反复调用同一个条件分布。
 
 ### 1.4.2 掩码语言模型
 
-BERT 式的掩码语言模型（masked language modeling，MLM）随机遮住一部分 Token，让模型根据双向上下文还原，损失为 $$\mathcal{L}_{\text{MLM}}(\theta) = -\sum_{t \in \mathcal{M}}\log p_\theta(x_t \mid x_{\bar{\mathcal{M}}})$$ (1.17)；其中 $$\mathcal{M}$$ 是被遮住的位置集合，$$\bar{\mathcal{M}}$$ 是其余位置。它能看到右侧上下文，表示能力更强，但**不能直接做从左到右的生成**：推理时没有"未来 Token"可看。要做生成，必须额外设计解码顺序或改用其他目标。
+BERT 式的掩码语言模型（masked language modeling，MLM）随机遮住一部分 Token，让模型根据双向上下文还原，损失为
+
+$$
+\mathcal{L}_{\text{MLM}}(\theta) = -\sum_{t \in \mathcal{M}}\log p_\theta(x_t \mid x_{\bar{\mathcal{M}}})
+\qquad \text{(1.17)}
+$$
+
+其中 $$\mathcal{M}$$ 是被遮住的位置集合，$$\bar{\mathcal{M}}$$ 是其余位置。它能看到右侧上下文，表示能力更强，但**不能直接做从左到右的生成**：推理时没有"未来 Token"可看。要做生成，必须额外设计解码顺序或改用其他目标。
 
 ### 1.4.3 填充中间
 
-代码补全需要模型根据"光标前"和"光标后"的内容补中间。填充中间（fill-in-the-middle，FIM）把文档切成前缀、后缀、中间三段，训练模型在给定前缀和后缀时生成中间，损失为 $$\mathcal{L}_{\text{FIM}}(\theta) = -\sum_{t \in \text{middle}}\log p_\theta(x_t \mid \text{prefix}, \text{suffix}, x_{\text{middle},<t})$$ (1.18)。
+代码补全需要模型根据"光标前"和"光标后"的内容补中间。填充中间（fill-in-the-middle，FIM）把文档切成前缀、后缀、中间三段，训练模型在给定前缀和后缀时生成中间，损失为
+
+$$
+\mathcal{L}_{\text{FIM}}(\theta) = -\sum_{t \in \text{middle}}\log p_\theta(x_t \mid \text{prefix}, \text{suffix}, x_{\text{middle},<t})
+\qquad \text{(1.18)}
+$$
 
 实现时用三个特殊 Token 把三段隔开。常见有两种排列：
 
@@ -225,19 +320,36 @@ BERT 式的掩码语言模型（masked language modeling，MLM）随机遮住一
 
 ### 1.4.4 去噪目标
 
-T5 式的去噪目标把文本中的连续片段替换成哨兵 Token，让模型还原被破坏的片段，损失为 $$\mathcal{L}_{\text{denoise}}(\theta) = -\sum_{\text{span} \in \mathcal{S}}\log p_\theta(\text{span} \mid \text{corrupted text})$$ (1.19)。
+T5 式的去噪目标把文本中的连续片段替换成哨兵 Token，让模型还原被破坏的片段，损失为
+
+$$
+\mathcal{L}_{\text{denoise}}(\theta) = -\sum_{\text{span} \in \mathcal{S}}\log p_\theta(\text{span} \mid \text{corrupted text})
+\qquad \text{(1.19)}
+$$
 
 它天然适合编码器-解码器结构，在翻译、摘要这类"输入到输出"的任务上很有效；但对纯解码器架构，FIM 是更自然的选择。
 
 ### 1.4.5 多 Token 预测
 
-标准自回归每次只监督下一个 Token。多 Token 预测（multi-token prediction，MTP）让模型一次预测未来 $$m$$ 个 Token，损失为 $$\mathcal{L}_{\text{MTP}}(\theta) = -\sum_{t=1}^{T}\sum_{i=1}^{m}\log p_\theta(x_{t+i} \mid x_{\le t})$$ (1.20)。
+标准自回归每次只监督下一个 Token。多 Token 预测（multi-token prediction，MTP）让模型一次预测未来 $$m$$ 个 Token，损失为
+
+$$
+\mathcal{L}_{\text{MTP}}(\theta) = -\sum_{t=1}^{T}\sum_{i=1}^{m}\log p_\theta(x_{t+i} \mid x_{\le t})
+\qquad \text{(1.20)}
+$$
 
 一种直接做法是并行加 $$m$$ 个独立的预测头；DeepSeek-V3 采用的是顺序预测模块，让第 $$i$$ 个预测依赖前一个预测的结果，从而保持因果链。MTP 增加了训练计算量，但提高了每个 Token 的监督密度，并且训练出的额外预测头可以在推理时复用为投机解码的草稿（第 22 章）。
 
 ### 1.4.6 强化学习目标
 
-前面五种目标都有"标准答案"，可以直接算交叉熵。强化学习（reinforcement learning，RL）优化的则是奖励目标 $$J(\theta) = \mathbb{E}_{y \sim \pi_\theta}\left[r(y)\right] - \beta\,\mathrm{KL}\left(\pi_\theta \,\Vert\, \pi_{\text{ref}}\right)$$ (1.21)，其中 $$\pi_\theta$$ 是策略（也就是语言模型），$$r(y)$$ 是奖励，$$\pi_{\text{ref}}$$ 是参考策略，$$\beta$$ 控制偏离参考策略的惩罚。奖励可以来自人类偏好模型，也可以来自可验证的答案检查器。这个目标的后训练细节在第 16 至 18 章展开，这里只需要记住：**它优化的不是"像训练数据"，而是"得到更高的奖励"**。
+前面五种目标都有"标准答案"，可以直接算交叉熵。强化学习（reinforcement learning，RL）优化的则是奖励目标
+
+$$
+J(\theta) = \mathbb{E}_{y \sim \pi_\theta}\left[r(y)\right] - \beta\,\mathrm{KL}\left(\pi_\theta \,\Vert\, \pi_{\text{ref}}\right)
+\qquad \text{(1.21)}
+$$
+
+其中 $$\pi_\theta$$ 是策略（也就是语言模型），$$r(y)$$ 是奖励，$$\pi_{\text{ref}}$$ 是参考策略，$$\beta$$ 控制偏离参考策略的惩罚。奖励可以来自人类偏好模型，也可以来自可验证的答案检查器。这个目标的后训练细节在第 16 至 18 章展开，这里只需要记住：**它优化的不是"像训练数据"，而是"得到更高的奖励"**。
 
 ### 1.4.7 六种目标的对比
 

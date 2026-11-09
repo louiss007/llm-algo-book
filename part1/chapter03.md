@@ -54,17 +54,39 @@ flowchart TB
 
 记第 $$l$$ 层的输入为 $$\mathbf{X}^{(l)}\in\mathbb{R}^{B\times T\times d_{model}}$$。为了书写简洁，下面省略批维，把第 $$t$$ 个位置的向量记作 $$\mathbf{x}_t\in\mathbb{R}^{d_{model}}$$。
 
-层归一化（LayerNorm）对每个位置的向量单独做标准化。先计算该位置在特征维上的均值与方差，得 $$\mu_t=\frac{1}{d_{model}}\sum_{i=1}^{d_{model}}x_{t,i}$$、$$\sigma_t^2=\frac{1}{d_{model}}\sum_{i=1}^{d_{model}}\left(x_{t,i}-\mu_t\right)^2$$ (3.1)
+层归一化（LayerNorm）对每个位置的向量单独做标准化。先计算该位置在特征维上的均值与方差，得
 
-再做仿射变换，得 $$\mathrm{LN}(\mathbf{x}_t)=\boldsymbol{\gamma}\odot\frac{\mathbf{x}_t-\mu_t}{\sqrt{\sigma_t^2+\epsilon}}+\boldsymbol{\beta}$$ (3.2)；其中 $$\boldsymbol{\gamma},\boldsymbol{\beta}\in\mathbb{R}^{d_{model}}$$ 是可学习的增益与偏置，$$\epsilon$$ 防止除零。注意标准化是沿着特征维做的，不跨样本、也不跨位置。
+$$
+\mu_t=\frac{1}{d_{model}}\sum_{i=1}^{d_{model}}x_{t,i},\qquad \sigma_t^2=\frac{1}{d_{model}}\sum_{i=1}^{d_{model}}\left(x_{t,i}-\mu_t\right)^2
+\qquad \text{(3.1)}
+$$
+
+再做仿射变换，得
+
+$$
+\mathrm{LN}(\mathbf{x}_t)=\boldsymbol{\gamma}\odot\frac{\mathbf{x}_t-\mu_t}{\sqrt{\sigma_t^2+\epsilon}}+\boldsymbol{\beta}
+\qquad \text{(3.2)}
+$$
+
+其中 $$\boldsymbol{\gamma},\boldsymbol{\beta}\in\mathbb{R}^{d_{model}}$$ 是可学习的增益与偏置，$$\epsilon$$ 防止除零。注意标准化是沿着特征维做的，不跨样本、也不跨位置。
 
 LayerNorm 还有一个容易被忽略的作用：它把每个 Token 的激活尺度归一化，使后续线性投影和注意力打分的数值范围更可控。这也是 3.2.2 节讨论缩放点积注意力时"方差约为 1"这一假设在实践中大致成立的原因之一——输入先被拉回单位尺度，投影后的尺度主要由权重初始化决定。$$\boldsymbol{\gamma}$$ 和 $$\boldsymbol{\beta}$$ 则让模型可以学回需要的尺度和偏移，因此归一化不是信息损失，而是一次可逆的重新参数化（只要 $$\boldsymbol{\gamma}$$ 的非零分量足够多）。
 
 **为什么不用批归一化（BatchNorm）？** 语言模型的批大小在训练时可变、推理时常常是 1，序列长度也随样本变化。批归一化依赖当前批的统计量，会让一个样本的输出受到同批其他样本影响；推理时还要依赖训练期累积的运行统计，训练与推理的行为不完全一致。层归一化只用一个 Token 自己的特征，天然没有这些问题，也不需要维护运行统计。
 
-接下来是残差连接放在归一化之前还是之后。原始 Transformer 采用 **Post-LN**：先做子层计算、再加残差，最后归一化，即 $$\mathbf{X}\leftarrow\mathrm{LN}\left(\mathbf{X}+\mathrm{Sublayer}(\mathbf{X})\right)$$ (3.3)。
+接下来是残差连接放在归一化之前还是之后。原始 Transformer 采用 **Post-LN**：先做子层计算、再加残差，最后归一化。
 
-GPT-2 之后的多数解码器采用 **Pre-LN**：先归一化，再做子层计算，最后加残差，即 $$\mathbf{X}\leftarrow\mathbf{X}+\mathrm{Sublayer}\left(\mathrm{LN}(\mathbf{X})\right)$$ (3.4)。
+$$
+\mathbf{X}\leftarrow\mathrm{LN}\left(\mathbf{X}+\mathrm{Sublayer}(\mathbf{X})\right)
+\qquad \text{(3.3)}
+$$
+
+GPT-2 之后的多数解码器采用 **Pre-LN**：先归一化，再做子层计算，最后加残差。
+
+$$
+\mathbf{X}\leftarrow\mathbf{X}+\mathrm{Sublayer}\left(\mathrm{LN}(\mathbf{X})\right)
+\qquad \text{(3.4)}
+$$
 
 两者的差别不只是一个括号的位置。Post-LN 的残差路径上每层都插入了一个 LayerNorm，反向传播时梯度要反复穿过归一化的雅可比矩阵；层数一多，靠近输出的梯度容易偏大，训练需要精心设计 warmup。Pre-LN 的残差路径是纯恒等映射，梯度可以沿它直接回传，因此几十层到上百层的模型也能稳定训练；GPT-2 还额外用了残差缩放初始化，但不再需要 Post-LN 那种精细的 warmup 设计。Xiong 等人 2020 年的分析给出了更精确的结论：Post-LN 在输出附近的梯度范数偏大、对深度和初始化敏感，而 Pre-LN 的梯度尺度更稳定。
 
@@ -76,11 +98,23 @@ Pre-LN 不等于"无条件稳定"。它解决的是深层残差路径上的梯�
 
 ### 3.2.2 自注意力：让位置之间通信
 
-单头自注意力的第一步是三个线性投影，即 $$\mathbf{Q}=\mathbf{X}\mathbf{W}^{Q}$$、$$\mathbf{K}=\mathbf{X}\mathbf{W}^{K}$$、$$\mathbf{V}=\mathbf{X}\mathbf{W}^{V}$$ (3.5)；其中 $$\mathbf{X}\in\mathbb{R}^{T\times d_{model}}$$，三个权重矩阵都是 $$\mathbb{R}^{d_{model}\times d_{model}}$$，所以 $$\mathbf{Q},\mathbf{K},\mathbf{V}$$ 也都是 $$T\times d_{model}$$。可以把它们理解成三种角色：查询（query）表示"我在找什么"，键（key）表示"我能提供什么"，值（value）表示"如果被选中，我实际传递什么"。
+单头自注意力的第一步是三个线性投影。
+
+$$
+\mathbf{Q}=\mathbf{X}\mathbf{W}^{Q},\qquad \mathbf{K}=\mathbf{X}\mathbf{W}^{K},\qquad \mathbf{V}=\mathbf{X}\mathbf{W}^{V}
+\qquad \text{(3.5)}
+$$
+
+其中 $$\mathbf{X}\in\mathbb{R}^{T\times d_{model}}$$，三个权重矩阵都是 $$\mathbb{R}^{d_{model}\times d_{model}}$$，所以 $$\mathbf{Q},\mathbf{K},\mathbf{V}$$ 也都是 $$T\times d_{model}$$。可以把它们理解成三种角色：查询（query）表示"我在找什么"，键（key）表示"我能提供什么"，值（value）表示"如果被选中，我实际传递什么"。
 
 注意力的一个关键特点是**路由由内容决定**。卷积核在训练后固定，RNN 的转移矩阵也与输入无关；注意力则对每个输入重新计算权重：哪些位置重要，取决于当前的查询和键。这让模型可以处理可变长度、位置不固定的依赖，但也意味着注意力权重不能预先缓存。第 21 章的 KV Cache 缓存的是键和值，不是注意力矩阵；权重仍然要每次重新计算。
 
-第 $$i$$ 个位置对第 $$j$$ 个位置的打分，是查询与键的内积，再除以 $$\sqrt{d_k}$$，即 $$s_{ij}=\frac{\mathbf{q}_i^{\top}\mathbf{k}_j}{\sqrt{d_k}}$$ (3.6)
+第 $$i$$ 个位置对第 $$j$$ 个位置的打分，是查询与键的内积，再除以 $$\sqrt{d_k}$$。
+
+$$
+s_{ij}=\frac{\mathbf{q}_i^{\top}\mathbf{k}_j}{\sqrt{d_k}}
+\qquad \text{(3.6)}
+$$
 
 这里的 $$d_k$$ 是打分维度。单头时通常取 $$d_k=d_{model}$$，多头时取每个头的维度 $$d_h$$。
 
@@ -91,11 +125,21 @@ $$
 \qquad \text{(3.7)}
 $$
 
-每个乘积的期望是 0，方差是 $$\mathbb{E}[q_l^2]\mathbb{E}[k_l^2]=1$$，且不同分量相互独立，所以 $$\mathrm{Var}\left(\mathbf{q}^{\top}\mathbf{k}\right)=\sum_{l=1}^{d_k}\mathrm{Var}(q_lk_l)=d_k$$ (3.8)
+每个乘积的期望是 0，方差是 $$\mathbb{E}[q_l^2]\mathbb{E}[k_l^2]=1$$，且不同分量相互独立，所以
+
+$$
+\mathrm{Var}\left(\mathbf{q}^{\top}\mathbf{k}\right)=\sum_{l=1}^{d_k}\mathrm{Var}(q_lk_l)=d_k
+\qquad \text{(3.8)}
+$$
 
 标准差是 $$\sqrt{d_k}$$。如果不缩放，$$d_k=128$$ 时打分的标准差约为 11.3，不同位置之间的分数可能相差几十。softmax 在输入尺度很大时会饱和：最大项接近 1，其余接近 0，反向传播时几乎所有梯度都消失。除以 $$\sqrt{d_k}$$ 把打分的方差拉回 1 附近，让 softmax 工作在梯度较灵敏的区间。这是一个基于独立同分布假设的启发式，不是严格定理；但配合 LayerNorm 和标准初始化，它在实践中足够有效。
 
-得到打分矩阵 $$\mathbf{S}\in\mathbb{R}^{T\times T}$$ 后，对每一行做 softmax，即 $$\mathrm{softmax}(\mathbf{s})_j=\frac{\exp(s_j)}{\sum_{j'=1}^{T}\exp(s_{j'})}$$ (3.9)
+得到打分矩阵 $$\mathbf{S}\in\mathbb{R}^{T\times T}$$ 后，对每一行做 softmax。
+
+$$
+\mathrm{softmax}(\mathbf{s})_j=\frac{\exp(s_j)}{\sum_{j'=1}^{T}\exp(s_{j'})}
+\qquad \text{(3.9)}
+$$
 
 softmax 对输入的平移不变：给所有打分加同一个常数，输出不变。因此实现时可以先把每行减去最大值，避免指数溢出，数值结果完全等价。
 
@@ -110,11 +154,21 @@ M_{ij}=
 \qquad \text{(3.10)}
 $$
 
-把掩码加到打分上再做 softmax，得 $$\mathbf{A}=\mathrm{softmax}\left(\mathbf{S}+\mathbf{M}\right)$$ (3.11)
+把掩码加到打分上再做 softmax，得
+
+$$
+\mathbf{A}=\mathrm{softmax}\left(\mathbf{S}+\mathbf{M}\right)
+\qquad \text{(3.11)}
+$$
 
 因为 $$\exp(-\infty)=0$$，被遮住的位置权重恰好为 0。为什么不用一个很大的负数？用一个有限的负数在实践中通常也能得到零权重，但它把"禁止"编码成一个数值约定，结果依赖负数的取值和浮点精度；$$-\infty$$ 在语义上更准确，也不会随着输入尺度变化而失效。注意因果掩码的对角线是允许的，所以每一行至少有一个可见位置，不会出现整行被遮住导致的 NaN。
 
-最后用注意力权重对值做加权求和，得 $$\mathbf{O}=\mathbf{A}\mathbf{V}$$ (3.12)
+最后用注意力权重对值做加权求和，得
+
+$$
+\mathbf{O}=\mathbf{A}\mathbf{V}
+\qquad \text{(3.12)}
+$$
 
 第 $$i$$ 行就是 $$\mathbf{o}_i=\sum_j A_{ij}\mathbf{v}_j$$：当前位置的新表示，是所有可见位置的值向量的凸组合。
 
@@ -128,9 +182,23 @@ $$
 
 ### 3.2.3 多头注意力：在同一预算下增加表达力
 
-单头注意力只产生一种"相似度视角"。多头注意力把特征维切成 $$n_h$$ 份，每份维度为 $$d_h=\frac{d_{model}}{n_h}$$，第 $$h$$ 份查询为 $$\mathbf{Q}^{(h)}=\mathbf{Q}_{:,\,(h-1)d_h+1:hd_h}$$ (3.13)；每份独立做一次注意力，再把结果拼起来。
+单头注意力只产生一种"相似度视角"。多头注意力把特征维切成 $$n_h$$ 份，每份维度为 $$d_h=\frac{d_{model}}{n_h}$$，第 $$h$$ 份查询为
 
-也就是说，把 $$\mathbf{Q}$$ 的 $$d_{model}$$ 列按顺序切成 $$n_h$$ 块，第 $$h$$ 块就是 $$\mathbf{Q}^{(h)}$$；列下标按数学惯例从 1 开始。第 $$h$$ 个头用自己的 $$\mathbf{Q}^{(h)},\mathbf{K}^{(h)},\mathbf{V}^{(h)}$$ 按 (3.6)–(3.12) 计算，得到 $$\mathbf{O}^{(h)}\in\mathbb{R}^{T\times d_h}$$。所有头的结果沿特征维拼接，再过一次输出投影，得 $$\mathbf{O}=\left[\mathbf{O}^{(1)};\ \mathbf{O}^{(2)};\ \cdots;\ \mathbf{O}^{(n_h)}\right]\mathbf{W}^{O}$$ (3.14)；其中 $$\mathbf{W}^{O}\in\mathbb{R}^{d_{model}\times d_{model}}$$。注意拼接后的维度正好是 $$n_h d_h=d_{model}$$，所以输出投影不改变形状。
+$$
+\mathbf{Q}^{(h)}=\mathbf{Q}_{:,\,(h-1)d_h+1:hd_h}
+\qquad \text{(3.13)}
+$$
+
+每份独立做一次注意力，再把结果拼起来。
+
+也就是说，把 $$\mathbf{Q}$$ 的 $$d_{model}$$ 列按顺序切成 $$n_h$$ 块，第 $$h$$ 块就是 $$\mathbf{Q}^{(h)}$$；列下标按数学惯例从 1 开始。第 $$h$$ 个头用自己的 $$\mathbf{Q}^{(h)},\mathbf{K}^{(h)},\mathbf{V}^{(h)}$$ 按 (3.6)–(3.12) 计算，得到 $$\mathbf{O}^{(h)}\in\mathbb{R}^{T\times d_h}$$。所有头的结果沿特征维拼接，再过一次输出投影，得
+
+$$
+\mathbf{O}=\left[\mathbf{O}^{(1)};\ \mathbf{O}^{(2)};\ \cdots;\ \mathbf{O}^{(n_h)}\right]\mathbf{W}^{O}
+\qquad \text{(3.14)}
+$$
+
+其中 $$\mathbf{W}^{O}\in\mathbb{R}^{d_{model}\times d_{model}}$$。注意拼接后的维度正好是 $$n_h d_h=d_{model}$$，所以输出投影不改变形状。
 
 一个常见的误解是"多头一定比单头贵"。在总维度固定的前提下并非如此：单头注意力的打分是 $$T\times T$$、每个元素是 $$d_{model}$$ 维内积，代价约 $$T^2d_{model}$$；多头把同样的 $$d_{model}$$ 切成 $$n_h$$ 份，每个头做 $$T^2d_h$$，加起来仍是 $$T^2d_{model}$$。投影矩阵的总参数量也相同。多头改变的是计算的结构，不是渐进代价：它把一个大注意力矩阵换成若干部块结构的小矩阵，每个头只在 $$d_h$$ 维子空间里比较查询和键，打分矩阵的秩不超过 $$d_h$$。
 
@@ -142,7 +210,14 @@ $$
 
 ### 3.2.4 前馈网络：逐位置的计算
 
-注意力负责跨位置通信，前馈网络（feed-forward network，FFN）负责在每个位置上做非线性变换。其形式为 $$\mathrm{FFN}(\mathbf{x})=\mathbf{W}_{\text{out}}\,\phi\left(\mathbf{W}_{\text{in}}\mathbf{x}+\mathbf{b}_{\text{in}}\right)+\mathbf{b}_{\text{out}}$$ (3.15)；其中 $$\mathbf{W}_{\text{in}}\in\mathbb{R}^{d_{ff}\times d_{model}}$$，$$\mathbf{W}_{\text{out}}\in\mathbb{R}^{d_{model}\times d_{ff}}$$，$$\phi$$ 是逐元素激活函数。原始 Transformer 用 ReLU，GPT-2 用 GELU，本章的基线也用 GELU；第 5 章会讨论 SwiGLU。
+注意力负责跨位置通信，前馈网络（feed-forward network，FFN）负责在每个位置上做非线性变换。其形式为
+
+$$
+\mathrm{FFN}(\mathbf{x})=\mathbf{W}_{\text{out}}\,\phi\left(\mathbf{W}_{\text{in}}\mathbf{x}+\mathbf{b}_{\text{in}}\right)+\mathbf{b}_{\text{out}}
+\qquad \text{(3.15)}
+$$
+
+其中 $$\mathbf{W}_{\text{in}}\in\mathbb{R}^{d_{ff}\times d_{model}}$$，$$\mathbf{W}_{\text{out}}\in\mathbb{R}^{d_{model}\times d_{ff}}$$，$$\phi$$ 是逐元素激活函数。原始 Transformer 用 ReLU，GPT-2 用 GELU，本章的基线也用 GELU；第 5 章会讨论 SwiGLU。
 
 如果没有激活函数，两个线性层会退化成一个大线性层，整个块对残差流的变换就只剩线性映射，表达能力会大幅下降。激活函数是前馈网络"计算"能力的来源。
 
@@ -156,9 +231,19 @@ Geva 等人 2021 年给了一个有用的解释：把 $$\mathbf{W}_{\text{in}}$$
 
 ### 3.2.5 位置：注意力本身不知道顺序
 
-先把位置信息拿掉，看看会发生什么。对非因果的自注意力，如果把输入的行按某个排列 $$\pi$$ 重排，$$\mathbf{Q},\mathbf{K},\mathbf{V}$$ 的行也按同样方式重排。打分矩阵变成 $$\mathbf{S}'=\pi\mathbf{S}\pi^{\top}$$ (3.16)
+先把位置信息拿掉，看看会发生什么。对非因果的自注意力，如果把输入的行按某个排列 $$\pi$$ 重排，$$\mathbf{Q},\mathbf{K},\mathbf{V}$$ 的行也按同样方式重排。打分矩阵变成
 
-对每一行做 softmax 后，注意力矩阵同样只是行列重排；再乘 $$\mathbf{V}$$，输出也按 $$\pi$$ 重排。前馈网络是逐位置的，天然与排列交换。因此，在没有位置编码、也没有因果掩码时，整个模型满足 $$f(\pi\mathbf{X})=\pi f(\mathbf{X})$$ (3.17)
+$$
+\mathbf{S}'=\pi\mathbf{S}\pi^{\top}
+\qquad \text{(3.16)}
+$$
+
+对每一行做 softmax 后，注意力矩阵同样只是行列重排；再乘 $$\mathbf{V}$$，输出也按 $$\pi$$ 重排。前馈网络是逐位置的，天然与排列交换。因此，在没有位置编码、也没有因果掩码时，整个模型满足
+
+$$
+f(\pi\mathbf{X})=\pi f(\mathbf{X})
+\qquad \text{(3.17)}
+$$
 
 这叫**排列等变性**（permutation equivariance）：输入怎么排，输出就怎么排。对这样的模型，"猫追狗"和"狗追猫"只是同一个多重集的两种排列，模型没有任何内建依据区分它们。
 
@@ -168,13 +253,32 @@ Geva 等人 2021 年给了一个有用的解释：把 $$\mathbf{W}_{\text{in}}$$
 去掉位置编码后，非因果注意力对 Token 的排列完全等变，模型看到的本质上是一个多重集：它知道有哪些 Token、每个出现几次，但不知道顺序。因果掩码虽然打破了完全等变，却只提供粗糙的可见集合差异，不能替代位置表示。对"猫追狗"和"狗追猫"这类顺序敏感的任务，位置编码不是可选优化，而是必要条件。
 {% endhint %}
 
-所以必须在输入端注入位置信息。本章的基线使用可学习的绝对位置嵌入，即 $$\mathbf{H}^{(0)}_t=\mathbf{E}z_t+\mathbf{P}_t$$，$$t=1,\dots,T$$ (3.18)；其中 $$\mathbf{E}\in\mathbb{R}^{n_{vocab}\times d_{model}}$$ 是 Token 嵌入矩阵，$$z_t$$ 是第 $$t$$ 个 Token 的整数 ID，$$\mathbf{P}\in\mathbb{R}^{L_{ctx}\times d_{model}}$$ 是位置嵌入表，$$L_{ctx}$$ 是最大上下文长度，$$\mathbf{P}_t$$ 是它的第 $$t$$ 行。这与第 2 章 (2.1) 的嵌入查表是同一件事，只是加上了位置向量。
+所以必须在输入端注入位置信息。本章的基线使用可学习的绝对位置嵌入。
+
+$$
+\mathbf{H}^{(0)}_t=\mathbf{E}z_t+\mathbf{P}_t,\qquad t=1,\dots,T
+\qquad \text{(3.18)}
+$$
+
+其中 $$\mathbf{E}\in\mathbb{R}^{n_{vocab}\times d_{model}}$$ 是 Token 嵌入矩阵，$$z_t$$ 是第 $$t$$ 个 Token 的整数 ID，$$\mathbf{P}\in\mathbb{R}^{L_{ctx}\times d_{model}}$$ 是位置嵌入表，$$L_{ctx}$$ 是最大上下文长度，$$\mathbf{P}_t$$ 是它的第 $$t$$ 行。这与第 2 章 (2.1) 的嵌入查表是同一件事，只是加上了位置向量。
 
 可学习绝对位置简单有效，在训练长度内表现很好；它的局限是表的大小固定，超出 $$L_{ctx}$$ 就没有对应的行，也无法自然地表达"相对距离"。第 4 章会讨论正弦位置编码、旋转位置编码（RoPE）和 ALiBi，以及它们如何影响长度外推。
 
 ### 3.2.6 输出层与损失
 
-经过 $$n_l$$ 层之后，残差流再过一个最终的 LayerNorm，然后由输出层映射到词表，得 $$\boldsymbol{\ell}_t=\mathbf{W}_{\text{lm}}\,\mathrm{LN}\left(\mathbf{h}_t^{(n_l)}\right)$$ (3.19)；其中 $$\mathbf{W}_{\text{lm}}\in\mathbb{R}^{n_{vocab}\times d_{model}}$$，$$\boldsymbol{\ell}_t\in\mathbb{R}^{n_{vocab}}$$ 是位置 $$t$$ 的 logits。softmax 之后得到下一个 Token 的分布，训练损失就是第 1 章 (1.3) 的负对数似然，即 $$\mathcal{L}=-\frac{1}{T}\sum_{t=1}^{T}\log\mathrm{softmax}\left(\boldsymbol{\ell}_t\right)_{x_{t+1}}$$ (3.20)
+经过 $$n_l$$ 层之后，残差流再过一个最终的 LayerNorm，然后由输出层映射到词表，得
+
+$$
+\boldsymbol{\ell}_t=\mathbf{W}_{\text{lm}}\,\mathrm{LN}\left(\mathbf{h}_t^{(n_l)}\right)
+\qquad \text{(3.19)}
+$$
+
+其中 $$\mathbf{W}_{\text{lm}}\in\mathbb{R}^{n_{vocab}\times d_{model}}$$，$$\boldsymbol{\ell}_t\in\mathbb{R}^{n_{vocab}}$$ 是位置 $$t$$ 的 logits。softmax 之后得到下一个 Token 的分布，训练损失就是第 1 章 (1.3) 的负对数似然。
+
+$$
+\mathcal{L}=-\frac{1}{T}\sum_{t=1}^{T}\log\mathrm{softmax}\left(\boldsymbol{\ell}_t\right)_{x_{t+1}}
+\qquad \text{(3.20)}
+$$
 
 代码里通常把输入和标签错开一位：输入是 $$x_{1:T-1}$$，标签是 $$x_{2:T}$$。这样位置 $$t$$ 的输出就在预测 $$x_{t+1}$$，一次前向覆盖所有位置。
 
@@ -192,11 +296,26 @@ Geva 等人 2021 年给了一个有用的解释：把 $$\mathbf{W}_{\text{in}}$$
 - 前馈网络：两个权重和两个偏置，共 $$2dd_{ff}+d_{ff}+d$$；
 - 两个 LayerNorm：每个有增益和偏置，共 $$4d$$。
 
-把一层加起来，得到 $$N_{\text{layer}}=4d^2+2dd_{ff}+9d+d_{ff}$$ (3.21)。
+把一层加起来，得到
 
-再乘层数，加上最终 LayerNorm（$$2d$$）、Token 嵌入（$$n_{vocab}d$$）、输出层（$$n_{vocab}d$$，无偏置）和位置表（$$L_{ctx}d$$），即 $$N=n_l\left(4d^2+2dd_{ff}+9d+d_{ff}\right)+2d+2n_{vocab}d+L_{ctx}d$$ (3.22)。
+$$
+N_{\text{layer}}=4d^2+2dd_{ff}+9d+d_{ff}
+\qquad \text{(3.21)}
+$$
 
-如果忽略偏置、LayerNorm 和位置表，并取 $$d_{ff}=4d$$，就得到常用的简化式 $$N\approx n_l\left(4d^2+8d^2\right)+2n_{vocab}d=12n_ld^2+2n_{vocab}d$$ (3.23)。
+再乘层数，加上最终 LayerNorm（$$2d$$）、Token 嵌入（$$n_{vocab}d$$）、输出层（$$n_{vocab}d$$，无偏置）和位置表（$$L_{ctx}d$$）。
+
+$$
+N=n_l\left(4d^2+2dd_{ff}+9d+d_{ff}\right)+2d+2n_{vocab}d+L_{ctx}d
+\qquad \text{(3.22)}
+$$
+
+如果忽略偏置、LayerNorm 和位置表，并取 $$d_{ff}=4d$$，就得到常用的简化式
+
+$$
+N\approx n_l\left(4d^2+8d^2\right)+2n_{vocab}d=12n_ld^2+2n_{vocab}d
+\qquad \text{(3.23)}
+$$
 
 这个式子很好记：**每层约 $$12d^2$$ 个参数，其中注意力占三分之一，前馈占三分之二**。用它估算 GPT-3 175B：$$n_l=96$$、$$d=12288$$、$$n_{vocab}=50257$$，即 $$12\times96\times12288^2+2\times50257\times12288\approx1.739\times10^{11}+1.235\times10^9\approx1.752\times10^{11}$$。
 
@@ -208,11 +327,21 @@ Geva 等人 2021 年给了一个有用的解释：把 $$\mathbf{W}_{\text{in}}$$
 - 打分与加权求和：$$2T^2d+2T^2d=4T^2d$$；
 - 前馈网络：$$2Tdd_{ff}+2Tdd_{ff}=4Tdd_{ff}$$。
 
-所以单层前向的 FLOPs 约为 $$\mathrm{FLOPs}_{\text{layer}}\approx8Td^2+4T^2d+4Tdd_{ff}$$ (3.24)。
+所以单层前向的 FLOPs 约为
+
+$$
+\mathrm{FLOPs}_{\text{layer}}\approx8Td^2+4T^2d+4Tdd_{ff}
+\qquad \text{(3.24)}
+$$
 
 取 $$d_{ff}=4d$$，得到 $$24Td^2+4T^2d$$。除以 $$T$$，每个 Token 的代价是 $$24d^2+4Td$$。
 
-这里有一个重要的交叉点。注意力项随 $$T$$ 线性增长，前馈项与 $$T$$ 无关。令两者相等，得 $$8Td^2+4T^2d=4Tdd_{ff}\ \Longrightarrow\ T=d_{ff}-2d$$ (3.25)。
+这里有一个重要的交叉点。注意力项随 $$T$$ 线性增长，前馈项与 $$T$$ 无关。令两者相等，得
+
+$$
+8Td^2+4T^2d=4Tdd_{ff}\ \Longrightarrow\ T=d_{ff}-2d
+\qquad \text{(3.25)}
+$$
 
 当 $$d_{ff}=4d$$ 时，$$T=2d$$。以 $$d=4096$$、$$d_{ff}=16384$$ 为例，交叉点在 $$T=8192$$：短上下文时前馈网络主导，长上下文时注意力主导。
 
@@ -224,7 +353,12 @@ Geva 等人 2021 年给了一个有用的解释：把 $$\mathbf{W}_{\text{in}}$$
 
 表中取 $$d=4096$$、$$d_{ff}=16384$$。这也解释了为什么长上下文训练和推理的瓶颈会从"参数矩阵乘法"转向"注意力打分与显存"。
 
-当 $$T$$ 远小于 $$d$$ 时，权重矩阵乘法占主导，前向 FLOPs 可以近似为每个 Token $$\mathrm{FLOPs}_{\text{forward}}\approx2N$$ (3.26)。
+当 $$T$$ 远小于 $$d$$ 时，权重矩阵乘法占主导，前向 FLOPs 可以近似为每个 Token
+
+$$
+\mathrm{FLOPs}_{\text{forward}}\approx2N
+\qquad \text{(3.26)}
+$$
 
 训练还要反向传播，反向的计算量约为前向的两倍，因此常用的经验式是每个 Token 约 $$6N$$；第 9 章会在这个式子上建立缩放定律。但要注意，$$2N$$ 只数了权重，不含 (3.24) 里的 $$T^2$$ 项；上下文很长时，注意力额外项不能忽略。
 

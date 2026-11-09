@@ -35,7 +35,12 @@ flowchart LR
     I --> J["文本"]
 ```
 
-模型的第一层是一个查表操作：第 $$t$$ 个 Token 的 ID 为 $$z_t$$，它的向量是嵌入矩阵 $$\mathbf{E}$$ 的第 $$z_t$$ 行，即 $$\mathbf{e}_t = \mathbf{E} z_t$$ (2.1)。
+模型的第一层是一个查表操作：第 $$t$$ 个 Token 的 ID 为 $$z_t$$，它的向量是嵌入矩阵 $$\mathbf{E}$$ 的第 $$z_t$$ 行。
+
+$$
+\mathbf{e}_t = \mathbf{E} z_t
+\qquad \text{(2.1)}
+$$
 
 这里的 $$z_t$$ 只是一个整数，它的大小没有语义，顺序也没有含义。Token 5 和 Token 6 之间不存在"更接近"的关系；所有语义都来自训练中学会的嵌入向量。换句话说，**模型看到的不是文字，而是一串被分词器（tokenizer）编好号的符号**。
 
@@ -57,13 +62,32 @@ flowchart LR
 
 ### 2.2.1 分词器的形式化
 
-设字符集为 $$\Sigma$$，通常是 UTF-8 字节的集合。词表（vocabulary）$$\mathcal{V}$$ 是一个有限的字符串集合，其中的元素称为 Token，每个 Token 是若干字节组成的字符串。分词器由编码器（encoder）$$\mathrm{Enc}$$ 和解码器（decoder）$$\mathrm{Dec}$$ 组成，即 $$\mathrm{Enc}:\Sigma^{*}\to \mathcal{V}^{*}$$、$$\mathrm{Dec}:\mathcal{V}^{*}\to\Sigma^{*}$$ (2.2)；其中 $$\Sigma^{*}$$ 表示任意长度的字节串，$$\mathcal{V}^{*}$$ 表示任意长度的 Token 序列。**无损可逆**要求对任意输入串 $$s$$ 都有 $$\mathrm{Dec}(\mathrm{Enc}(s))=s$$ (2.3)。
+设字符集为 $$\Sigma$$，通常是 UTF-8 字节的集合。词表（vocabulary）$$\mathcal{V}$$ 是一个有限的字符串集合，其中的元素称为 Token，每个 Token 是若干字节组成的字符串。分词器由编码器（encoder）$$\mathrm{Enc}$$ 和解码器（decoder）$$\mathrm{Dec}$$ 组成。
+
+$$
+\mathrm{Enc}:\Sigma^{*}\to \mathcal{V}^{*},\qquad \mathrm{Dec}:\mathcal{V}^{*}\to\Sigma^{*}
+\qquad \text{(2.2)}
+$$
+
+其中 $$\Sigma^{*}$$ 表示任意长度的字节串，$$\mathcal{V}^{*}$$ 表示任意长度的 Token 序列。**无损可逆**要求对任意输入串 $$s$$ 都有
+
+$$
+\mathrm{Dec}(\mathrm{Enc}(s))=s
+\qquad \text{(2.3)}
+$$
 
 这个条件看起来理所当然，实际很容易被破坏。很多分词器会先做 Unicode 规范化（例如 NFKC）、转小写、压缩连续空白；这些操作让编码更"干净"，却让解码无法还原原始字节。字节级 BPE（byte-level BPE）不做规范化，因此可以严格满足 (2.3)。
 
 另一个容易忽略的性质是**非组合性**：把两个字符串拼起来再分词，结果不一定等于分别分词后拼接。例如 "a" 和 "b" 单独编码时可能是两个 Token，拼成 "ab" 后可能被合并成一个 Token。这意味着不能假设 Token 边界在拼接下保持不变；在做提示拼接、约束解码或缓存前缀时，必须对完整字符串重新分词。
 
-分词器的压缩效果可以用压缩比（compression ratio）衡量，即 $$r=\frac{B_{\text{byte}}}{T}$$ 字节/Token (2.4)；其中 $$B_{\text{byte}}$$ 是输入文本的 UTF-8 字节数，$$T$$ 是编码后的 Token 数。$$r$$ 越大，同样长度的文本占用的 Token 越少。另一个常用指标是每个字符的 Token 数 $$T/n_{\text{char}}$$，其中 $$n_{\text{char}}$$ 是字符数；它和 $$r$$ 一起，能刻画不同语言之间的成本差异。
+分词器的压缩效果可以用压缩比（compression ratio）衡量。
+
+$$
+r=\frac{B_{\text{byte}}}{T}\quad\text{（字节/Token）}
+\qquad \text{(2.4)}
+$$
+
+其中 $$B_{\text{byte}}$$ 是输入文本的 UTF-8 字节数，$$T$$ 是编码后的 Token 数。$$r$$ 越大，同样长度的文本占用的 Token 越少。另一个常用指标是每个字符的 Token 数 $$T/n_{\text{char}}$$，其中 $$n_{\text{char}}$$ 是字符数；它和 $$r$$ 一起，能刻画不同语言之间的成本差异。
 
 ### 2.2.2 BPE：从字符对到子词
 
@@ -71,13 +95,33 @@ flowchart LR
 
 算法从一个基础符号表开始。字节级 BPE 的基础表是 256 个字节；字符级 BPE 的基础表是语料中出现过的字符。把训练语料表示成符号序列 $$q^{(0)}=(q_1,\dots,q_{T_0})$$，然后重复以下三步：
 
-1. 统计所有相邻符号对的频次，即 $$f_t(a,b)=\sum_{i=1}^{T_t-1}\mathbf{1}\left[q_i^{(t)}=a,\ q_{i+1}^{(t)}=b\right]$$ (2.5)；
+1. 统计所有相邻符号对的频次。
+
+   $$
+   f_t(a,b)=\sum_{i=1}^{T_t-1}\mathbf{1}\left[q_i^{(t)}=a,\ q_{i+1}^{(t)}=b\right]
+   \qquad \text{(2.5)}
+   $$
+
 2. 选择频次最高的对 $$(a^{*},b^{*})=\arg\max_{a,b} f_t(a,b)$$，把新符号 $$a^{*}b^{*}$$ 加入词表；
 3. 从左到右、不重叠地把序列中所有 $$(a^{*},b^{*})$$ 替换成新符号。
 
-重复 $$M$$ 次后，词表规模为 $$|\mathcal{V}|=|\mathcal{A}|+M+S$$ (2.6)；其中 $$|\mathcal{A}|$$ 是基础符号数（字节级为 256），$$S$$ 是特殊 Token（special token）数。注意这是**实际**词表规模；如果训练目标设为 768、特殊 Token 有 2 个，最终可能是 770。如果语料太小，某个时刻所有相邻对的频次都小于 2，合并会提前停止，实际词表也会小于目标值。第 2.4 节的实验会出现这两种情况。
+重复 $$M$$ 次后，词表规模为
 
-BPE 的训练目标可以写成最小化最终序列长度，即 $$T_M=T_0-\sum_{t=1}^{M}n_t$$，且 $$n_t\le f_t(a_t,b_t)$$ (2.7)；其中 $$n_t$$ 是第 $$t$$ 步实际合并的不重叠出现次数。由于 $$n_t$$ 最多等于频次 $$f_t$$，每一步选择最高频的对，是在贪心地最大化当前的长度缩减。**贪心不保证全局最优**：某个高频合并可能阻断后续更有利的组合，但精确求解最优合并序列的代价很高，实践中没有人这样做。BPE 的价值不在于最优，而在于简单、确定、可增量执行。
+$$
+|\mathcal{V}|=|\mathcal{A}|+M+S
+\qquad \text{(2.6)}
+$$
+
+其中 $$|\mathcal{A}|$$ 是基础符号数（字节级为 256），$$S$$ 是特殊 Token（special token）数。注意这是**实际**词表规模；如果训练目标设为 768、特殊 Token 有 2 个，最终可能是 770。如果语料太小，某个时刻所有相邻对的频次都小于 2，合并会提前停止，实际词表也会小于目标值。第 2.4 节的实验会出现这两种情况。
+
+BPE 的训练目标可以写成最小化最终序列长度。
+
+$$
+T_M=T_0-\sum_{t=1}^{M}n_t,\qquad n_t\le f_t(a_t,b_t)
+\qquad \text{(2.7)}
+$$
+
+其中 $$n_t$$ 是第 $$t$$ 步实际合并的不重叠出现次数。由于 $$n_t$$ 最多等于频次 $$f_t$$，每一步选择最高频的对，是在贪心地最大化当前的长度缩减。**贪心不保证全局最优**：某个高频合并可能阻断后续更有利的组合，但精确求解最优合并序列的代价很高，实践中没有人这样做。BPE 的价值不在于最优，而在于简单、确定、可增量执行。
 
 编码时不需要重新统计频次，只需要记住合并的顺序。给每个合并对一个优先级（越早合并优先级越高），然后反复合并当前序列中优先级最高的相邻对，直到没有可合并的对。这个过程的直观含义是"按训练时学到的顺序还原压缩过程"。朴素实现每轮扫描整个序列，最坏复杂度为 $$\mathcal{O}(T^2)$$；生产实现会用优先队列、双向链表和按词缓存，把常见词的编码降到接近线性。
 
@@ -85,7 +129,21 @@ BPE 还有一个重要细节：**词边界**。字符级 BPE 通常在词尾加�
 
 ### 2.2.3 WordPiece：用点互信息挑合并
 
-WordPiece 的外观和 BPE 很像：也是从基础符号开始，不断合并相邻对。区别在**选择准则**。BPE 选频次最高的对，WordPiece 选得分最高的对，得分为 $$\mathrm{score}(a,b)=\frac{f(ab)}{f(a)\,f(b)}$$ (2.8)；其中 $$f(ab)$$ 是符号串 $$ab$$ 作为一个整体的出现次数，$$f(a)$$、$$f(b)$$ 分别是 $$a$$、$$b$$ 单独出现的次数。设语料中共有 $$N_{\text{pair}}$$ 个相邻对位置，则 $$f(ab)=N_{\text{pair}}\,P(ab)$$、$$f(a)=N_{\text{pair}}\,P(a)$$、$$f(b)=N_{\text{pair}}\,P(b)$$，于是 $$\mathrm{score}(a,b)=\frac{1}{N_{\text{pair}}}\cdot\frac{P(ab)}{P(a)P(b)}=\frac{1}{N_{\text{pair}}}e^{\mathrm{PMI}(a,b)}$$ (2.9)；其中 $$\mathrm{PMI}(a,b)=\ln\frac{P(ab)}{P(a)P(b)}$$ 是点互信息（pointwise mutual information，PMI）。因此，**最大化 WordPiece 得分等价于最大化两个符号的点互信息**：它奖励"共同出现得比偶然预期更频繁"的对，而不只是奖励高频对。
+WordPiece 的外观和 BPE 很像：也是从基础符号开始，不断合并相邻对。区别在**选择准则**。BPE 选频次最高的对，WordPiece 选得分最高的对，得分为
+
+$$
+\mathrm{score}(a,b)=\frac{f(ab)}{f(a)\,f(b)}
+\qquad \text{(2.8)}
+$$
+
+其中 $$f(ab)$$ 是符号串 $$ab$$ 作为一个整体的出现次数，$$f(a)$$、$$f(b)$$ 分别是 $$a$$、$$b$$ 单独出现的次数。设语料中共有 $$N_{\text{pair}}$$ 个相邻对位置，则 $$f(ab)=N_{\text{pair}}\,P(ab)$$、$$f(a)=N_{\text{pair}}\,P(a)$$、$$f(b)=N_{\text{pair}}\,P(b)$$，于是
+
+$$
+\mathrm{score}(a,b)=\frac{1}{N_{\text{pair}}}\cdot\frac{P(ab)}{P(a)P(b)}=\frac{1}{N_{\text{pair}}}e^{\mathrm{PMI}(a,b)}
+\qquad \text{(2.9)}
+$$
+
+其中 $$\mathrm{PMI}(a,b)=\ln\frac{P(ab)}{P(a)P(b)}$$ 是点互信息（pointwise mutual information，PMI）。因此，**最大化 WordPiece 得分等价于最大化两个符号的点互信息**：它奖励"共同出现得比偶然预期更频繁"的对，而不只是奖励高频对。
 
 这个区别在自然语言里很实际。字母 `t` 和 `h` 都很常见，`th` 也很常见，但 `th` 的高频可能只是因为 `t`、`h` 本身高频；PMI 会把这种"由边缘频率带来的虚假高频"除掉，更倾向于发现真正的搭配。反过来，BPE 的纯频次准则会优先合并最常见的字符组合，这在压缩上合理，在语言学上未必最有意义。
 
@@ -95,11 +153,21 @@ WordPiece 的编码通常采用**最长匹配**（longest-match）：从左到�
 
 BPE 和 WordPiece 都是自底向上的合并；Unigram 语言模型（Unigram Language Model）反过来，自顶向下地删减。
 
-它假设每个 Token $$u$$ 有一个概率 $$p(u)$$，且所有 Token 概率之和为 1。一个字符串被切成 Token 序列 $$u=(u_1,\dots,u_K)$$ 的概率是 $$P(u)=\prod_{i=1}^{K}p(u_i)$$ (2.10)。
+它假设每个 Token $$u$$ 有一个概率 $$p(u)$$，且所有 Token 概率之和为 1。一个字符串被切成 Token 序列 $$u=(u_1,\dots,u_K)$$ 的概率是
+
+$$
+P(u)=\prod_{i=1}^{K}p(u_i)
+\qquad \text{(2.10)}
+$$
 
 训练目标是最大化语料在所有可能切分下的边际似然。由于切分是隐变量，通常用期望最大化（expectation-maximization，EM）算法：E 步用前向-后向算法计算每个 Token 的期望出现次数，M 步用期望频次重新估计 $$p(u)$$。训练完一轮后，按照"移除该 Token 后似然下降多少"给 Token 排序，删掉最不重要的一批，再继续训练。如此反复，直到词表缩到目标大小。
 
-编码时，给定一个字符串 $$s$$，要找概率最大的切分。设 $$\mathrm{best}[i]$$ 是前缀 $$s_{0:i}$$ 的最优对数概率，则 $$\mathrm{best}[i]=\max_{0\le j<i,\ s_{j:i}\in \mathcal{V}}\left(\mathrm{best}[j]+\log p(s_{j:i})\right)$$ (2.11)。
+编码时，给定一个字符串 $$s$$，要找概率最大的切分。设 $$\mathrm{best}[i]$$ 是前缀 $$s_{0:i}$$ 的最优对数概率，则
+
+$$
+\mathrm{best}[i]=\max_{0\le j<i,\ s_{j:i}\in \mathcal{V}}\left(\mathrm{best}[j]+\log p(s_{j:i})\right)
+\qquad \text{(2.11)}
+$$
 
 这就是 Viterbi 算法，复杂度为 $$\mathcal{O}(T\cdot L_{\max})$$，其中 $$L_{\max}$$ 是最长 Token 的长度。与 BPE 的确定性编码不同，Unigram 给出的是一个概率分布，因此可以在训练时对切分采样，这就是 Kudo 提出的**子词正则化**（subword regularization）：同一个句子每次以不同方式切分，相当于一种数据增强。
 
@@ -109,7 +177,12 @@ SentencePiece 同时支持 BPE 和 Unigram 两种算法；T5、ALBERT 等模型�
 
 字符级分词有一个绕不开的问题：没见过的字符怎么办？传统做法是引入 `<unk>`，但 `<unk>` 丢失了信息，而且不同语言的未登录率差异很大。字节级 BPE 的做法很彻底：**基础词表就是 256 个字节，任何 UTF-8 字符串都能表示，不存在未登录**。
 
-对任意一个字符 $$c$$，设它的 UTF-8 编码占 $$n_{\text{byte}}(c)$$ 个字节。单独编码时，字节级 BPE 的 Token 数满足 $$1\le |\mathrm{Enc}(c)|\le n_{\text{byte}}(c)$$ (2.12)。
+对任意一个字符 $$c$$，设它的 UTF-8 编码占 $$n_{\text{byte}}(c)$$ 个字节。单独编码时，字节级 BPE 的 Token 数满足
+
+$$
+1\le |\mathrm{Enc}(c)|\le n_{\text{byte}}(c)
+\qquad \text{(2.12)}
+$$
 
 下界是因为非空字符至少需要一个 Token；上界是因为最坏情况下每个字节各占一个 Token，而合并只会减少数量。ASCII 字符的 $$n_{\text{byte}}(c)=1$$，所以恰好是一个 Token；常见汉字的 $$n_{\text{byte}}(c)=3$$，可能被合并成一个 Token，也可能保持两三个；四字节的 emoji 同理。这个界说明了一件事：**字节级 BPE 的覆盖率是完备的，但非拉丁文字天然更"费 Token"**，除非词表里专门为这些字符学习了合并。
 
@@ -121,9 +194,21 @@ SentencePiece 走了另一条工程路线：它直接把原始文本（包括空
 
 词表大小 $$n_{vocab}$$ 是分词器最重要的超参数。它同时影响参数、计算和数据效率，而且方向相反。
 
-**参数侧**：输入嵌入矩阵 $$\mathbf{E}\in\mathbb{R}^{n_{vocab}\times d_{model}}$$ 有 $$n_{vocab}d_{model}$$ 个参数；如果输出层不共享权重，还有一个同样大小的矩阵，于是 $$N(n_{vocab})=N_0+2n_{vocab}d_{model}$$ (2.13)；其中 $$N_0$$ 是其余参数。以 $$n_{vocab}=128\text{K}$$、$$d_{model}=4096$$ 为例，单个矩阵约 5.24 亿参数，两个约 10.5 亿。对一个 8B 模型，这已经超过总参数的 13%；而 AdamW 的优化器状态（一阶矩、二阶矩和 fp32 主权重）按每个参数十几字节计算，仅嵌入层的参数与优化器状态就可能超过 15GB。这就是为什么大词表模型的嵌入层在分布式训练中往往要单独切分。
+**参数侧**：输入嵌入矩阵 $$\mathbf{E}\in\mathbb{R}^{n_{vocab}\times d_{model}}$$ 有 $$n_{vocab}d_{model}$$ 个参数；如果输出层不共享权重，还有一个同样大小的矩阵，于是
 
-**计算侧**：设语料总字节数为 $$B_{\text{byte}}$$，平均每个 Token 覆盖 $$r(n_{vocab})$$ 个字节，则 Token 总数为 $$D=B_{\text{byte}}/r(n_{vocab})$$。训练计算量近似为 $$C(n_{vocab})\approx 6N(n_{vocab})\frac{B_{\text{byte}}}{r(n_{vocab})}$$ (2.14)。
+$$
+N(n_{vocab})=N_0+2n_{vocab}d_{model}
+\qquad \text{(2.13)}
+$$
+
+其中 $$N_0$$ 是其余参数。以 $$n_{vocab}=128\text{K}$$、$$d_{model}=4096$$ 为例，单个矩阵约 5.24 亿参数，两个约 10.5 亿。对一个 8B 模型，这已经超过总参数的 13%；而 AdamW 的优化器状态（一阶矩、二阶矩和 fp32 主权重）按每个参数十几字节计算，仅嵌入层的参数与优化器状态就可能超过 15GB。这就是为什么大词表模型的嵌入层在分布式训练中往往要单独切分。
+
+**计算侧**：设语料总字节数为 $$B_{\text{byte}}$$，平均每个 Token 覆盖 $$r(n_{vocab})$$ 个字节，则 Token 总数为 $$D=B_{\text{byte}}/r(n_{vocab})$$。训练计算量近似为
+
+$$
+C(n_{vocab})\approx 6N(n_{vocab})\frac{B_{\text{byte}}}{r(n_{vocab})}
+\qquad \text{(2.14)}
+$$
 
 词表越大，$$r(n_{vocab})$$ 通常越大，Token 数越少，注意力与全连接的计算量随之下降；但 $$N(n_{vocab})$$ 线性增长，输出层 softmax 的代价也随 $$n_{vocab}$$ 线性增长。两条曲线的斜率决定了最优点，而这个最优点取决于语料的语言分布、模型大小、上下文长度和推理预算，没有一个通用答案。
 
@@ -137,15 +222,34 @@ SentencePiece 走了另一条工程路线：它直接把原始文本（包括空
 
 **每个 Token 的字节数**，即 (2.4) 的 $$r$$。它是最直接的压缩效率指标。
 
-**生育率**（fertility）指每个词被切成多少个 Token，即 $$\mathrm{fertility}=\frac{T}{n_{\text{word}}}$$ (2.15)；其中 $$n_{\text{word}}$$ 是词数。英语的 fertility 通常在 1.2 到 1.5 之间，中文按"词"统计时差异更大，因为中文的词边界本身就有歧义。跨语言比较时，更稳妥的指标是每个字符的 Token 数。
+**生育率**（fertility）指每个词被切成多少个 Token。
 
-**每字节比特数**（bits per byte）。第 1 章说过，交叉熵 $$\mathcal{L}$$ 是每个 Token 的平均负对数似然（单位 nat）。把它换算成每字节的编码长度，即 $$\rho=\frac{\mathcal{L}}{\ln 2\cdot r}$$ (2.16)；其中 $$r$$ 是平均每个 Token 的字节数，即 (2.4) 定义的压缩比。$$\rho$$ 才是可以跨分词器比较的压缩质量指标。
+$$
+\mathrm{fertility}=\frac{T}{n_{\text{word}}}
+\qquad \text{(2.15)}
+$$
+
+其中 $$n_{\text{word}}$$ 是词数。英语的 fertility 通常在 1.2 到 1.5 之间，中文按"词"统计时差异更大，因为中文的词边界本身就有歧义。跨语言比较时，更稳妥的指标是每个字符的 Token 数。
+
+**每字节比特数**（bits per byte）。第 1 章说过，交叉熵 $$\mathcal{L}$$ 是每个 Token 的平均负对数似然（单位 nat）。把它换算成每字节的编码长度。
+
+$$
+\rho=\frac{\mathcal{L}}{\ln 2\cdot r}
+\qquad \text{(2.16)}
+$$
+
+其中 $$r$$ 是平均每个 Token 的字节数，即 (2.4) 定义的压缩比。$$\rho$$ 才是可以跨分词器比较的压缩质量指标。
 
 **未登录率**，即 `<unk>` 占所有 Token 的比例。字节级分词器的未登录率恒为 0；词级或字符级分词器在跨领域、跨语言时可能很高。
 
 这里有一个必须记住的结论：**困惑度不能跨分词器比较**。假设分词器 1 平均每个 Token 覆盖 $$r_1$$ 字节，分词器 2 覆盖 $$r_2$$ 字节，两者在同一文本上的每字节比特数相同，记为 $$\rho$$，则 $$\mathcal{L}_1=\ln 2\cdot r_1\rho$$，$$\mathcal{L}_2=\ln 2\cdot r_2\rho$$。
 
-于是 $$\mathrm{PPL}_1=e^{\mathcal{L}_1}=e^{\ln 2\cdot r_1\rho}=2^{r_1\rho}$$，$$\mathrm{PPL}_2=2^{r_2\rho}$$，由此得到 $$\mathrm{PPL}_1=\mathrm{PPL}_2^{\,r_1/r_2}$$ (2.17)。
+于是 $$\mathrm{PPL}_1=e^{\mathcal{L}_1}=e^{\ln 2\cdot r_1\rho}=2^{r_1\rho}$$，$$\mathrm{PPL}_2=2^{r_2\rho}$$，由此得到
+
+$$
+\mathrm{PPL}_1=\mathrm{PPL}_2^{\,r_1/r_2}
+\qquad \text{(2.17)}
+$$
 
 如果分词器 1 的 Token 平均长度是分词器 2 的两倍，即 $$r_1=2r_2$$，那么 $$\mathrm{PPL}_1=\mathrm{PPL}_2^2$$。也就是说，**同样质量的两个模型，Token 更长的那个困惑度会呈指数级更高**。看到"某模型 PPL 只有 5"时，必须先问它用的是什么分词器；否则这个数字没有可比性。
 
