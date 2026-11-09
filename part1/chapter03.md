@@ -84,7 +84,12 @@ Pre-LN 不等于"无条件稳定"。它解决的是深层残差路径上的梯�
 
 这里的 $$d_k$$ 是打分维度。单头时通常取 $$d_k=d_{model}$$，多头时取每个头的维度 $$d_h$$。
 
-**为什么除以 $$\sqrt{d_k}$$？** 假设查询和键的每个分量独立、均值为 0、方差为 1。内积是 $$d_k$$ 个乘积之和，即 $$\mathbf{q}^{\top}\mathbf{k}=\sum_{l=1}^{d_k}q_lk_l$$ (3.7)
+**为什么除以 $$\sqrt{d_k}$$？** 假设查询和键的每个分量独立、均值为 0、方差为 1。内积是 $$d_k$$ 个乘积之和，即 
+
+$$
+\mathbf{q}^{\top}\mathbf{k}=\sum_{l=1}^{d_k}q_lk_l
+\qquad \text{(3.7)}
+$$
 
 每个乘积的期望是 0，方差是 $$\mathbb{E}[q_l^2]\mathbb{E}[k_l^2]=1$$，且不同分量相互独立，所以 $$\mathrm{Var}\left(\mathbf{q}^{\top}\mathbf{k}\right)=\sum_{l=1}^{d_k}\mathrm{Var}(q_lk_l)=d_k$$ (3.8)
 
