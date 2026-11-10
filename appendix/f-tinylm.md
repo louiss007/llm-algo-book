@@ -36,7 +36,7 @@ tinylm/
 │   │   ├── ffn.py             # MLP / SwiGLU
 │   │   ├── moe.py             # 第 7 章：MoE 层
 │   │   ├── block.py           # TransformerBlock
-│   │   ├── ssm.py             # 第 8 章：可选的 Mamba 风格块
+│   │   ├── ssm.py             # 第 8 章：线性注意力块、选择性 SSM 块与块类型分派
 │   │   └── model.py           # TinyLM 主模型
 │   ├── data/
 │   │   ├── dataset.py         # 打包后的 Token 数据集
@@ -120,7 +120,8 @@ class MoEConfig:
     n_experts: int = 8
     top_k: int = 2
     n_shared: int = 0
-    d_ff_expert: int | None = None
+    d_ff_expert: int | None = None        # None 表示沿用 ModelConfig.d_ff
+    capacity_factor: float | None = 1.25  # None 表示不丢弃
     aux_loss_coef: float = 0.01
 
 @dataclass(frozen=True)
@@ -156,6 +157,8 @@ class ModelConfig:
 `parallel_block` 是第 5 章新增的可选开关，默认 `False` 保持串行块；它为 `True` 时注意力与前馈读同一个归一化结果。`bias`、`tie_embeddings` 在第 5 章正式启用，默认值不变。
 
 `attention` 与 `n_kv_heads` 在第 6 章启用：`n_kv_heads=None` 时 MHA 取 `n_heads`、MQA 取 1，GQA 必须显式给出且整除 `n_heads`。`d_c` 与 `d_head_rope` 只对 MLA 生效；MLA 下 `n_kv_heads` 被忽略，因为所有头共享同一份潜向量。默认 `attention="mha"` 保证第 3–5 章的行为逐位不变。
+
+`moe` 在第 7 章启用，默认 `None` 保持稠密前馈；`capacity_factor=None` 表示不设固定容量、不丢弃，`aux_loss_coef=0` 表示不计算辅助损失。`MoEConfig` 只增加可选字段，`TinyLM.forward` 与 `CausalLMOutput` 的签名不变。
 {% endhint %}
 
 ### F.2.3 模型前向
@@ -282,7 +285,7 @@ $$
 | 5 | `norm.py` 增 RMSNorm；`ffn.py` 增 SwiGLU | `norm`、`ffn`、`bias`、`tie_embeddings` | 同参数量下与基线对照 |
 | 6 | `attention.py` 增 MQA/GQA/MLA；`attention_params()`、`kv_cache_bytes()` | `attention`、`n_kv_heads`、`d_c`、`d_head_rope` | KV 显存公式核对；变体等价性（$$n_{kv}=n_h$$ 时退化为 MHA）；权重吸收恒等式 |
 | 7 | `model/moe.py` | `moe` | 负载均衡；容量溢出行为 |
-| 8 | `model/ssm.py`（可选） | `layer_types` | 状态递推与并行扫描结果一致 |
+| 8 | `model/ssm.py`：`LinearAttention`、`SelectiveSSM`、`SSMBlock`、`make_block()`、`layer_kinds()`；`block.py` 增加块类型分派 | `block_type`、`ssm_d_state`、`ssm_expand`、`hybrid_attn_every` | 线性注意力等于显式二次型；并行扫描等于串行递推；四种块参数公式与 `sum(p.numel())` 一致；默认配置与第 7 章逐位一致 |
 | 9 | `train/loop.py`；`scaling/*.yaml` | `TrainConfig` | 损失单调下降；幂律拟合 |
 | 10 | `data/mixture.py` | `DataConfig` | 去重率；配比采样比例 |
 | 11 | `train/optim.py`、`schedule.py` | `OptimConfig` | 优化器单步与闭式解一致 |

@@ -117,13 +117,25 @@
 | 中文 | 英文 | 一句话定义 | 首次出现 |
 | --- | --- | --- | --- |
 | 混合专家 | Mixture of Experts (MoE) | 用路由器为每个 Token 选择少数专家计算 | 第 7 章 |
-| 路由器 | Router | 为每个 Token 计算专家权重的轻量网络 | 第 7 章 |
+| 专家 | Expert | 参数独立、结构相同的前馈子网络 | 第 7 章 |
+| 路由器 | Router | 为每个 Token 计算专家权重与门控的轻量网络 | 第 7 章 |
+| 稀疏激活 | Sparse Activation | 每 Token 只计算全部参数中的一小部分 | 第 7 章 |
 | Top-K 路由 | Top-K Routing | 只激活权重最高的 $$k$$ 个专家 | 第 7 章 |
-| 负载均衡损失 | Load Balancing Loss | 惩罚专家负载不均的辅助损失 | 第 7 章 |
-| 共享专家 | Shared Expert | 所有 Token 都会经过的公共专家 | 第 7 章 |
-| 专家并行 | Expert Parallelism | 把不同专家分布到不同设备上 | 第 7 章 |
-| 容量因子 | Capacity Factor | 每个专家可接收 Token 数的上限系数 | 第 7 章 |
+| 负载均衡辅助损失 | Load Balancing Auxiliary Loss | 惩罚专家负载不均、调节路由概率的辅助损失 | 第 7 章 |
+| 路由器 z-loss | Router z-loss | 约束路由 logits 幅度、提升稳定性的正则项 | 第 7 章 |
+| 共享专家 | Shared Expert | 所有 Token 都会经过、不被稀疏化的公共专家 | 第 7 章 |
+| 细粒度专家 | Fine-grained Expert | 把专家切窄并提高激活个数以保持计算预算 | 第 7 章 |
+| Expert Choice | Expert Choice Routing | 由专家挑选固定数量 Token 的反向路由 | 第 7 章 |
+| 无辅助损失均衡 | Auxiliary-loss-free Balancing | 用专家偏置反馈而非损失项控制负载 | 第 7 章 |
+| 专家并行 | Expert Parallelism (EP) | 把不同专家分布到不同设备上 | 第 7 章 |
+| 全对全通信 | All-to-All | 专家并行中 Token 与输出在设备间重排的集合通信 | 第 7 章 |
+| 分组受限路由 | Group-limited Routing | 限制每个 Token 的专家落在少数设备组内 | 第 7 章 |
+| 容量因子 | Capacity Factor (CF) | 每个专家可接收 Token 数的上限系数 | 第 7 章 |
 | Token 丢弃 | Token Dropping | 专家超出容量时丢弃多余 Token | 第 7 章 |
+| 无丢弃 | Dropless | 不设固定容量、按实际分派计算的实现 | 第 7 章 |
+| 总参数 | Total Parameters | 全部专家与其余模块的参数之和 | 第 7 章 |
+| 激活参数 | Activated Parameters | 每个 Token 实际参与计算的参数量 | 第 7 章 |
+| 激活比 | Activation Ratio | 激活参数与总参数之比 | 第 7 章 |
 | 线性注意力 | Linear Attention | 把注意力重写为线性复杂度的核方法 | 第 8 章 |
 | 状态空间模型 | State Space Model (SSM) | 用线性递推状态描述序列的模型族 | 第 8 章 |
 | S4 | Structured State Space Sequence Model | 用结构化矩阵参数化状态转移的 SSM | 第 8 章 |
@@ -131,6 +143,16 @@
 | 选择性扫描 | Selective Scan | Mamba 中按输入动态调整状态的并行扫描算法 | 第 8 章 |
 | RWKV | Receptance Weighted Key Value | 结合 RNN 推理与 Transformer 训练并行的架构 | 第 8 章 |
 | 混合架构 | Hybrid Architecture | 交错使用注意力层与 SSM/线性层的模型 | 第 8 章 |
+| 核特征映射 | Kernel Feature Map | 把查询与键映射到可做内积的有限维空间的函数 $$\phi$$ | 第 8 章 |
+| 前缀和 | Prefix Sum | 沿序列维累积外积、一次得到所有位置状态的并行操作 | 第 8 章 |
+| 分块线性注意力 | Chunked Linear Attention | 块内二次、块间递推以控制中间显存的长序列实现 | 第 8 章 |
+| 零阶保持 | Zero-Order Hold (ZOH) | 假设步长内输入不变、把连续系统离散化的方法 | 第 8 章 |
+| 线性时不变 | Linear Time-Invariant (LTI) | 参数不随位置变化、可用固定卷积核描述的系统 | 第 8 章 |
+| 并行扫描 | Parallel Scan | 利用结合律在 $$O(\log T)$$ 深度内计算前缀递推 | 第 8 章 |
+| 门控线性递推单元 | Gated Linear Recurrent Unit | 以逐通道门控衰减更新状态的线性递推结构 | 第 8 章 |
+| 闪电注意力 | Lightning Attention | 分块实现的分块线性注意力，用于超长上下文 | 第 8 章 |
+| 门控 DeltaNet | Gated DeltaNet | 带门控衰减与 delta rule 更新的线性注意力变体 | 第 8 章 |
+| 状态账本 | State Ledger | 按层统计缓存/状态字节数随序列长度变化的账目 | 第 8 章 |
 
 ## C.6 预训练
 

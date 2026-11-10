@@ -117,6 +117,52 @@
 | 继续训练转换 | Uptraining | 从 MHA 检查点均值池化 KV 头后少量继续训练 | 第 6 章 |
 | 滑动窗口注意力 | Sliding Window Attention | 每个位置只关注最近若干位置的注意力 | 第 6 章 |
 
+## 第 7 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 混合专家 | Mixture of Experts (MoE) | 用路由器为每个 Token 选择少数专家计算的前馈结构 | 第 7 章 |
+| 专家 | Expert | 参数独立、结构相同的前馈子网络 | 第 7 章 |
+| 路由器 | Router | 为每个 Token 计算专家打分与门控的线性层 | 第 7 章 |
+| 稀疏激活 | Sparse Activation | 每 Token 只计算全部参数中的一小部分 | 第 7 章 |
+| Top-K 路由 | Top-K Routing | 只激活门控概率最高的 $$k$$ 个专家 | 第 7 章 |
+| 容量因子 | Capacity Factor (CF) | 每个专家可用槽位相对均衡份额的倍数 | 第 7 章 |
+| Token 丢弃 | Token Dropping | 专家超出容量时丢弃多余分派 | 第 7 章 |
+| 无丢弃 | Dropless | 不设固定容量、按实际分派计算的实现 | 第 7 章 |
+| 负载均衡辅助损失 | Load Balancing Auxiliary Loss | 惩罚专家负载不均、调节路由概率的辅助目标 | 第 7 章 |
+| 路由器 z-loss | Router z-loss | 约束路由 logits 幅度、提升训练稳定性的正则项 | 第 7 章 |
+| 共享专家 | Shared Expert | 所有 Token 都经过、不被稀疏化的公共专家 | 第 7 章 |
+| 细粒度专家 | Fine-grained Expert | 把专家切窄、同时提高激活个数以保持计算预算的做法 | 第 7 章 |
+| Expert Choice | Expert Choice Routing | 由专家挑选固定数量 Token 的反向路由 | 第 7 章 |
+| 无辅助损失均衡 | Auxiliary-loss-free Balancing | 用专家偏置反馈而非损失项控制负载 | 第 7 章 |
+| 专家并行 | Expert Parallelism (EP) | 把不同专家分布到不同设备、按路由通信 | 第 7 章 |
+| 全对全通信 | All-to-All | 专家并行中 Token 与输出在设备间重排的集合通信 | 第 7 章 |
+| 分组受限路由 | Group-limited Routing | 限制每个 Token 的专家落在少数设备组内 | 第 7 章 |
+| 总参数 | Total Parameters | 全部专家与其余模块的参数之和 | 第 7 章 |
+| 激活参数 | Activated Parameters | 每个 Token 实际参与计算的参数量 | 第 7 章 |
+| 激活比 | Activation Ratio | 激活参数与总参数之比 | 第 7 章 |
+
+## 第 8 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 线性注意力 | Linear Attention | 用可分解核替代 softmax、把历史压进矩阵状态的注意力 | 第 8 章 |
+| 核特征映射 | Kernel Feature Map | 把查询与键映射到可做内积的有限维空间的函数 $$\phi$$ | 第 8 章 |
+| 前缀和 | Prefix Sum | 沿序列维累积外积、一次得到所有位置状态的并行操作 | 第 8 章 |
+| 分块线性注意力 | Chunked Linear Attention | 块内二次、块间递推以控制中间显存的长序列实现 | 第 8 章 |
+| 状态空间模型 | State Space Model (SSM) | 用线性微分方程或递推描述隐藏状态演化的序列模型 | 第 8 章 |
+| 零阶保持 | Zero-Order Hold (ZOH) | 假设步长内输入不变、把连续系统离散化的方法 | 第 8 章 |
+| 线性时不变 | Linear Time-Invariant (LTI) | 参数不随位置变化、可用固定卷积核描述的系统 | 第 8 章 |
+| 结构化状态空间 | Structured State Space (S4) | 用 HiPPO 初始化与结构化矩阵建模长序列的 SSM | 第 8 章 |
+| 选择性状态空间 | Selective State Space / Mamba | 让步长与输入/输出矩阵依赖内容、用并行扫描训练的 SSM | 第 8 章 |
+| 选择性 | Selectivity | 按输入内容控制状态写入、保留与读取的能力 | 第 8 章 |
+| 并行扫描 | Parallel Scan | 利用结合律在 $$O(\log T)$$ 深度内计算前缀递推 | 第 8 章 |
+| 门控线性递推单元 | Gated Linear Recurrent Unit | 以逐通道门控衰减更新状态的线性递推结构 | 第 8 章 |
+| 混合架构 | Hybrid Architecture | 交替使用注意力层与线性/SSM 层的模型结构 | 第 8 章 |
+| 闪电注意力 | Lightning Attention | 分块实现的分块线性注意力，用于超长上下文 | 第 8 章 |
+| 门控 DeltaNet | Gated DeltaNet | 带门控衰减与 delta rule 更新的线性注意力变体 | 第 8 章 |
+| 状态账本 | State Ledger | 按层统计缓存/状态字节数随序列长度变化的账目 | 第 8 章 |
+
 ## 术语一致性约定
 
 - 正文统一使用 "Token"，首次出现时注明"词元"；不混用"标记""词块"。
@@ -145,3 +191,14 @@
 - "前馈宽度"统一指 $$d_{ff}$$，不写作"隐藏层大小"。
 - "权重绑定"对应 weight tying，不与"参数共享"（跨层共享）混用。
 - "并行层"特指注意力与前馈共享同一归一化的块结构，不泛指数据并行或张量并行。
+- "MoE" 首次出现附中文"混合专家"，之后可直接用缩写；"专家"专指 MoE 中的前馈子网络，不用于泛指模型。
+- 专家数统一写 $$E$$，每 Token 激活数写 $$k$$，共享专家数写 $$S_{\text{sh}}$$，专家容量写 $$C_{\text{cap}}$$；代码中的 `n_experts`、`top_k`、`n_shared` 只在代码语境出现。
+- "激活参数"与"总参数"必须成对出现，不把"激活参数"简称为"参数量"；"激活比"固定指两者之比。
+- "负载均衡"不写作"负载平衡"；"容量因子"不写作"容量系数"；"Token 丢弃"不写作"Token 溢出"。
+- "专家并行"对应 expert parallelism，"全对全"对应 All-to-All；不混用"专家分片"。
+- "Expert Choice" 与 "Top-K 路由" 并列时保留英文，首次出现附中文解释。
+- "线性注意力"统一对应 linear attention，首次出现附英文；这里的"线性"指对序列长度线性，不指线性层。
+- "状态空间模型"首次出现附 SSM；"选择性 SSM"与"Mamba"可互换，但指论文方法时写 Mamba。
+- "固定状态"与"定长状态"择一使用，正文统一为"固定状态"；不写作"常数状态"。
+- "混合架构"统一对应 hybrid architecture；具体比例写"注意力:线性层 = 1:m"或"每 m 层一个注意力层"。
+- "衰减"描述状态按系数缩小，"遗忘"描述模型主动丢弃信息；两者不互换。

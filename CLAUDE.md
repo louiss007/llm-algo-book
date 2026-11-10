@@ -104,9 +104,9 @@
 
 ## 当前进度
 
-- 已完成：第 1、2、3 章（`part1/chapter01.md`–`chapter03.md`），交接文件已更新。
-- 下一步：第 4 章《位置编码与长度外推》（`part1/chapter04.md`，其余章，6,000–9,000 字）。
-- 第 4 章要点：正弦位置编码、可学习绝对位置、RoPE 的旋转推导与相对位移性质、ALiBi、位置插值/NTK/YaRN 外推、TinyLM 新增 `tinylm/position.py` 并启用 `pos_encoding` 与 `rope_theta`。
+- 已完成：第 1–8 章（`part1/chapter01.md`–`part2/chapter06.md`、`part2/chapter07.md`、`part2/chapter08.md`），交接文件已更新。
+- 下一步：第 9 章《预训练与缩放定律》（`part2/chapter09.md`，其余章，6,000–9,000 字）。
+- 第 9 章要点：Chinchilla 计算最优、数据重复与质量、学习率与批大小缩放、涌现与相变的争议；TinyLM 复用第 8 章的 `decode_flops`/`state_bytes` 做算力账本，新增 `tinylm/scaling.py`。
 
 ## 文件地图
 

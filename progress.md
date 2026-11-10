@@ -10,6 +10,8 @@
 | 第 4 章 | 完成 | 7579 | 已在本机运行 | 位置编码分派、RoPE/ALiBi、长度外推受控实验 |
 | 第 5 章 | 完成 | 7526 | 已在本机运行 | RMSNorm/SwiGLU/去偏置/绑定/并行层，参数账本与复制任务消融 |
 | 第 6 章 | 完成 | 10516 | 已在本机运行 | MHA/MQA/GQA/MLA、KV Cache 账本、权重吸收等价性与复制任务消融 |
+| 第 7 章 | 完成 | 10543 | 已在本机运行 | MoE 路由/容量/辅助损失、参数与激活账本、通信账本、复制任务消融 |
+| 第 8 章 | 完成 | 7911 | 已在本机运行 | 线性注意力、S4/Mamba、RWKV、混合架构；状态/算力账本与复制任务消融 |
 
 ## 第 1 章交接
 
@@ -345,3 +347,145 @@
 - [x] 论文信息核对：Shazeer 2019（arXiv:1911.02150）、Ainslie 2023（arXiv:2305.13245）、DeepSeek-AI 2024（arXiv:2405.04434）、Su 2021（arXiv:2104.09864）、Pope 2022（arXiv:2211.05102）的作者、年份、标题与编号均无误。
 - [x] 事实性数字可复算：Llama 2 7B、Llama 3 8B、PaLM 540B、DeepSeek-V2 的层数、宽度、头数、$$d_c$$、$$d_r$$ 与缓存字节数均由 (6.6)、(6.11) 复算；GQA 表 1 的指标已核对为"每样本每 TPUv4 芯片的推理时间"。
 - [x] 实验诚实报告：明确标注 10 万参数、2 层、64 维、600 步的玩具实验不能外推；复制任务损失与准确率贴着理论下界，结论限定为"实现正确、账本对齐"，不宣称变体优劣。
+
+## 第 7 章交接
+
+### 本章摘要
+
+本章从"容量的下一个来源"出发，把稠密前馈替换为稀疏激活的混合专家：路由器为每个 Token 打分并选出 Top-K 专家，输出是选中专家的门控加权和。推导了路由器与截断归一化、容量因子与 Token 丢弃、总参数与激活参数账本、负载均衡辅助损失及其梯度、z-loss、共享专家与细粒度专家、Expert Choice 与无辅助损失偏置反馈；补上了反向传播的门控/专家梯度与专家并行的通信账本。代码给 TinyLM 增加 `MoEConfig` 与 `MoE` 层，用逐专家掩码循环实现分派，`aux_loss` 只在训练时返回；实验包括 Mixtral 与 DeepSeek-V3 的参数账本复现、容量收紧演示、3 种子复制任务消融，测试 16 项全部通过。本章明确说明：玩具任务贴着天花板，实验验证的是实现与账本，不是 MoE 的质量优势。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (7.1) | $$\mathbf{y}_t=\sum_{e=1}^{E}g_{t,e}\mathrm{FFN}_e(\mathbf{x}_t)$$ | 稀疏加权输出 |
+| (7.2) | $$\mathbf{u}_t=\mathbf{W}_r\mathbf{x}_t$$ | 路由 logits |
+| (7.3) | $$\mathbf{p}_t=\mathrm{softmax}(\mathbf{u}_t)$$ | 路由概率 |
+| (7.4) | $$\mathcal{T}_t=\mathrm{TopK}(\mathbf{p}_t,k)$$ | Top-K 选择 |
+| (7.5) | $$\tilde{g}_{t,e}=p_{t,e}/\sum_{e'\in\mathcal{T}_t}p_{t,e'}$$ | 截断归一化 |
+| (7.6) | $$\mathbf{y}_t=\sum_{e\in\mathcal{T}_t}\tilde{g}_{t,e}\mathrm{FFN}_e(\mathbf{x}_t)$$ | 最终输出 |
+| (7.7) | $$C_{\text{cap}}=\lceil \mathrm{CF}\cdot N_{\text{tok}}k/E\rceil$$ | 每专家容量 |
+| (7.8) | $$a_{t,e}=\mathbf{1}[\cdot]$$ | 分派指示变量 |
+| (7.9) | $$\mathbf{y}_t=\sum_e a_{t,e}\tilde{g}_{t,e}\mathrm{FFN}_e(\mathbf{x}_t)$$ | 含丢弃的输出 |
+| (7.10) | $$P_e=3d_{model}d_{ff}^{e}$$ | 单专家参数（SwiGLU） |
+| (7.11) | $$P_{\mathrm{MoE}}=d_{model}E+(E+S_{\text{sh}})P_e$$ | 单层 MoE 参数 |
+| (7.12) | $$N=N_0+n_lP_{\mathrm{MoE}}$$ | 总参数 |
+| (7.13) | $$N_{\mathrm{act}}=N_0+n_l(d_{model}E+(k+S_{\text{sh}})P_e)$$ | 每 Token 激活参数 |
+| (7.14) | $$\rho=N_{\mathrm{act}}/N$$ | 激活比 |
+| (7.15) | $$\mathrm{FLOPs}\approx2N_{\mathrm{act}}$$ | 每 Token 前向 FLOPs |
+| (7.16) | $$f_e=\frac{1}{N_{\text{tok}}k}\sum_t\sum_j\mathbf{1}[e\in\mathcal{T}_t]$$ | 专家实际份额 |
+| (7.17) | $$P_e=\frac{1}{N_{\text{tok}}}\sum_t p_{t,e}$$ | 平均路由概率 |
+| (7.18) | $$\mathcal{L}_{\text{aux}}=\alpha E\sum_e f_eP_e$$ | 负载均衡辅助损失 |
+| (7.19) | $$\mathcal{L}_z=\frac{1}{N_{\text{tok}}}\sum_t(\log\sum_e e^{u_{t,e}})^2$$ | 路由器 z-loss |
+| (7.20) | $$\mathcal{L}=\mathcal{L}_{\text{CE}}+\mathcal{L}_{\text{aux}}+\beta\mathcal{L}_z$$ | 总训练目标 |
+| (7.21) | $$\mathbf{y}_t=\sum_{s=1}^{S_{\text{sh}}}\mathrm{FFN}_s(\mathbf{x}_t)+\sum_{e\in\mathcal{T}_t}\tilde{g}_{t,e}\mathrm{FFN}_e(\mathbf{x}_t)$$ | 共享专家 |
+| (7.22) | $$k d_{ff}^{e}=k' d_{ff}/m=k d_{ff}$$ | 细粒度等计算条件 |
+| (7.23) | $$\mathcal{S}_e=\mathrm{TopC}(\{u_{t,e}\}),\ \lvert\mathcal{S}_e\rvert=C_{\text{cap}}$$ | Expert Choice |
+| (7.24) | $$b_e\leftarrow b_e+\gamma\,\mathrm{sign}(\mathrm{load}_e-N_{\text{tok}}k/E)$$ | 无辅助损失均衡 |
+| (7.25) | $$\partial\tilde{g}_{t,e}/\partial p_{t,j}=\frac{1}{Z_t}(\delta_{ej}-\tilde{g}_{t,e})$$ | 门控对概率的偏导 |
+| (7.26) | $$\partial\mathcal{L}/\partial p_{t,j}=\frac{1}{Z_t}(c_{t,j}-\sum_{e\in\mathcal{T}_t}\tilde{g}_{t,e}c_{t,e})$$ | 门控梯度 |
+| (7.27) | $$\partial\mathcal{L}/\partial\mathbf{W}_e=\sum_{t:e\in\mathcal{T}_t}g_{t,e}\,\partial\mathcal{L}/\partial\mathbf{y}_t\,\partial\mathrm{FFN}_e/\partial\mathbf{W}_e$$ | 专家梯度 |
+| (7.28) | $$V_{\text{comm}}=2kd_{model}b$$ | 每 Token 每层通信字节 |
+
+### 实验与关键数字
+
+- 账本（FP16 权重）：Mixtral 8x7B 总参数 46,702,792,704、激活 12,879,925,248（27.6%）、权重 87.0 GiB、每 Token 25.8 GFLOP；DeepSeek-V3 全 MoE 计 702,934,184,960、激活 36,694,160,384；扣除前 3 层稠密前馈后总参数 670,162,777,088；TinyLM MoE 141,861,376 / 66,363,904。
+- 稠密对照：Mixtral 尺寸稠密前馈 7,241,732,096，MoE 用 1.78 倍激活参数承载 6.45 倍容量。
+- 容量演示：CF 1.25→0.5、容量 32/专家，两层丢弃 553/1024 个分派，logits 最大变化 0.032。
+- 复制任务消融（3 种子、600 步）：理论损失下界 0.6261、准确率参考值 0.7883；Dense 0.6313/0.7862、MoE-aux0 0.6323/0.7877、MoE-aux 0.6362/0.7876；负载熵 1.82→2.05（均匀值 2.079），最大专家份额 0.22→0.16。
+- 测试：16 项全部通过，覆盖 moe=None 与第 6 章逐位一致、参数公式、门控行和、同权专家退化、容量上限、无容量不丢弃、辅助损失公式、训练/评估行为、因果性与 Top-K 越界。
+
+### 留给后续章节的伏笔
+
+- **第 8 章**：MoE 用"更多参数、固定计算"扩大容量；线性注意力与 SSM 则试图降低序列维计算。两者都在回答"Transformer 的哪个瓶颈可以先动"。
+- **第 9 章**：总参数与激活参数的口径会影响缩放定律的横轴；MoE 的损失-计算曲线与稠密模型不可直接混用。
+- **第 10 章**：专家分工依赖数据分布与配比；数据课程会影响路由是否塌缩。
+- **第 12 章**：专家并行、All-to-All、ZeRO/FSDP 与容量补齐的显存账本会在分布式训练中展开；(7.28) 是通信估算的起点。
+- **第 14、18 章**：SFT 与 RLVR 阶段仍要维护路由均衡；微调时专家偏置与辅助损失是否继续更新，是工程决策点。
+- **第 21 章**：连续批处理对 MoE 尤其重要，因为小批量解码的 All-to-All 延迟无法被计算掩盖。
+- **第 23 章**：MoE 的权重显存是量化的主要目标；专家粒度为逐专家量化提供天然的分组。
+- **第 24 章**：Expert Choice 与非因果路由在测试时计算扩展中可能重新有用武之地。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、对比、代码、工业实践、论文、误区、小结、"本章的取舍"、习题齐全。
+- [x] 推导无跳步：路由与归一化、容量与丢弃、参数/激活账本、辅助损失及其梯度、z-loss、共享/细粒度专家、Expert Choice、偏置反馈、门控与专家反向梯度、通信账本均有完整步骤。
+- [x] 符号与附录 B 一致：新增 $$E$$、$$k$$、$$S_{\text{sh}}$$、$$d_{ff}^{e}$$、$$\mathbf{W}_r$$、$$\mathbf{u}_t$$、$$\mathbf{p}_t$$、$$\mathcal{T}_t$$、$$\tilde{g}_{t,e}$$、$$Z_t$$、$$C_{\text{cap}}$$、$$\mathrm{CF}$$、$$a_{t,e}$$、$$f_e$$、$$P_e$$、$$P_{\mathrm{MoE}}$$、$$N_{\text{tok}}$$、$$N_{\mathrm{act}}$$、$$\rho$$、$$\mathcal{L}_{\text{aux}}$$、$$\mathcal{L}_z$$、$$b_e$$、$$\gamma$$、$$G$$、$$V_{\text{comm}}$$ 已登记；容量用 $$C_{\text{cap}}$$ 避开第 9 章的算力 $$C$$，共享专家数用 $$S_{\text{sh}}$$ 避开第 2 章的特殊 Token 数 $$S$$，组数上限用 $$G$$ 避开第 2 章的 BPE 合并次数 $$M$$，批次 Token 数用 $$N_{\text{tok}}$$ 避开模型总参数 $$N$$。
+- [x] 代码可运行：从 `part2/chapter07.md` 直接提取代码块，在本机 Python 3.13 + PyTorch 2.9 CPU 上运行，主程序输出与正文逐字一致。
+- [x] 测试可运行：同一 Markdown 提取的 `tests/test_moe.py` 通过 16 项测试（约 1 s），覆盖稠密退化、参数公式、路由、容量、辅助损失、因果性。
+- [x] 公式与代码对应：代码注释标注 (7.2)–(7.8)、(7.10)、(7.16)–(7.18)、(7.21)。
+- [x] GitBook 语法：hint 使用 info/warning/success 三类，1 个 mermaid、1 个 details、3 张对比表；代码块均标注语言；数学全部用双美元符号。
+- [x] 篇幅：正文 10,543 个中文字符，符合核心章 10,000–12,000 字预算。
+- [x] 论文信息核对：Shazeer 2017（arXiv:1701.06538）、Lepikhin 2020（arXiv:2006.16668）、Fedus 2021（arXiv:2101.03961）、Zoph 2022（arXiv:2202.08906）、Dai 2024（arXiv:2401.06066）的作者、年份、标题与编号均无误。
+- [x] 事实性数字可复算：Mixtral 46,702,792,704 / 12,879,925,248 由 (7.11)–(7.13) 逐位复现；DeepSeek-V3 全 MoE 702.9B 扣除前 3 层稠密后 670.16B；参数消融 135,104 → 435,008 与激活 136,256 均手算复核；2025 年 Qwen3 与 Kimi K2 配置标注为"截至写作时"并注明可能随版本微调。
+- [x] 实验诚实报告：明确标注 2 层、64 维、600 步的玩具任务贴着天花板，三组损失/准确率差异不足以证明 MoE 质量优势；容量演示只验证丢弃机制，不说明质量影响；辅助损失提高负载熵但语言建模损失差异在标准差内，未宣称因果退化。
+
+## 第 8 章交接
+
+### 本章摘要
+
+本章从长上下文的 KV Cache 瓶颈出发，系统梳理 Transformer 之外的三条路线：线性注意力、状态空间模型与 RWKV，以及把二者组合起来的混合架构。推导了线性注意力的核替换、矩阵状态与前缀和训练；从连续状态空间方程与零阶保持离散化出发，得到 SSM 的递推、卷积与 FFT 训练；解释了选择性 SSM 为什么打破时不变性、必须改用并行扫描；给出了 RWKV 的指数衰减递推、混合架构的层模式与状态/算力账本；最后讨论固定状态的表达上界与复制任务证据。代码给 TinyLM 增加 `block_type` 分派与 `tinylm/ssm.py`，默认 `attention` 与第 7 章逐位一致；账本覆盖注意力、线性注意力、纯 SSM 与 1:3 混合四种配置；受控实验在复制任务上复现了"纯 SSM 会失败、混合可恢复"的方向。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (8.1) | $$\mathbf{y}_t=\sum_{j\le t}\frac{\exp(\mathbf{q}_t^\top\mathbf{k}_j/\sqrt{d})}{\sum_{j'\le t}\exp(\mathbf{q}_t^\top\mathbf{k}_{j'}/\sqrt{d})}\mathbf{v}_j$$ | 标准因果注意力 |
+| (8.2) | $$\exp(\mathbf{q}^\top\mathbf{k})\approx\phi(\mathbf{q})^\top\phi(\mathbf{k})$$ | 核函数替换 |
+| (8.3) | $$\mathbf{y}_t=\frac{\sum_{j\le t}(\phi(\mathbf{q}_t)^\top\phi(\mathbf{k}_j))\mathbf{v}_j}{\sum_{j\le t}\phi(\mathbf{q}_t)^\top\phi(\mathbf{k}_j)}$$ | 核化注意力 |
+| (8.4) | $$\mathbf{S}_t=\sum_{j\le t}\phi(\mathbf{k}_j)\mathbf{v}_j^\top,\ \mathbf{z}_t=\sum_{j\le t}\phi(\mathbf{k}_j)$$ | 状态与归一化向量的前缀和 |
+| (8.5) | $$\mathbf{y}_t=\phi(\mathbf{q}_t)^\top\mathbf{S}_t/(\phi(\mathbf{q}_t)^\top\mathbf{z}_t)$$ | 由状态读出输出 |
+| (8.6) | $$\mathbf{S}_t=\mathbf{S}_{t-1}+\phi(\mathbf{k}_t)\mathbf{v}_t^\top,\ \mathbf{z}_t=\mathbf{z}_{t-1}+\phi(\mathbf{k}_t)$$ | 线性注意力递推 |
+| (8.7) | $$O(T^2d)\ \text{vs}\ O(Td^2),\ O(d^2)\ \text{state}$$ | 复杂度对照 |
+| (8.8) | $$\mathbf{h}'=\mathbf{A}\mathbf{h}+\mathbf{B}\mathbf{x},\ \mathbf{y}=\mathbf{C}\mathbf{h}+\mathbf{D}\mathbf{x}$$ | 连续状态空间方程 |
+| (8.9) | $$\bar{\mathbf{A}}=e^{\Delta\mathbf{A}},\ \bar{\mathbf{B}}=(\Delta\mathbf{A})^{-1}(e^{\Delta\mathbf{A}}-\mathbf{I})\Delta\mathbf{B}$$ | 零阶保持离散化 |
+| (8.10) | $$h_{t,n}=\bar{a}_{t,n}h_{t-1,n}+\bar{b}_{t,n}x_t,\ y_t=\sum_n c_{t,n}h_{t,n}+D x_t$$ | 对角逐通道递推 |
+| (8.11) | $$y_t=\sum_{j\le t}\mathbf{C}\bar{\mathbf{A}}^{t-j}\bar{\mathbf{B}}x_j+D x_t$$ | 展开成卷积 |
+| (8.12) | $$K_i=\mathbf{C}\bar{\mathbf{A}}^i\bar{\mathbf{B}}$$ | 时不变卷积核 |
+| (8.13) | $$\Delta_t=\mathrm{softplus}(\mathbf{W}_\Delta\mathbf{x}_t+\mathbf{b}_\Delta),\ \mathbf{B}_t=\mathbf{W}_B\mathbf{x}_t,\ \mathbf{C}_t=\mathbf{W}_C\mathbf{x}_t$$ | 输入相关的选择性参数 |
+| (8.14) | $$\bar{\mathbf{A}}_t=e^{\Delta_t\mathbf{A}},\ \bar{\mathbf{B}}_t=(\Delta_t\mathbf{A})^{-1}(e^{\Delta_t\mathbf{A}}-\mathbf{I})\Delta_t\mathbf{B}_t$$ | 输入相关的离散化 |
+| (8.15) | $$O(TIN),\ O(IN)$$ | 选择性 SSM 复杂度与状态 |
+| (8.16) | $$P_{\text{ssm}}=3dI+I(3N+7)+[4I+d\ \text{or}\ I]$$ | 单层 SSM 参数量 |
+| (8.17) | $$(a_1,b_1)\circ(a_2,b_2)=(a_2a_1,a_2b_1+b_2)$$ | 并行扫描的结合律 |
+| (8.18) | $$\mathbf{n}_t=e^{-\mathbf{w}}\odot\mathbf{n}_{t-1}+e^{\mathbf{k}_t}\odot\mathbf{v}_t,\ \mathbf{z}_t=e^{-\mathbf{w}}\odot\mathbf{z}_{t-1}+e^{\mathbf{k}_t}$$ | RWKV 分子与分母 |
+| (8.19) | $$\mathbf{y}_t=\sigma(\mathbf{r}_t)\odot\mathbf{n}_t/\mathbf{z}_t$$ | RWKV 输出 |
+| (8.20) | $$\text{kind}(i)=\text{attn}\ \text{if}\ (i+1)\bmod m=0$$ | 混合层模式 |
+| (8.21) | $$M_{\text{attn}}=2BTn_{kv}d_hb$$ | 注意力缓存 |
+| (8.22) | $$M_{\text{ssm}}=BINb$$ | SSM 状态 |
+| (8.23) | $$F_{\text{dec}}\approx2N_{\text{param}}+n_{\text{attn}}4Td+n_{\text{ssm}}4IN$$ | 解码计算近似 |
+
+### 实验与关键数字
+
+- 账本（$$d=4096$$、32 层、GQA-8、FP16 状态、B=1）：注意力 7,241,732,096 参数，状态 1.0 GiB @8K / 16.0 GiB @128K，解码 18.8 / 83.2 GFLOP；线性注意力 8,047,038,464，状态 1.0 GiB / 1.0 GiB，18.2 / 18.2 GFLOP；纯 SSM 9,135,460,352，状态 8.0 MiB / 8.0 MiB，18.3 / 18.3 GFLOP；1:3 混合 8,662,028,288，状态 262.0 MiB / 4.0 GiB，18.4 / 34.5 GFLOP。
+- 每层状态：注意力 32.0 MiB @8K、512.0 MiB @128K；线性注意力 32.0 MiB 恒定；SSM 256.0 KiB 恒定；混合平均 8.2 MiB / 128.2 MiB。
+- 解码算力交叉点：注意力与 SSM 约 7,300 Token；8K 时两者几乎持平，128K 时注意力是 SSM 的约 4.5 倍。
+- 参数公式核对：单层 SSM 31,744，两层模型 164,160，与 `sum(p.numel())` 逐位一致。
+- 长上下文稳定性：T=8/64/512 时状态形状恒为 `(1, 128, 16)`，范数 0.08/0.10/0.10，输出全部有限。
+- 复制任务消融（3 种子、600 步，损失/准确率均值±标准差）：理论下界 0.6261、随机基线准确率约 0.788。注意力 135,104 参数，0.6313±0.0033 / 0.7862±0.0008；线性注意力 135,104，1.2705±0.0358 / 0.6169±0.0124，状态范数 16221.77；纯 SSM 166,208，2.0816±1.1965 / 0.3025±0.4136，状态范数 151.54；1:1 混合 150,656，0.6299±0.0012 / 0.7876±0.0009，状态范数 21.73。
+- 测试：22 项全部通过，覆盖默认配置与第 7 章逐位一致、线性注意力扫描与二次形式等价、并行扫描与逐步递推一致、SSM 状态形状与序列长度解耦、参数公式、四类块型的账本、因果性、长序列稳定性、混合层型与状态账本。
+
+### 留给后续章节的伏笔
+
+- **第 9 章**：缩放定律的横轴是训练计算，混合架构的每 Token FLOPs 与上下文相关；比较不同架构的计算最优配置时，不能直接套用稠密 Transformer 的拟合结果。
+- **第 10 章**：长上下文与检索任务的数据配比决定混合比例与线性层层数；纯 SSM 在复制类任务上的短板需要数据与评测共同兜住。
+- **第 11 章**：SSM 的状态范数、衰减参数与门控是训练稳定性的新变量；(8.10) 的负实部约束是数值稳定的前提。
+- **第 12 章**：并行扫描与序列并行是分布式的独立话题；混合架构的注意力层与递推层需要不同的切分策略。
+- **第 13 章**：混合架构、分块线性注意力与位置外推是长上下文训练的三条并行路线，本章的账本可直接用于显存预算。
+- **第 19 章**：把训练好的 Transformer 线性化或蒸馏成 SSM/线性注意力，是压缩长上下文推理成本的一条路线。
+- **第 21 章**：KV Cache 的分页、量化与调度只作用于注意力层；混合架构让这部分显存按注意力占比缩小。
+- **第 23 章**：SSM 状态对低精度更敏感，衰减乘积在 FP8/FP16 下的误差会累积；量化方案要单独评估状态与卷积核。
+- **第 27 章**：长上下文评测（如 RULER）是检验混合架构是否真的保住检索能力的必要环节，不能只看平均损失。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、对比、代码、工业实践、论文、误区、小结、"本章的取舍"、习题齐全。
+- [x] 推导无跳步：核替换与状态递推、前缀和、零阶保持（含积分推导）、卷积展开、选择性离散化、并行扫描结合律、RWKV 递推、状态与算力账本均有完整步骤。
+- [x] 符号与附录 B 一致：新增 $$\phi$$、$$\mathbf{S}_t$$、$$\mathbf{z}_t$$、$$d_\phi$$、$$\bar{\mathbf{A}}$$、$$\bar{\mathbf{B}}$$、$$\Delta_t$$、$$N$$（状态维度）、$$I$$、$$e$$（扩展倍数）、$$\mathbf{w}$$、$$M_{\text{attn}}$$、$$M_{\text{ssm}}$$、$$F_{\text{dec}}$$ 已登记；状态维度用 $$N$$ 并注明与第 7 章模型总参数 $$N$$ 的冲突，读时按上下文区分；扩展倍数用 $$e$$ 并注明不与自然常数混淆。
+- [x] 代码可运行：从 `part2/chapter08.md` 直接提取代码块，在本机 Python 3.13 + PyTorch 2.9 CPU 上运行，主程序输出与正文逐字一致。
+- [x] 测试可运行：同一 Markdown 提取的 `tests/test_ssm.py` 通过 22 项测试（约 1 s），覆盖等价性、扫描、因果性、状态大小与账本。
+- [x] 公式与代码对应：代码注释标注 (8.1)–(8.6)、(8.8)–(8.10)、(8.13)–(8.17)。
+- [x] GitBook 语法：hint 使用 info/success 两类，1 个 mermaid、1 个 details、2 张表；代码块均标注语言；数学全部用双美元符号；公式 (8.1)–(8.23) 连续。
+- [x] 篇幅：正文 7,893 个中文字符，符合其余章 6,000–9,000 字预算。
+- [x] 论文信息核对：Katharopoulos 2020（arXiv:2006.16236）、Gu/Goel/Ré 2021（arXiv:2111.00396）、Gu/Dao 2023（arXiv:2312.00752）、Peng 2023（arXiv:2305.13048）、Lieber 2024（arXiv:2403.19887）的作者、年份、标题与编号均无误；正文另引 Jelassi 2024（arXiv:2402.01032）与 Merrill 2024（arXiv:2404.08819）。
+- [x] 事实性数字可复算：4096 维、32 层、GQA-8 的状态与 FLOPs 均由 (8.21)–(8.23) 复算；SSM 参数 31,744 与 164,160 由 (8.16) 手算复核；Jamba 32 层（4 注意力 + 28 Mamba）、MiniMax-01 每 8 层 1 个 softmax 注意力、Qwen3-Next 48 层 3:1 均按公开模型卡/技术报告核对。
+- [x] 实验诚实报告：明确标注 2 层、64 维、600 步的复制任务是玩具实验；纯 SSM 的高方差与失败种子如实报告，不宣称"SSM 全面劣于注意力"；明确说明 CPU 朴素扫描的训练速度不能外推到 GPU 内核。

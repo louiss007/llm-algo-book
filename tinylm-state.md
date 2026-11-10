@@ -9,8 +9,10 @@
 - **位置编码**：第 4 章在基线上增加 `sine`、`rope`、`nope`、`alibi` 四种 `pos_encoding`，并接入 PI/NTK/YaRN 三种 RoPE 缩放；代码仍以章节内嵌形式存在。
 - **现代架构**：第 5 章增加 `RMSNorm`、`SwiGLU`、无偏置、权重绑定与可选的并行块（`parallel_block`），并给出 `exact_params` 与 `flops_per_token` 两个账本函数；代码仍以章节内嵌形式存在。
 - **注意力变体**：第 6 章增加 `VariantAttention`（MHA/MQA/GQA）与 `LatentAttention`（MLA），由 `attention`、`n_kv_heads`、`d_c`、`d_head_rope` 分派；新增 `attention_params` 与 `kv_cache_bytes` 两个账本函数；代码仍以章节内嵌形式存在。
+- **混合专家**：第 7 章增加 `MoEConfig` 与 `MoE`（路由器、Top-K 分派、容量丢弃、共享专家、辅助损失），`TransformerBlock` 的前馈子层在稠密 FFN 与 MoE 之间分派；新增 `model_params(active=...)`、`moe_layer_params`、`expert_params` 账本函数；`CausalLMOutput.aux_loss` 开始生效；代码仍以章节内嵌形式存在。
+- **替代架构**：第 8 章增加 `block_type`（`attention` / `linear_attention` / `ssm` / `hybrid`）、`ssm_d_state`、`ssm_expand`、`hybrid_attn_every`；新增 `SelectiveSSM`、`LinearAttention`、`scan_states`、`SSMBlock`、`LinearAttentionBlock` 与 `make_block`/`layer_kinds` 分派；新增 `ssm_layer_params`、`state_bytes`、`decode_flops` 账本函数；默认 `attention` 与第 7 章逐位一致；代码仍以章节内嵌形式存在。
 - **接口契约**：未修改。`TinyLM.forward` 保持附录 F 的签名，新增字段只出现在 `ModelConfig` 与 `CausalLMOutput` 中。
-- **配置**：`ModelConfig` 首次落地（见第 3 章变更）。`pos_encoding` 与 `rope_theta` 在第 4 章启用，新增 `rope_scaling`；第 6 章启用 `attention`、`n_kv_heads`、`d_c`、`d_head_rope`；部分字段仍为后续章节预留。
+- **配置**：`ModelConfig` 首次落地（见第 3 章变更）。`pos_encoding` 与 `rope_theta` 在第 4 章启用，新增 `rope_scaling`；第 6 章启用 `attention`、`n_kv_heads`、`d_c`、`d_head_rope`；第 7 章启用 `moe` 与 `MoEConfig`（含 `capacity_factor`）；部分字段仍为后续章节预留。
 
 ## 第 1 章变更
 
@@ -169,6 +171,38 @@
 - `attention_params` 与 `kv_cache_bytes` 是账本函数，不属于 `TinyLM` 公共接口；MLA 的参数量含 Q RoPE 投影与共享 `k_rope` 投影；
 - `TinyLM.forward` 签名未变，第 4、5 章所有配置仍可用；`n_kv_heads=None` 时 MHA 行为与第 5 章逐位一致。
 
+## 第 7 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/config.py` | 章节内嵌实现 | 新增 `MoEConfig`；`ModelConfig` 增加 `moe` 字段，默认 `None` 保持稠密前馈 |
+| `tinylm/moe.py` | 章节内嵌实现 | `Expert`、`MoE`、`load_balance_loss`、`make_ffn_or_moe`；路由、Top-K、容量、共享专家与辅助损失 |
+| `tinylm/block.py` | 章节内嵌实现 | `TransformerBlock` 的前馈子层改用 `make_ffn_or_moe`；前向返回 `(x, aux)` |
+| `tinylm/model.py` | 章节内嵌实现 | 汇总各层 `aux_loss` 到 `CausalLMOutput.aux_loss`；其余路径不变 |
+| `tests/test_moe.py` | 章节内嵌实现 | 16 个用例：稠密退化、参数公式、路由、容量、辅助损失、因果性、前向 |
+| `examples/ch07_moe.py`（章内为 `ch07.py` 的 `ledger`/`capacity_demo`/`ablation`） | 章节内嵌实现 | Mixtral/DeepSeek-V3 账本、容量演示、复制任务消融 |
+
+配置字段变化（新增 `MoEConfig`）：
+
+| 字段 | 默认值 | 第 7 章行为 |
+| --- | --- | --- |
+| `n_experts` | `8` | 普通专家的个数，必须 ≥ 1 |
+| `top_k` | `2` | 每 Token 激活的专家数，必须满足 `1 <= top_k <= n_experts` |
+| `n_shared` | `0` | 始终激活的共享专家数 |
+| `d_ff_expert` | `None` | `None` 时沿用 `ModelConfig.d_ff` |
+| `capacity_factor` | `1.25` | 每专家容量系数；`None` 表示不丢弃 |
+| `aux_loss_coef` | `0.01` | 辅助损失系数；`0` 表示不计算 |
+
+实现要点：
+
+- 路由器是无偏置线性层，输出 `(B*T, E)` logits，softmax 后取 Top-K，再对选中的概率做截断归一化；
+- 容量按 `ceil(CF * n_tokens * top_k / n_experts)` 计算；分派按 Token 位置先到先得，用 `cumsum` 实现，超出的分派计入 `last_dropped`；
+- 分派用"逐专家掩码 + 索引"实现，每个专家只对分到它的 Token 做一次矩阵乘；生产实现应换成排序加分组 GEMM；
+- 共享专家在路由之后对全部 Token 相加，不参与容量限制；
+- 辅助损失只在 `self.training` 且 `aux_loss_coef > 0` 时计算，评估时 `aux_loss=None`；训练总损失由调用方使用 `loss + aux_loss`；
+- `last_load`、`last_dropped` 是诊断属性，不进入 `state_dict`，不改变冻结接口；
+- `moe=None` 时 `make_ffn_or_moe` 返回第 5 章的稠密 FFN，模型与第 6 章逐位一致（测试覆盖）。
+
 ## 本章固定的约定
 
 1. 损失统一按 Token 平均，单位 nat；报告困惑度时同时给出 `exp(loss)`。
@@ -183,19 +217,48 @@
 10. 任何改动模型结构的实验，都必须先跑因果性测试（改第 10 个位置的输入，检查前 10 个位置的 logits 不变）。
 11. `logits_to_keep` 在训练与预填充时忽略，只在第 18 章接入 KV cache 后生效。
 
+## 第 8 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/config.py` | 章节内嵌实现 | `ModelConfig` 继承第 7 章，新增 `block_type`、`ssm_d_state`、`ssm_expand`、`hybrid_attn_every` |
+| `tinylm/ssm.py` | 章节内嵌实现 | `scan_states`、`SelectiveSSM`、`LinearAttention` |
+| `tinylm/block.py` | 章节内嵌实现 | `SSMBlock`、`LinearAttentionBlock`、`make_block`、`layer_kinds` |
+| `tinylm/model.py` | 章节内嵌实现 | `TinyLM` 的模块列表改为 `make_block(cfg, i)` 分派，其余结构与第 7 章相同 |
+| `tests/test_ssm.py` | 章节内嵌实现 | 22 个用例：默认等价、扫描/二次等价、因果性、状态大小、参数与状态账本 |
+| `examples/ch08_alt_arch.py` | 本章以 `ch08.py` 的 `ledger`、`long_context_demo`、`ablation` 代替 | 状态/算力账本与复制任务消融 |
+
+配置字段变化：
+
+| 字段 | 默认值 | 第 8 章行为 |
+| --- | --- | --- |
+| `block_type` | `"attention"` | 接受 `"attention"`、`"linear_attention"`、`"ssm"`、`"hybrid"`；默认保持第 7 章逐位一致 |
+| `ssm_d_state` | `16` | 每个内部通道的状态维度 $$N$$；仅 SSM 相关块使用 |
+| `ssm_expand` | `2` | 内部宽度 $$I=e\,d_{model}$$ 的扩展倍数 |
+| `hybrid_attn_every` | `4` | 混合架构中每隔多少层放一个注意力层，即 (8.20) 的 $$m$$ |
+
+实现要点：
+
+- `make_block` 按 `block_type` 返回 `TransformerBlock`、`SSMBlock`、`LinearAttentionBlock` 或混合序列；`layer_kinds` 是账本使用的同构函数，必须与 `make_block` 的分派一致；
+- `SSMBlock` 与 `TransformerBlock` 同构：`norm1 + mixer + norm2 + FFN`，只在 `mixer` 处不同；`LinearAttentionBlock` 继承 `SSMBlock` 并替换 `mixer`，两者都返回 `(x, aux)` 以兼容第 7 章的 MoE 辅助损失；
+- `SelectiveSSM` 的 $$\mathbf{A}=-\exp(\mathbf{A}_{\log})$$ 保证负实部；步长投影 `dt_proj` 始终带偏置，参数量按 (8.16) 计算；
+- 深度因果卷积用移位切片手写，避免 CPU 上 `Conv1d` 反向的开销；生产实现应换成专用内核；
+- `scan_states` 是 Hillis–Steele 扫描，复合算子见 (8.17)；要求 $$|a|\le1$$ 才能稳定；
+- `last_state` 保存最后位置的状态并 `detach`，是诊断属性，不进入 `state_dict`；
+- 线性注意力直接物化 $$\mathbf{S}_t$$（`cumsum`），只适合教学规模；生产实现必须分块；
+- 账本函数全部解析计算，不为大配置实例化模型；`state_bytes` 与 `decode_flops` 区分注意力层与递推层。
+
 ## 下一章待实现
 
-第 7 章《混合专家》要在第 6 章基线上增加：
+第 9 章《缩放定律》在第 8 章基线上不需要新增模型模块，重点是实验与拟合：
 
 | 文件 | 内容 |
 | --- | --- |
-| `tinylm/moe.py` | 路由器、Top-K 分派、容量因子与 Token 丢弃、共享专家、辅助损失 |
-| `tinylm/block.py` | 前馈子层按 `moe` 配置在稠密 FFN 与 MoE 之间分派 |
-| `tinylm/config.py` | 启用 `moe` 字段（`MoEConfig`）；默认 `None` 保持稠密前馈 |
-| `tests/test_moe.py` | 路由权重行和、Top-K 选择、容量溢出、辅助损失为零的均衡条件、因果性 |
-| `examples/ch07_moe.py` | 总参数与激活参数分离的账本，专家数与 Top-K 的消融 |
+| `tinylm/scaling.py` | 幂律拟合、计算最优分配、Chinchilla 风格的参数/数据配比 |
+| `tests/test_scaling.py` | 幂律拟合在合成数据上的参数恢复、计算最优解的边界条件 |
+| `examples/ch09_scaling.py` | 小模型扫描、损失-计算曲线、不同架构的每 Token FLOPs 口径对照 |
 
-第 7 章不得修改 `TinyLM.forward` 签名；`moe=None` 时必须保持第 6 章的稠密前馈行为；MoE 层必须通过因果性测试，且 `aux_loss` 为空时 `CausalLMOutput.aux_loss` 为 `None`。
+第 9 章不得修改 `TinyLM.forward` 与 `CausalLMOutput`；若引入架构相关的 FLOPs 口径，必须复用第 8 章的 `decode_flops` 与 `state_bytes`，不得另起一套账本。
 
 ## 验收门槛
 
@@ -205,7 +268,7 @@
 - 保存/加载后的分词结果完全一致；
 - 模型配置中的 `vocab_size` 与实际词表大小一致；
 - 第 3 章的嵌入矩阵与输出层维度均能由 `vocab_size` 正确推导；
-- 因果性测试通过：位置 $t$ 的 logits 只依赖前 $t$ 个 Token；
+- 因果性测试通过：位置 $$t$$ 的 logits 只依赖前 $$t$$ 个 Token；
 - 注意力权重每行和为 1，且上三角严格为 0；
 - 精确参数公式 (3.22) 与实测参数量逐位一致；
 - 切换位置编码实现时，`TinyLM.forward` 签名不得改变；
@@ -228,3 +291,24 @@
 - `n_kv_heads` 不整除 `n_heads`（GQA）必须在 `ModelConfig.__post_init__` 中报错；
 - MLA 权重吸收的内容通路输出误差小于 `1e-5`（FP32 随机权重）；
 - MHA/MQA/GQA/MLA 四种变体均通过因果性测试：改动位置 `t` 的输入，`t` 之前的输出不变。
+- `moe=None` 时 `TinyLM` 与第 6 章在相同权重下 logits 误差小于 `1e-6`，且 `aux_loss=None`；
+- `model_params(cfg)` 与 `sum(p.numel())` 在含共享专家的 MoE 配置上逐位一致；`model_params(cfg, active=True)` 与 (7.13) 一致；
+- Top-K 门控每行之和为 1（误差小于 `1e-6`）；所有专家权重相同时，MoE 输出等于单个专家；
+- 容量因子生效时，每个专家接收的 Token 数不超过 `ceil(CF * N_tok * k / E)`，且接收数之和加丢弃数等于 `N_tok * k`；
+- `capacity_factor=None` 时 `last_dropped == 0`，接收数之和等于 `N_tok * k`；
+- 辅助损失在负载均匀时等于 `alpha`，失衡时大于 `alpha`；只在训练且系数大于 0 时返回，评估时为 `None`；
+- `top_k > n_experts` 必须在 `MoEConfig.__post_init__` 中报错；
+- MoE 层通过因果性测试：改动位置 `t` 的输入，`t` 之前的 logits 不变；
+- `aux_loss` 不为空时，训练总损失采用 `loss + aux_loss`，且 `CausalLMOutput` 的其余字段语义不变。
+- `block_type="attention"` 时 `TinyLM` 与第 7 章在相同权重下 logits 误差小于 `1e-6`，且 `aux_loss=None`；
+- `LinearAttention` 的扫描形式与显式二次形式（带因果掩码）误差小于 `1e-5`；
+- `scan_states` 与逐步递推在 T=1、2、17、32 上误差小于 `1e-6`；
+- `SelectiveSSM.last_state` 形状为 `(B, expand*d_model, d_state)`，与序列长度无关；
+- `ssm_layer_params(cfg)` 与 `SelectiveSSM(cfg)` 的 `sum(p.numel())` 逐位一致；
+- `model_params(cfg)` 与 `sum(p.numel())` 在四种 `block_type` 上逐位一致；
+- SSM、线性注意力与混合块均通过因果性测试：改动位置 `t` 的输入，`t` 之前的 logits 不变；
+- T=512 时输出与状态全部有限，状态最大绝对值小于 `1e3`；
+- `hybrid_attn_every=4`、`n_layers=4` 时 `layer_kinds(cfg) == ["ssm","ssm","ssm","attn"]`，且最后一个块是第 7 章的 `TransformerBlock`；
+- `state_bytes` 对 SSM/线性注意力与序列长度无关，对注意力随长度线性增长；同配置下 SSM 状态小于线性注意力；
+- `block_type` 不在四个合法值内时必须在 `ModelConfig.__post_init__` 中报错；
+- 全零输入经过线性注意力不得产生 NaN（分母裁剪生效）。
