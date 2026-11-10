@@ -73,11 +73,12 @@
 开工前按顺序读：
 
 1. `CLAUDE.md`（本文件）
-2. `progress.md`（进度与上一章交接）
-3. `tinylm-state.md`（当前接口与配置状态）
-4. `notation.md`、`glossary.md`（符号与术语增量）
-5. `appendix/b-notation.md`、`appendix/c-glossary.md`、`appendix/f-tinylm.md`
-6. 上一章的结尾与本章在 `SUMMARY.md` 中的定位
+2. `prompt.md`（本书的原始任务设定与全书结构）
+3. `progress.md`（进度与上一章交接）
+4. `tinylm-state.md`（当前接口与配置状态）
+5. `notation.md`、`glossary.md`（符号与术语增量）
+6. `appendix/b-notation.md`、`appendix/c-glossary.md`、`appendix/f-tinylm.md`
+7. 上一章的结尾与本章在 `SUMMARY.md` 中的定位
 
 写作与交付顺序：
 
