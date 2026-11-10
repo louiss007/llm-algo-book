@@ -120,3 +120,48 @@ $$n_{vocab}$$ 已在第 1 章登记；本章新增关系 $$n_{vocab}=|\mathcal{V
 {% hint style="warning" %}
 第 4 章的易混点：$$b$$ 单独出现时是位置编码基频，$$b_{\mathrm{clip}(j-i)}$$ 是 T5 的相对位置偏置；$$\omega_i$$ 是正弦编码的角频率，$$\theta_i$$ 是 RoPE 的旋转频率，二者形式相同但定义域不同；$$s_{\mathrm{rope}}$$ 是位置缩放因子，$$s_{ij}$$ 仍是第 3 章的注意力打分；$$r_i$$ 是 YaRN 的波长比，$$r$$ 在第 2 章是压缩比；$$t_y$$ 是温度因子，$$T$$ 是序列长度。
 {% endhint %}
+
+## 第 5 章
+
+| 符号 | 含义 | 首次出现 |
+| --- | --- | --- |
+| $$\mathrm{RMS}(\mathbf{x})$$ | 均方根，$$\sqrt{\frac{1}{d}\sum_i x_i^2}$$ | 第 5 章 |
+| $$\mathrm{RMSNorm}(\cdot)$$ | 均方根归一化，只缩放不减均值 | 第 5 章 |
+| $$\mathrm{GLU}(\cdot)$$ | 门控线性单元 | 第 5 章 |
+| $$\mathrm{SiLU}(\cdot)$$ | SiLU/Swish 激活，$$z\sigma(z)$$ | 第 5 章 |
+| $$\sigma(\cdot)$$ | Sigmoid 函数 | 第 5 章 |
+| $$\mathbf{W}_1,\ \mathbf{W}_2,\ \mathbf{W}_3$$ | SwiGLU 的门、值与输出投影 | 第 5 章 |
+| $$N_{\mathrm{modern}}$$ | 现代配置的精确参数量 | 第 5 章 |
+| $$n_{kv},\ d_{kv}$$ | 键/值头数、键值投影总宽度 | 第 5 章（第 6 章展开） |
+
+{% hint style="warning" %}
+第 5 章的易混点：$$\sigma(\cdot)$$ 是 Sigmoid，$$\sigma_t$$ 是第 3 章层归一化中的标准差，二者不是同一个符号；$$N_{\mathrm{modern}}$$ 是参数量公式，$$N$$ 在第 2 章是 BPE 词表大小；$$\mathbf{W}_1,\mathbf{W}_2,\mathbf{W}_3$$ 专指 SwiGLU 的三个投影，与第 3 章的 $$\mathbf{W}_{\text{in}},\mathbf{W}_{\text{out}}$$ 对应但不混用；$$d_{ff}$$ 是前馈中间维度，$$d_k$$ 是注意力打分维度；$$d_{kv}$$ 是键值投影的总宽度，不是单个 KV 头的维度。
+{% endhint %}
+
+## 第 6 章
+
+| 符号 | 含义 | 首次出现 |
+| --- | --- | --- |
+| $$n_{kv}$$ | KV 头数，$$1\le n_{kv}\le n_h$$；MHA 取 $$n_h$$，MQA 取 1 | 第 6 章（第 5 章预留） |
+| $$d_{kv}$$ | K/V 投影总宽度，$$d_{kv}=d_{model}n_{kv}/n_h$$ | 第 6 章（第 5 章预留） |
+| $$d_h$$ | 单头维度，减少 KV 头时保持不变 | 第 3 章 |
+| $$d_c$$ | MLA 潜向量维度，$$d_c\ll d_{model}$$ | 第 6 章 |
+| $$d_r$$ | MLA 解耦 RoPE 的位置键维度 | 第 6 章 |
+| $$\mathbf{c}_t$$ | 位置 $$t$$ 的 MLA 压缩潜向量 | 第 6 章 |
+| $$\mathbf{W}_{DKV}$$ | MLA 下投影，$$d_{model}\to d_c$$ | 第 6 章 |
+| $$\mathbf{W}_{UK}^{(i)},\ \mathbf{W}_{UV}^{(i)}$$ | 第 $$i$$ 个头的键、值上投影，$$d_c\to d_h$$ | 第 6 章 |
+| $$\mathbf{W}_{QR}^{(i)},\ \mathbf{W}_{KR}$$ | 查询位置投影、共享位置键投影 | 第 6 章 |
+| $$\mathbf{W}_{OV}^{(i)}$$ | 吸收后的输出权重，$$\mathbf{W}_O^{(i)}\mathbf{W}_{UV}^{(i)}$$ | 第 6 章 |
+| $$\tilde{\mathbf{q}}_t^{(i)}$$ | 吸收后的查询，位于 $$d_c$$ 维潜空间 | 第 6 章 |
+| $$b_{\mathrm{elem}}$$ | 每个缓存元素的字节数（FP16 为 2） | 第 6 章 |
+| $$N_{attn}$$ | 单层注意力参数量，$$2d_{model}^2+2d_{model}d_{kv}$$ | 第 6 章 |
+| $$N_{MLA}$$ | 单层 MLA 注意力参数量 | 第 6 章 |
+| $$M_{kv}$$ | KV Cache 字节数 | 第 6 章 |
+| $$M_{MLA}$$ | MLA Cache 字节数 | 第 6 章 |
+| $$t_{\mathrm{dec}}$$ | 解码一步的近似延迟 | 第 6 章 |
+| $$\mathrm{BW}$$ | 显存带宽，字节/秒 | 第 6 章 |
+| $$F_{\mathrm{prefill}},\ F_{\mathrm{decode}}$$ | 预填充、解码一步的浮点运算次数 | 第 6 章 |
+
+{% hint style="warning" %}
+第 6 章的易混点：$$b$$ 是批大小，$$b_{\mathrm{elem}}$$ 是每元素字节数，$$b$$ 在第 4 章还曾是 RoPE 基频；$$d_{kv}$$ 是 K/V 投影总宽度，$$d_h$$ 是单个头的维度，减少 KV 头时 $$d_h$$ 不变、$$d_{kv}$$ 按 (6.4) 缩小；$$d_c$$ 是 MLA 潜维度，$$d_k$$ 是第 3 章的打分缩放维度；$$\mathbf{W}_O$$ 是输出投影，$$\mathbf{W}_{OV}$$ 是吸收后的合并权重；$$M_{kv}$$ 是缓存字节数，$$M_{ij}$$ 是因果掩码，$$M$$ 是第 2 章的 BPE 合并次数；$$N_{attn}$$、$$N_{MLA}$$ 是单层注意力参数量，$$N$$ 是模型总参数量；$$t_{\mathrm{dec}}$$ 是解码延迟，$$t_y$$ 是第 4 章 YaRN 的温度因子。
+{% endhint %}

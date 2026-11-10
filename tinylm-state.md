@@ -7,8 +7,10 @@
 - **公共 API**：`tinylm/tokenizer/bpe.py` 的核心实现已在第 2 章给出，接口与附录 F 的 `Tokenizer` 协议一致；但代码目前以章节内嵌形式存在，尚未落盘到包目录。
 - **模型**：第 3 章的 Transformer 基线已在章节内给出完整实现，接口与附录 F 对齐；同样尚未落盘。
 - **位置编码**：第 4 章在基线上增加 `sine`、`rope`、`nope`、`alibi` 四种 `pos_encoding`，并接入 PI/NTK/YaRN 三种 RoPE 缩放；代码仍以章节内嵌形式存在。
+- **现代架构**：第 5 章增加 `RMSNorm`、`SwiGLU`、无偏置、权重绑定与可选的并行块（`parallel_block`），并给出 `exact_params` 与 `flops_per_token` 两个账本函数；代码仍以章节内嵌形式存在。
+- **注意力变体**：第 6 章增加 `VariantAttention`（MHA/MQA/GQA）与 `LatentAttention`（MLA），由 `attention`、`n_kv_heads`、`d_c`、`d_head_rope` 分派；新增 `attention_params` 与 `kv_cache_bytes` 两个账本函数；代码仍以章节内嵌形式存在。
 - **接口契约**：未修改。`TinyLM.forward` 保持附录 F 的签名，新增字段只出现在 `ModelConfig` 与 `CausalLMOutput` 中。
-- **配置**：`ModelConfig` 首次落地（见第 3 章变更）。`pos_encoding` 与 `rope_theta` 在第 4 章启用，新增 `rope_scaling`；部分字段仍为后续章节预留。
+- **配置**：`ModelConfig` 首次落地（见第 3 章变更）。`pos_encoding` 与 `rope_theta` 在第 4 章启用，新增 `rope_scaling`；第 6 章启用 `attention`、`n_kv_heads`、`d_c`、`d_head_rope`；部分字段仍为后续章节预留。
 
 ## 第 1 章变更
 
@@ -107,6 +109,66 @@
 - `position_ids` 从 `TinyLM.forward` 透传到每个注意力层；KV Cache 接入时复用同一路径；
 - YaRN 的温度缩放通过把打分除以 `sqrt(t_y)` 实现，`t_y = 0.1 ln(factor) + 1`。
 
+## 第 5 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/norm.py` | 章节内嵌实现 | `RMSNorm`；`make_norm` 按 `norm` 分派 |
+| `tinylm/ffn.py` | 章节内嵌实现 | `SwiGLU` 三投影；`make_ffn` 按 `ffn` 分派 |
+| `tinylm/block.py` | 章节内嵌实现 | `TransformerBlock` 支持 `parallel_block`：`x + Attn(LN(x)) + MLP(LN(x))` |
+| `tinylm/model.py` | 章节内嵌实现 | 启用 `bias`、`tie_embeddings`；权重绑定在初始化后执行 |
+| `tinylm/config.py` | 章节内嵌实现 | `ModelConfig` 新增 `parallel_block`；`d_ff=None` 时按 `ffn` 取 4 或 8/3 倍 |
+| `tests/test_modern.py` | 章节内嵌实现 | 15 个用例：RMSNorm 公式/尺度不变/零均值等价/平移敏感、SwiGLU、绑定、精确参数、等预算 FLOPs、并行层、因果性 |
+| `examples/ch05_ablation.py` | 章节内嵌实现 | 参数与算力账本、Llama 2 7B 复现、Llama 2→3 增量拆解、RMSNorm 行为演示、复制任务消融 |
+
+配置字段变化：
+
+| 字段 | 默认值 | 第 5 章行为 |
+| --- | --- | --- |
+| `norm` | `"layernorm"` | 接受 `"layernorm"`、`"rmsnorm"` |
+| `ffn` | `"mlp"` | 接受 `"mlp"`、`"swiglu"` |
+| `bias` | `True` | 设为 `False` 时所有线性层与 LayerNorm 去偏置 |
+| `tie_embeddings` | `False` | 为 `True` 时 `lm_head.weight` 与 `tok_emb.weight` 共享存储 |
+| `parallel_block` | `False` | 为 `True` 时注意力与前馈共享 `norm1`，并行相加 |
+| `d_ff` | `None` | `None` 时 MLP 取 `4 d_model`，SwiGLU 取 `round(8 d_model / 3)` |
+
+实现要点：
+
+- `RMSNorm` 只除以均方根 `sqrt(mean(x²)+eps)`，不含均值中心化与偏置，参数只有 `gamma`；
+- `SwiGLU` 的三个投影命名固定为 `w_gate`、`w_up`、`w_down`，前向为 `w_down(silu(w_gate(x)) * w_up(x))`；
+- 权重绑定在 `apply(_init_weights)` 之后执行，避免共享矩阵被初始化两次；
+- 残差输出投影（`out_proj.weight`、`fc_out.weight`、`w_down.weight`）按 `0.02/sqrt(2 n_layers)` 缩放，与第 3 章一致；
+- `exact_params` 与 `flops_per_token` 是设计阶段账本，不属于 `TinyLM` 的公共接口；
+- `TinyLM.forward` 签名未变，第 4 章所有 `pos_encoding` 分支仍可用。
+
+## 第 6 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/attention.py` | 章节内嵌实现 | `VariantAttention`（MHA/MQA/GQA）、`LatentAttention`（MLA）、`make_attention` 分派 |
+| `tinylm/model.py` | 章节内嵌实现 | `TransformerBlock` 与 `TinyLM` 改用 `make_attention`；`position_ids` 与因果掩码路径不变 |
+| `tinylm/config.py` | 章节内嵌实现 | `ModelConfig` 新增 `attention`、`n_kv_heads`、`d_c`、`d_head_rope`；`__post_init__` 校验变体与整除 |
+| `tests/test_attention_variants.py` | 章节内嵌实现 | 21 个用例：形状、MHA 退化一致性、参数/缓存公式、因果性、整除约束、吸收恒等式、TinyLM 前向 |
+| `examples/ch06_kv_cache.py`（章内为 `ch06.py` 的 `ledger`/`ablation`） | 章节内嵌实现 | 变体账本、工业配置缓存、吸收等价性、复制任务消融 |
+
+配置字段变化：
+
+| 字段 | 默认值 | 第 6 章行为 |
+| --- | --- | --- |
+| `attention` | `"mha"` | 接受 `"mha"`、`"mqa"`、`"gqa"`、`"mla"` |
+| `n_kv_heads` | `None` | `None` 时 MHA 取 `n_heads`、MQA 取 1；GQA 必须显式给出，且须整除 `n_heads` |
+| `d_c` | 128 | MLA 的潜向量维度；需小于等于 `d_model` |
+| `d_head_rope` | 32 | MLA 解耦 RoPE 的位置键维度 |
+
+实现要点：
+
+- `VariantAttention` 的 Q/输出投影始终是 `d_model → d_model`；K/V 投影是 `d_model → n_kv_heads * d_head`，`d_head = d_model / n_heads` 保持不变；
+- RoPE 在复制 KV 之前施加，即先旋转 `n_kv` 份键，再 `repeat_interleave` 到 `n_heads`；这样缓存里存的是已旋转的键；
+- `LatentAttention` 缓存的是潜向量 `c_t`（`d_c` 维）与共享位置键（`d_head_rope` 维），不缓存每头 K/V；
+- 解耦 RoPE 的打分是内容分与位置分之和，位置键在所有头之间共享；
+- `attention_params` 与 `kv_cache_bytes` 是账本函数，不属于 `TinyLM` 公共接口；MLA 的参数量含 Q RoPE 投影与共享 `k_rope` 投影；
+- `TinyLM.forward` 签名未变，第 4、5 章所有配置仍可用；`n_kv_heads=None` 时 MHA 行为与第 5 章逐位一致。
+
 ## 本章固定的约定
 
 1. 损失统一按 Token 平均，单位 nat；报告困惑度时同时给出 `exp(loss)`。
@@ -123,18 +185,17 @@
 
 ## 下一章待实现
 
-第 5 章《现代 LLM 的架构演进》要在第 3、4 章基线上增加：
+第 7 章《混合专家》要在第 6 章基线上增加：
 
 | 文件 | 内容 |
 | --- | --- |
-| `tinylm/norm.py` | RMSNorm，替换 `LayerNorm`，由 `norm="rmsnorm"` 分派 |
-| `tinylm/ffn.py` | SwiGLU 三个投影与 `d_ff` 重算，由 `ffn="swiglu"` 分派 |
-| `tinylm/model.py` | 支持 `tie_embeddings`、可选偏置、并行注意力/前馈层的消融 |
-| `tinylm/config.py` | 启用 `norm`、`ffn`、`dropout` 等预留字段 |
-| `tests/test_modern.py` | RMSNorm 与 LayerNorm 的关系、SwiGLU 参数量、权重绑定、并行层等价性 |
-| `examples/ch05_ablation.py` | 相同参数量与算力预算下的架构消融 |
+| `tinylm/moe.py` | 路由器、Top-K 分派、容量因子与 Token 丢弃、共享专家、辅助损失 |
+| `tinylm/block.py` | 前馈子层按 `moe` 配置在稠密 FFN 与 MoE 之间分派 |
+| `tinylm/config.py` | 启用 `moe` 字段（`MoEConfig`）；默认 `None` 保持稠密前馈 |
+| `tests/test_moe.py` | 路由权重行和、Top-K 选择、容量溢出、辅助损失为零的均衡条件、因果性 |
+| `examples/ch07_moe.py` | 总参数与激活参数分离的账本，专家数与 Top-K 的消融 |
 
-第 5 章不得修改 `TinyLM.forward` 签名；`pos_encoding` 的既有分支必须保持可用。
+第 7 章不得修改 `TinyLM.forward` 签名；`moe=None` 时必须保持第 6 章的稠密前馈行为；MoE 层必须通过因果性测试，且 `aux_loss` 为空时 `CausalLMOutput.aux_loss` 为 `None`。
 
 ## 验收门槛
 
@@ -152,4 +213,18 @@
 - RoPE 相对性：同一对 Q/K 平移相同距离后，打分矩阵对应元素误差小于 `1e-4`；
 - 位置显式由 `position_ids` 传入，缓存与打包序列复用同一路径；
 - `rope="pi"` 只缩放位置，`"ntk"` 改基频，`"yarn"` 分频缩放并加温度；三者的频率表均与公式逐项一致；
-- 任何位置编码改动都必须通过因果性测试：改动位置 `t` 的输入，`t` 之前的 logits 不变。
+- 任何位置编码改动都必须通过因果性测试：改动位置 `t` 的输入，`t` 之前的 logits 不变；
+- RMSNorm 在零均值、无偏置输入上与 LayerNorm 的输出误差小于 `1e-5`；
+- RMSNorm 尺度不变：输入放大 10 倍后输出误差小于 `1e-4`；
+- SwiGLU 无偏置时参数量等于 `3 d_model d_ff`；绑定权重后 `lm_head.weight` 与 `tok_emb.weight` 指向同一存储；
+- `exact_params` 在基线与现代配置的 6 种组合下与 `sum(p.numel())` 逐位一致；
+- `d_ff=8d_model/3` 时 SwiGLU 与 `4d_model` MLP 的每 Token FLOPs 相对差小于 1%；
+- 并行块输出等于 `x + Attn(LN(x)) + MLP(LN(x))`，误差小于 `1e-6`；
+- 现代配置（RMSNorm + SwiGLU + 无偏置 + RoPE）仍通过因果性测试；
+- `n_kv_heads=n_heads` 时 `VariantAttention` 与第 4 章 `PositionAwareAttention` 输出误差小于 `1e-6`；
+- GQA/MQA 的 `d_head` 与 MHA 相同，只有 K/V 头数减少；K/V 投影宽度等于 `n_kv_heads * d_head`；
+- `attention_params` 与 `make_attention(cfg).parameters()` 的实测值逐位一致，MLA 与 GQA 分别对应 (6.14) 与 (6.5)；
+- `kv_cache_bytes` 与 (6.6)、(6.11) 逐位一致；同样配置下 MLA < GQA < MHA；
+- `n_kv_heads` 不整除 `n_heads`（GQA）必须在 `ModelConfig.__post_init__` 中报错；
+- MLA 权重吸收的内容通路输出误差小于 `1e-5`（FP32 随机权重）；
+- MHA/MQA/GQA/MLA 四种变体均通过因果性测试：改动位置 `t` 的输入，`t` 之前的输出不变。

@@ -8,6 +8,8 @@
 | 第 2 章 | 完成 | 约 8100 | 已在本机运行 | 字节级 BPE 与词表扫描实验 |
 | 第 3 章 | 完成 | 约 10300 | 已在本机运行 | Transformer 基线、因果性测试与复制任务 |
 | 第 4 章 | 完成 | 7579 | 已在本机运行 | 位置编码分派、RoPE/ALiBi、长度外推受控实验 |
+| 第 5 章 | 完成 | 7526 | 已在本机运行 | RMSNorm/SwiGLU/去偏置/绑定/并行层，参数账本与复制任务消融 |
+| 第 6 章 | 完成 | 10516 | 已在本机运行 | MHA/MQA/GQA/MLA、KV Cache 账本、权重吸收等价性与复制任务消融 |
 
 ## 第 1 章交接
 
@@ -230,3 +232,116 @@
 - [x] 篇幅：正文 7579 个中文字符，符合 6000–9000 字预算。
 - [x] 论文信息核对：Vaswani 2017（arXiv:1706.03762）、Su 2021（arXiv:2104.09864）、Press 2021（arXiv:2108.12409）、Chen 2023（arXiv:2306.15595）、Peng 2023（arXiv:2309.00071）的作者、年份、标题与编号均无误。
 - [x] 实验诚实报告：明确标注这是 2 层、64 维、400 步的受控实验，不能外推到 LLM 长上下文能力；正弦编码"有定义但不保证外推"的反直觉结果已单独解释。
+
+## 第 5 章交接
+
+### 本章摘要
+
+本章把现代 LLM 的架构演进拆成五个局部零件：RMSNorm 替换 LayerNorm、SwiGLU 替换 GELU MLP、去掉线性层偏置、选择是否绑定输入输出嵌入、块内串行或并行。推导 RMSNorm 的尺度不变性与零均值下与 LayerNorm 的等价条件；推导 SwiGLU 的等参数预算点 `d_ff=8d_model/3`，说明此时参数与 FLOPs 都与 `4d` MLP 相同，额外成本是约 4/3 的中间激活；给出无偏置开销 (5.9)、并行块定义 (5.10)、精确参数量 (5.11) 与每 Token FLOPs (5.12)。代码上给 TinyLM 增加 `RMSNorm`、`SwiGLU`、`bias`、`tie_embeddings`、`parallel_block` 与两个账本函数；实验包括四种配置的逐位参数核对、Llama 2 7B 的 6,738,415,616 精确复现、Llama 2→3 的 1.292B 增量拆解、RMSNorm 行为演示，以及 3 个种子的复制任务消融。消融结果四种配置都贴着理论下界，差异在一个标准差内；本章明确说明该实验验证实现与预算等价，不证明架构优劣。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (5.1) | $$\mathrm{RMS}(\mathbf{x}_t)=\sqrt{\frac{1}{d_{model}}\sum_i x_{t,i}^2}$$ | 均方根定义 |
+| (5.2) | $$\mathrm{RMSNorm}(\mathbf{x}_t)=\boldsymbol{\gamma}\odot\mathbf{x}_t/\sqrt{\mathrm{RMS}^2+\epsilon}$$ | RMSNorm |
+| (5.3) | $$\mu_t=0,\ \boldsymbol{\beta}=0\ \Longrightarrow\ \mathrm{RMSNorm}=\mathrm{LN}$$ | 零均值下的等价条件 |
+| (5.4) | $$\mathrm{RMSNorm}(\alpha\mathbf{x}_t)=\mathrm{RMSNorm}(\mathbf{x}_t)$$ | 尺度不变性 |
+| (5.5) | $$\mathrm{GLU}(\mathbf{x})=(\mathbf{W}_1\mathbf{x})\odot\sigma(\mathbf{W}_2\mathbf{x})$$ | 门控线性单元 |
+| (5.6) | $$\mathrm{SiLU}(z)=z\sigma(z)$$ | SiLU/Swish |
+| (5.7) | $$\mathrm{SwiGLU}(\mathbf{x})=\mathbf{W}_3(\mathrm{SiLU}(\mathbf{W}_1\mathbf{x})\odot\mathbf{W}_2\mathbf{x})$$ | SwiGLU |
+| (5.8) | $$3d_{model}d_{ff}=8d_{model}^2\ \Longrightarrow\ d_{ff}=8d_{model}/3$$ | 等参数预算点 |
+| (5.9) | $$4d_{model}+(2d_{ff}+d_{model})=5d_{model}+2d_{ff}$$ | 每层去掉的偏置数（SwiGLU + RMSNorm） |
+| (5.10) | $$\mathbf{X}\leftarrow\mathbf{X}+\mathrm{Attn}(\mathrm{LN}(\mathbf{X}))+\mathrm{MLP}(\mathrm{LN}(\mathbf{X}))$$ | 并行块 |
+| (5.11) | $$N=n_l(4d^2+3dd_{ff}+2d)+d+2n_{vocab}d$$ | 现代配置精确参数量（不绑定） |
+| (5.12) | $$\mathrm{FLOPs}\approx8Td^2+6Tdd_{ff}+4T^2d$$ | 每 Token 前向 FLOPs |
+
+### 实验与关键数字
+
+- 小模型账本：基线与现代配置参数差 10,496（0.28%），FLOPs 差 2,048（0.03%，来自 `d_ff` 取整）；绑定省 262,144；并行层省 1,024。
+- Llama 2 7B：(5.11) 得 6,738,415,616，与公开数字逐位一致；前馈占非嵌入参数 66.8%。
+- Llama 2→3 8B：词表 +788,529,152；前馈 +1,308,622,848；GQA −805,306,368；净增 1,291,845,632。
+- RMSNorm 演示：放大 10 倍差异 1.93e-05；平移 +5 差异 3.05（LayerNorm 为 7.15e-07）；零均值下差异 2.38e-07。
+- 复制任务：理论损失下界 0.6261、准确率上界 0.7883；四种配置损失 0.6310–0.6325，准确率 0.7874–0.7894，差异均在一个标准差内。
+
+### 留给后续章节的伏笔
+
+- **第 6 章**：GQA/MQA/MLA 的 KV 头共享是本章参数增量中的 −0.805B 项；`n_kv_heads` 与 `d_kv` 将在那里正式定义并接入 KV Cache。
+- **第 7 章**：前馈占非嵌入参数 66.8%，是 MoE 用稀疏专家替换稠密前馈的直接动机。
+- **第 9 章**：本章账本给出参数与 FLOPs 的口径，缩放定律会把它与损失曲线相连。
+- **第 12 章**：去偏置与归一化选择属于训练稳定性工程，会把本章的"稳定性理由"落到优化器与数据配置。
+- **第 21 章**：并行层的收益来自通信合并，KV Cache 与推理吞吐会把"FLOPs 相等不等于速度相等"展开。
+- **第 23 章**：RMSNorm 的平方和溢出与激活范围会再次出现在量化与低精度训练中。
+- **第 26、27 章**：长上下文能力由位置编码、注意力和数据共同决定，本章的架构替换只是其中一项。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、对比、代码、工业实践、论文、误区、小结、"本章的取舍"、习题齐全。
+- [x] 推导无跳步：RMSNorm 尺度不变性与零均值等价、SwiGLU 等参数与等 FLOPs、去偏置计数、精确参数式均有完整步骤。
+- [x] 符号与附录 B 一致：新增 $$\mathrm{RMS}$$、$$\mathrm{RMSNorm}$$、$$\mathbf{W}_1/\mathbf{W}_2/\mathbf{W}_3$$、$$\mathrm{SiLU}$$、$$\sigma$$、$$N_{\text{modern}}$$、$$n_{kv}/d_{kv}$$ 已登记；$$\sigma(\cdot)$$（Sigmoid）与第 3 章 $$\sigma_t$$（标准差）已在易混点中区分。
+- [x] 代码可运行：从 `part2/chapter05.md` 直接提取代码块，在本机 Python 3.13 + PyTorch 2.9 CPU 上运行，输出与正文逐字一致。
+- [x] 测试可运行：同一 Markdown 提取的 `tests/test_modern.py` 通过 15 项测试，覆盖 RMSNorm 公式/尺度不变/零均值等价/平移敏感、SwiGLU、权重绑定、6 种配置的精确参数、等预算 FLOPs、并行层定义与现代配置因果性。
+- [x] 公式与代码对应：代码注释标注 (5.1)、(5.2)、(5.7)、(5.8)、(5.10)–(5.12)。
+- [x] GitBook 语法：hint 使用 warning/danger/info/success 四类，1 个 mermaid、1 个 details、4 张表；代码块均标注语言；全文无单美元数学定界符。
+- [x] 篇幅：正文 7526 个中文字符，在其余章 6000–9000 字预算内，落在 7500–8500 目标区间。
+- [x] 论文信息核对：Zhang & Sennrich 2019（arXiv:1910.07467）、Shazeer 2020（arXiv:2002.05202）、Chowdhery 2022（arXiv:2204.02311）、Press & Wolf 2017（arXiv:1608.05859）、Dubey 2024（arXiv:2407.21783）的作者、年份、标题与编号均无误。
+- [x] 事实性数字可复算：Llama 2 7B 参数量由 (5.11) 逐位复现；Llama 3 增量由词表、前馈、GQA 三项分解；PaLM 540B 的 118 层、18432 维、48 头、73728 前馈、256000 词表、并行层、MQA 与权重绑定已核对。
+- [x] 实验诚实报告：明确标注 10 万参数、2 层、64 维、300 步的玩具实验不能外推；四种配置差异在一个标准差内，结论限定为"实现正确、预算对齐、无回归"，不宣称架构优劣。
+
+## 第 6 章交接
+
+### 本章摘要
+
+本章从解码阶段的访存瓶颈出发，说明 MHA 的 KV Cache 随上下文线性增长，且在长上下文、大批量下超过权重读取成为每步延迟的主项。把 MQA（$$n_{kv}=1$$）与 GQA（$$1<n_{kv}<n_h$$）统一为"减少 KV 头数、保持单头维度 $$d_h$$ 不变"的共享方案，推导参数账本 (6.5) 与缓存账本 (6.6)，并用 (6.7) 的访存模型说明变体省的是带宽而不是注意力 FLOPs。MLA 换一条路：把 K/V 压缩到 $$d_c$$ 维潜向量，用解耦 RoPE 把位置信息放进独立的 $$d_r$$ 维通路，缓存降到 (6.11)；再推导权重吸收恒等式 (6.12)–(6.13)，说明它把解压推迟到推理时并改变张量并行切分。最后给出参数量 (6.14) 与缓存比 (6.15) 的闭式，用代码逐位核对四种变体的账本，在复制任务上做 3 种子消融，并诚实说明玩具任务分辨不出质量差异。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (6.1) | $$\mathbf{q}_t^{(i)}=\mathbf{W}_Q^{(i)}\mathbf{x}_t,\ \mathbf{k}_t^{(i)}=\mathbf{W}_K^{(i)}\mathbf{x}_t,\ \mathbf{v}_t^{(i)}=\mathbf{W}_V^{(i)}\mathbf{x}_t$$ | MHA 单头投影 |
+| (6.2) | $$g(i)=\lfloor i\,n_{kv}/n_h\rfloor,\ \mathbf{k}_t^{(i)}=\mathbf{k}_t^{\mathrm{kv},(g(i))}$$ | GQA 分组映射 |
+| (6.3) | $$\mathbf{o}_t=\mathbf{W}_O[\sum_{j\le t}\mathrm{softmax}_j(\cdot)\mathbf{v}_j^{(g(i))}]_{i=1}^{n_h}$$ | GQA 输出 |
+| (6.4) | $$d_{kv}=d_{model}n_{kv}/n_h$$ | KV 投影总宽度 |
+| (6.5) | $$N_{attn}=2d_{model}^2+2d_{model}d_{kv}$$ | 注意力参数量 |
+| (6.6) | $$M_{kv}=2bTLn_{kv}d_hb_{\mathrm{elem}}=2bTLd_{kv}b_{\mathrm{elem}}$$ | KV Cache 字节数 |
+| (6.7) | $$t_{\mathrm{dec}}\approx(2Nb_{\mathrm{elem}}+2bLTd_{kv}b_{\mathrm{elem}})/\mathrm{BW}$$ | 解码步延迟的访存模型 |
+| (6.8) | $$\mathbf{c}_t=\mathbf{W}_{DKV}\mathbf{x}_t,\ \mathbf{c}_t\in\mathbb{R}^{d_c}$$ | MLA 下投影 |
+| (6.9) | $$\mathbf{k}_t^{(i)}=\mathbf{W}_{UK}^{(i)}\mathbf{c}_t,\ \mathbf{v}_t^{(i)}=\mathbf{W}_{UV}^{(i)}\mathbf{c}_t$$ | MLA 上投影 |
+| (6.10) | $$s_{tj}^{(i)}=\mathbf{q}_t^{(i)\top}\mathbf{k}_j^{(i)}/\sqrt{d_h}+\mathbf{q}_{r,t}^{(i)\top}\mathbf{k}_{r,j}/\sqrt{d_r}$$ | 解耦 RoPE 打分 |
+| (6.11) | $$M_{MLA}=bTL(d_c+d_r)b_{\mathrm{elem}}$$ | MLA 缓存字节数 |
+| (6.12) | $$\mathbf{q}_t^{(i)\top}\mathbf{k}_j^{(i)}=(\mathbf{W}_{UK}^{(i)\top}\mathbf{W}_Q^{(i)}\mathbf{x}_t)^\top\mathbf{c}_j$$ | 查询吸收恒等式 |
+| (6.13) | $$\mathbf{W}_{OV}^{(i)}=\mathbf{W}_O^{(i)}\mathbf{W}_{UV}^{(i)}$$ | 输出吸收与 $$\mathbf{W}_{OV}$$ |
+| (6.14) | $$N_{MLA}=2d_{model}^2+3d_{model}d_c+d_{model}d_r(n_h+1)$$ | MLA 注意力参数量 |
+| (6.15) | $$M_{MLA}/M_{MHA}=(d_c+d_r)/(2d_{model})$$ | 缓存比闭式 |
+
+### 实验与关键数字
+
+- 账本（$$d=4096$$、$$L=32$$、$$n_h=32$$、$$T=8192$$、FP16）：注意力参数 MHA 67,108,864、GQA-8 41,943,040、MQA 34,603,008、MLA 48,496,640；每 Token 缓存 512 / 128 / 16 / 36 KiB；8K 总缓存 4 GiB / 1 GiB / 128 MiB / 288 MiB。
+- 工业配置：Llama 2 7B MHA 512 KiB/Token（4K 总 2 GiB）；Llama 3 8B GQA-8 128 KiB（8K 总 1 GiB）；PaLM 540B MQA 177 KiB（2K 总 354 MiB）；DeepSeek-V2 MLA 67.5 KiB（8K 总 540 MiB）。
+- 权重吸收：内容通路吸收前后最大输出误差 1.49e-07。
+- 复制任务消融（3 种子、600 步）：理论损失下界 0.6261、准确率参考值 0.7883；MHA 0.6384/0.7887、GQA-2 0.6616/0.7837、MQA 0.6478/0.7861、MLA 0.6481/0.7878，差异在一个标准差附近，任务天花板掩盖质量差异。
+- 测试：21 项全部通过（1.08 s），覆盖 MHA 退化一致性、GQA/MQA 形状、参数与缓存公式、四种变体因果性、整除约束、吸收恒等式、缓存排序与 TinyLM 前向。
+
+### 留给后续章节的伏笔
+
+- **第 7 章**：MLA 的潜向量压缩与 MoE 的稀疏激活都在"用更少字节/算力承载更多容量"这条主线上；本章的账本口径可复用到专家路由的显存估算。
+- **第 8 章**：线性注意力与 SSM 用固定大小的状态替代随 $$T$$ 增长的 KV Cache，本章 (6.6)、(6.11) 是它们的对照基线。
+- **第 12 章**：GQA 按 KV 头切分、MLA 吸收后按潜维度切分，张量并行的通信模式不同；本章已指出这一点。
+- **第 13 章**：长上下文下 (6.6) 的缓存项超过权重项，是位置外推与上下文扩展必须同时考虑显存的原因。
+- **第 21 章**：KV Cache 的 `past_kv`、分页与前缀缓存会把本章的账本落到具体数据结构；(6.7) 的访存模型是吞吐估算的起点。
+- **第 22 章**：投机解码一次验证多个 Token，缓存读写次数与本章的每 Token 字节数直接相关。
+- **第 23 章**：FP8/INT8 量化把 (6.6)、(6.11) 中的 $$b_{\mathrm{elem}}$$ 减半；吸收矩阵的条件数与量化校准是新增风险点。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、对比、代码、工业实践、论文、误区、小结、"本章的取舍"、习题齐全。
+- [x] 推导无跳步：MHA 复杂度、GQA 分组与输出、参数与缓存账本、访存延迟模型、MLA 下/上投影、解耦 RoPE、权重吸收、参数汇总与缓存比均有完整步骤。
+- [x] 符号与附录 B 一致：新增 $$n_{kv}$$、$$d_{kv}$$、$$d_c$$、$$d_r$$、$$\mathbf{c}_t$$、$$\mathbf{W}_{DKV}$$、$$\mathbf{W}_{UK}$$、$$\mathbf{W}_{UV}$$、$$\mathbf{W}_{QR}$$、$$\mathbf{W}_{KR}$$、$$\mathbf{W}_{OV}$$、$$b_{\mathrm{elem}}$$、$$N_{attn}$$、$$N_{MLA}$$、$$M_{kv}$$、$$M_{MLA}$$、$$t_{\mathrm{dec}}$$、$$F_{\mathrm{prefill}}$$、$$F_{\mathrm{decode}}$$ 已登记；单头维度统一写 $$d_h$$，避免与第 4 章的 $$d_k$$ 混淆。
+- [x] 代码可运行：从 `part2/chapter06.md` 直接提取代码块，在本机 Python 3.13 + PyTorch 2.9 CPU 上运行，输出与正文逐字一致。
+- [x] 测试可运行：同一 Markdown 提取的 `tests/test_attention_variants.py` 通过 21 项测试，覆盖变体形状、MHA 退化一致性、参数/缓存公式、因果性、整除约束、吸收恒等式与 TinyLM 前向。
+- [x] 公式与代码对应：代码注释标注 (6.2)、(6.4)–(6.6)、(6.8)–(6.15)。
+- [x] GitBook 语法：hint 使用 info/warning/success 三类，1 个 mermaid、1 个 details、6 张表；代码块均标注语言；数学全部用双美元符号。
+- [x] 篇幅：正文 10516 个中文字符，符合核心章 10000–12000 字预算。
+- [x] 论文信息核对：Shazeer 2019（arXiv:1911.02150）、Ainslie 2023（arXiv:2305.13245）、DeepSeek-AI 2024（arXiv:2405.04434）、Su 2021（arXiv:2104.09864）、Pope 2022（arXiv:2211.05102）的作者、年份、标题与编号均无误。
+- [x] 事实性数字可复算：Llama 2 7B、Llama 3 8B、PaLM 540B、DeepSeek-V2 的层数、宽度、头数、$$d_c$$、$$d_r$$ 与缓存字节数均由 (6.6)、(6.11) 复算；GQA 表 1 的指标已核对为"每样本每 TPUv4 芯片的推理时间"。
+- [x] 实验诚实报告：明确标注 10 万参数、2 层、64 维、600 步的玩具实验不能外推；复制任务损失与准确率贴着理论下界，结论限定为"实现正确、账本对齐"，不宣称变体优劣。

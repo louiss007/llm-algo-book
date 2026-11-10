@@ -86,23 +86,42 @@
 | $$\mathbf{O}$$ | 注意力输出（拼接投影前或后，看上下文） | 第 3 章 |
 | $$d_k$$ | 打分缩放维度，通常等于 $$d_h$$ | 第 3 章 |
 | $$M_{ij}$$ | 因果掩码，允许处为 0，禁止处为 $$-\infty$$ | 第 3 章 |
+| $$n_{kv}$$ | 键/值头数，$$n_{kv}\le n_h$$ | 第 5 章（第 6 章展开） |
+| $$d_{kv}$$ | 键/值投影的总宽度，$$d_{kv}=d_{model}n_{kv}/n_h$$ | 第 5 章（第 6 章展开） |
 | $$W$$ | 滑动窗口大小 | 第 6 章 |
 | $$\mathbf{c}_t$$ | MLA 的压缩隐向量 | 第 6 章 |
 | $$d_c$$ | MLA 的压缩维度 | 第 6 章 |
+| $$d_r$$ | MLA 解耦 RoPE 的位置键维度 | 第 6 章 |
+| $$\mathbf{W}_{DKV}$$ | MLA 下投影，$$d_{model}\to d_c$$ | 第 6 章 |
+| $$\mathbf{W}_{UK}^{(i)},\ \mathbf{W}_{UV}^{(i)}$$ | 第 $$i$$ 个头的键、值上投影 | 第 6 章 |
+| $$\mathbf{W}_{QR}^{(i)},\ \mathbf{W}_{KR}$$ | 查询位置投影、共享位置键投影 | 第 6 章 |
+| $$\tilde{\mathbf{q}}_t^{(i)}$$ | 吸收后位于潜空间的查询 | 第 6 章 |
+| $$\mathbf{W}_{OV}^{(i)}$$ | 吸收后的输出权重 | 第 6 章 |
+| $$b_{\mathrm{elem}}$$ | 每个缓存元素的字节数（FP16 为 2） | 第 6 章 |
+| $$N_{attn}$$ | 单层注意力参数量 | 第 6 章 |
+| $$N_{MLA}$$ | 单层 MLA 注意力参数量 | 第 6 章 |
+| $$M_{kv},\ M_{MLA}$$ | KV Cache、MLA Cache 的字节数 | 第 6 章 |
+| $$M_{MHA}$$ | MHA 的 KV Cache 字节数（作缓存比基准） | 第 6 章 |
+| $$t_{\mathrm{dec}}$$ | 解码一步的近似延迟 | 第 6 章 |
+| $$\mathrm{BW}$$ | 显存带宽（字节/秒） | 第 6 章 |
+| $$F_{\mathrm{prefill}},\ F_{\mathrm{decode}}$$ | 预填充与解码一步的浮点运算次数 | 第 6 章 |
 
 ## B.4 归一化与前馈网络
 
 | 符号 | 含义 | 首次出现 |
 | --- | --- | --- |
 | $$\mathrm{LN}(\cdot)$$ | 层归一化 | 第 3 章 |
+| $$\mathrm{RMS}(\cdot)$$ | 均方根，$$\sqrt{\frac{1}{d}\sum_i x_i^2}$$ | 第 5 章 |
 | $$\mathrm{RMSNorm}(\cdot)$$ | 均方根归一化 | 第 5 章 |
 | $$\boldsymbol{\gamma}$$ | 归一化的逐元素增益 | 第 3 章 |
 | $$\boldsymbol{\beta}$$ | 归一化的逐元素偏置（现代模型多省略） | 第 3 章 |
 | $$\epsilon$$ | 数值稳定项 | 第 3 章 |
 | $$\phi(\cdot)$$ | 前馈网络的逐元素激活函数 | 第 3 章 |
+| $$\mathrm{GLU}(\cdot)$$ | 门控线性单元 | 第 5 章 |
 | $$\mathbf{W}_1, \mathbf{W}_2, \mathbf{W}_3$$ | SwiGLU 的三个投影 | 第 5 章 |
 | $$\mathrm{SiLU}(\cdot)$$ | SiLU/Swish 激活函数 | 第 5 章 |
-| $$\sigma(\cdot)$$ | Sigmoid 函数 | 第 5 章 |
+| $$\sigma(\cdot)$$ | Sigmoid 函数（区别于第 3 章的 $$\sigma_t$$） | 第 5 章 |
+| $$N_{\mathrm{modern}}$$ | 现代配置的精确参数量 | 第 5 章 |
 
 ## B.5 位置编码
 

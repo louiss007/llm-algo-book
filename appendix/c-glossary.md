@@ -63,9 +63,14 @@
 | 头维度 | Head Dimension | 单个注意力头的特征维度 $$d_h$$ | 第 3 章 |
 | 键值记忆 | Key-Value Memory | 把前馈层解释为键模式与值输出的记忆视角 | 第 3 章 |
 | 均方根归一化 | RMSNorm | 只除以均方根、不减均值的归一化 | 第 5 章 |
+| 门控线性单元 | Gated Linear Unit (GLU) | 两路线性投影逐元素相乘的前馈结构 | 第 5 章 |
 | SwiGLU | SwiGLU | 用 SiLU 门控的 GLU 前馈网络变体 | 第 5 章 |
+| GeGLU | GeGLU | 用 GELU 门控的 GLU 前馈网络变体 | 第 5 章 |
+| SiLU | SiLU (Swish) | 由 Sigmoid 自门控的激活 $$z\sigma(z)$$ | 第 5 章 |
 | 权重绑定 | Weight Tying | 输入嵌入与输出投影共享同一矩阵 | 第 5 章 |
-| 并行层 | Parallel Layers | 注意力与前馈并行计算而非串行 | 第 5 章 |
+| 并行层 | Parallel Layers | 注意力与前馈共享归一化并并行相加的块结构 | 第 5 章 |
+| 去偏置 | Bias-free | 去除线性层与归一化偏置的模型配置 | 第 5 章 |
+| 等参数预算点 | Iso-parameter Budget | 替换前后参数量与 FLOPs 对齐的配置点 | 第 5 章 |
 
 ## C.3 位置编码
 
@@ -94,6 +99,16 @@
 | 分组查询注意力 | Grouped-Query Attention (GQA) | 查询头分组、每组共享一组键值头 | 第 6 章 |
 | 多头潜在注意力 | Multi-head Latent Attention (MLA) | 把键值压缩到低维潜在向量再投影的注意力 | 第 6 章 |
 | KV 缓存 | KV Cache | 缓存历史键值以避免重复计算 | 第 6 章 |
+| KV 头 | KV Head | 被若干查询头共享的一组键值投影 | 第 6 章 |
+| 预填充 | Prefill | 处理完整提示、一次性建立 KV 缓存的阶段 | 第 6 章 |
+| 解码 | Decode | 逐 Token 生成、每步读取 KV 缓存的阶段 | 第 6 章 |
+| 访存受限 | Memory-bound | 性能由搬运字节数而非浮点运算数决定的负载 | 第 6 章 |
+| 算术强度 | Arithmetic Intensity | 每搬运一字节所执行的浮点运算数 | 第 6 章 |
+| 解耦 RoPE | Decoupled RoPE | 把位置键拆到独立小通路的 MLA 位置编码方案 | 第 6 章 |
+| 权重吸收 | Weight Absorption | 把上投影合并进查询与输出投影的推理变换 | 第 6 章 |
+| 分页注意力 | Paged Attention | 按固定大小块管理 KV 缓存、减少碎片的机制 | 第 6 章 |
+| 前缀缓存 | Prefix Caching | 多个请求共享相同前缀 KV 的计算复用 | 第 6 章 |
+| 继续训练转换 | Uptraining | 从 MHA 检查点均值池化 KV 头后少量继续训练 | 第 6 章 |
 | 滑动窗口注意力 | Sliding Window Attention | 每个位置只关注最近 $$W$$ 个位置 | 第 6 章 |
 | 注意力汇 | Attention Sink | 模型倾向把大量注意力分配给首个 Token 的现象 | 第 6 章 |
 

@@ -130,9 +130,11 @@ class ModelConfig:
     n_layers: int = 8
     n_heads: int = 8
     n_kv_heads: int | None = None          # None 表示等于 n_heads
-    d_ff: int | None = None                # None 表示 4 * d_model
+    d_ff: int | None = None                # None 表示 4 * d_model；第 5 章起 ffn="swiglu" 时取 8/3 * d_model
     max_seq_len: int = 1024
     attention: Literal["mha", "mqa", "gqa", "mla"] = "mha"
+    d_c: int = 128                         # 第 6 章：MLA 的潜向量维度
+    d_head_rope: int = 32                  # 第 6 章：MLA 解耦 RoPE 的位置键维度
     norm: Literal["layernorm", "rmsnorm"] = "layernorm"
     norm_eps: float = 1e-5
     ffn: Literal["mlp", "swiglu"] = "mlp"
@@ -141,6 +143,7 @@ class ModelConfig:
     rope_scaling: RoPEScalingConfig = field(default_factory=RoPEScalingConfig)
     bias: bool = True
     tie_embeddings: bool = False
+    parallel_block: bool = False           # 第 5 章：注意力与前馈共享同一归一化，并行相加
     dropout: float = 0.0
     moe: MoEConfig | None = None
 ```
@@ -149,6 +152,10 @@ class ModelConfig:
 `ModelConfig` 的默认值固定为**第 3 章的基线**（LayerNorm + MLP + 可学习绝对位置 + 偏置项）。第 5 章之后的"现代架构"通过 `configs/*.yaml` 切换，不修改 dataclass 默认值。这样第 3 章的实验永远可复现。
 
 `pos_encoding` 的 `"sine"` 与 `"alibi"` 是第 4 章为受控对照实验加入的选项，生产配置通常只使用 `"learned"` 或 `"rope"`。新增选项不改变 `TinyLM.forward` 的签名。
+
+`parallel_block` 是第 5 章新增的可选开关，默认 `False` 保持串行块；它为 `True` 时注意力与前馈读同一个归一化结果。`bias`、`tie_embeddings` 在第 5 章正式启用，默认值不变。
+
+`attention` 与 `n_kv_heads` 在第 6 章启用：`n_kv_heads=None` 时 MHA 取 `n_heads`、MQA 取 1，GQA 必须显式给出且整除 `n_heads`。`d_c` 与 `d_head_rope` 只对 MLA 生效；MLA 下 `n_kv_heads` 被忽略，因为所有头共享同一份潜向量。默认 `attention="mha"` 保证第 3–5 章的行为逐位不变。
 {% endhint %}
 
 ### F.2.3 模型前向
@@ -248,6 +255,23 @@ $$
 
 `tiny_cpu` 的模型只有约 200 万参数，在几百万 Token 上训练一轮通常在**几分钟到半小时**量级，适合验证代码正确性而非追求效果。
 
+### F.3.4 KV Cache 估算
+
+推理常驻显存的大头是 KV Cache。对 MHA/MQA/GQA：
+
+$$
+M_{kv} = 2\,B\,T\,L\,n_{kv}\,d_h\,b_{\mathrm{elem}}
+= 2\,B\,T\,L\,d_{kv}\,b_{\mathrm{elem}}
+$$
+
+对 MLA：
+
+$$
+M_{MLA} = B\,T\,L\,(d_c + d_r)\,b_{\mathrm{elem}}
+$$
+
+其中 $$B$$ 是并发序列数，$$T$$ 是上下文长度，$$L$$ 是层数，$$b_{\mathrm{elem}}$$ 是每元素字节数（FP16 为 2，FP8 为 1）。以 `tiny_24g`（$$d_{model}=768$$、$$L=12$$、$$n_h=12$$、$$n_{kv}=4$$、$$d_h=64$$、$$T=1024$$、$$B=8$$、FP16）为例，GQA 的缓存为 $$2\times8\times1024\times12\times4\times64\times2=96\ \text{MiB}$$；同配置改成 MHA 是 288 MiB，改成 MLA（$$d_c=128$$、$$d_r=32$$）则是 30 MiB。估算时按显存的 80% 做预算，并为分页表、块对齐和激活留出余量。
+
 ## F.4 逐章演进路线
 
 | 章节 | 新增/修改 | 新增配置项 | 验收测试 |
@@ -256,7 +280,7 @@ $$
 | 3 | `model/{norm,attention,ffn,block,model}.py` | 基线 `ModelConfig` | 输出形状；因果性；梯度可回传 |
 | 4 | `model/position.py` | `pos_encoding`、`rope_theta`、`rope_scaling` | 相对位移性质；保范数；外推曲线 |
 | 5 | `norm.py` 增 RMSNorm；`ffn.py` 增 SwiGLU | `norm`、`ffn`、`bias`、`tie_embeddings` | 同参数量下与基线对照 |
-| 6 | `attention.py` 增 MQA/GQA/MLA；`kv_cache_bytes()` | `attention`、`n_kv_heads` | KV 显存公式核对；变体等价性（$$n_{kv}=n_h$$ 时退化为 MHA） |
+| 6 | `attention.py` 增 MQA/GQA/MLA；`attention_params()`、`kv_cache_bytes()` | `attention`、`n_kv_heads`、`d_c`、`d_head_rope` | KV 显存公式核对；变体等价性（$$n_{kv}=n_h$$ 时退化为 MHA）；权重吸收恒等式 |
 | 7 | `model/moe.py` | `moe` | 负载均衡；容量溢出行为 |
 | 8 | `model/ssm.py`（可选） | `layer_types` | 状态递推与并行扫描结果一致 |
 | 9 | `train/loop.py`；`scaling/*.yaml` | `TrainConfig` | 损失单调下降；幂律拟合 |
