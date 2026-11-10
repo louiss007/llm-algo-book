@@ -13,6 +13,8 @@
 - **替代架构**：第 8 章增加 `block_type`（`attention` / `linear_attention` / `ssm` / `hybrid`）、`ssm_d_state`、`ssm_expand`、`hybrid_attn_every`；新增 `SelectiveSSM`、`LinearAttention`、`scan_states`、`SSMBlock`、`LinearAttentionBlock` 与 `make_block`/`layer_kinds` 分派；新增 `ssm_layer_params`、`state_bytes`、`decode_flops` 账本函数；默认 `attention` 与第 7 章逐位一致；代码仍以章节内嵌形式存在。
 - **数据工程**：第 10 章增加 `tinylm/data/filter.py`（分词、精确去重、shingle、Jaccard、MinHash、LSH、近似去重、质量过滤、污染检测与去污染）与 `tinylm/data/mixture.py`（温度采样、最大余数预算、按配额交错）；不修改模型模块。代码仍以章节内嵌形式存在。
 - **训练优化**：第 11 章增加 `tinylm/train/optim.py`（`AdamW`、`make_param_groups`、`lr_factor`、`clip_grad_norm_`、`LossSpikeDetector`、Newton-Schulz 正交化与 `muon_update`）；优化器属于训练脚本选择，不进入 `ModelConfig`，模型接口未改动。代码仍以章节内嵌形式存在。
+- **分布式训练**：第 12 章增加 `tinylm/train/parallel.py`（`ParallelConfig`、显存与通信账本、CPU 集合通信模拟、列/行并行原语与 `LossScaler`）；并行度、全局批与混合精度属于训练脚本参数，不进入 `ModelConfig`，模型接口未改动。代码仍以章节内嵌形式存在。
+- **长上下文**：第 13 章增加 `tinylm/data/collate.py`（`PackedBatch`、块对角因果掩码、文档打包与 Token 利用率）、`tinylm/train/long_context.py`（算力/显存账本、长度课程、Token 预算与有效上下文）与 `tinylm/eval/needle.py`（单针检索构造、正确性与深度分桶）；注意力新增 4D 块对角掩码分支，2D padding 掩码与 `TinyLM.forward` 不变。代码仍以章节内嵌形式存在。
 - **接口契约**：未修改。`TinyLM.forward` 保持附录 F 的签名，新增字段只出现在 `ModelConfig` 与 `CausalLMOutput` 中。
 - **配置**：`ModelConfig` 首次落地（见第 3 章变更）。`pos_encoding` 与 `rope_theta` 在第 4 章启用，新增 `rope_scaling`；第 6 章启用 `attention`、`n_kv_heads`、`d_c`、`d_head_rope`；第 7 章启用 `moe` 与 `MoEConfig`（含 `capacity_factor`）；部分字段仍为后续章节预留。
 
@@ -310,17 +312,83 @@
 - 训练实验统一用 `d_model=32`、2 层、4 头 GQA-2、RMSNorm、SwiGLU、RoPE、批 16、序列 32、3 个种子；裁剪演示用 2 维二次目标并人为在第 10 步把梯度放大 50 倍。
 - 所有随机源（模型初始化、批采样）固定种子；输出中的耗时随机器波动，其余数字逐字可复现。
 
+## 第 12 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/train/parallel.py` | 章节内嵌实现 | `PRECISION_BYTES`、`ParallelConfig`、`param_state_bytes`、`zero_state_bytes`、`memory_ledger`、`ring_all_reduce_bytes`、`dp_grad_bytes`、`tp_block_bytes`、`pp_bubble_fraction`、`ep_all_to_all_bytes`、`global_batch_size`、`scale_lr`；集合通信模拟 `all_reduce_sum`、`reduce_scatter_sum`、`all_gather_shards`、`shard_flat`、`merge_shards`、`shard_reduce_gather`；张量并行原语 `column_parallel_linear`、`row_parallel_linear`；`LossScaler` |
+| `tests/test_parallel.py` | 章节内嵌实现 | 16 个用例：每参数状态字节、ZeRO 7B 四阶段与单调性、激活账本与重算、环形通信量、DP/TP 字节、气泡、全局批与学习率、集合通信往返与 padding、列/行并行等价、TP MLP 等价、缩放器溢出/增长/反缩放、分片往返、分片 AdamW 等价、非法配置 |
+| `examples/ch12_parallel.py` | 章节内嵌实现 | 整批/梯度累积/DP/ZeRO-1 四模式 3 种子等价性、7B 显存账本、通信账本、精度表、损失缩放演示 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 12 章行为 |
+| --- | --- | --- |
+| `ParallelConfig.dp` | `1` | 数据并行组大小，也是 ZeRO 分片组大小 |
+| `ParallelConfig.tp` | `1` | 张量并行度；`d_model % tp == 0` |
+| `ParallelConfig.pp` | `1` | 流水并行段数；`n_layers % pp == 0` |
+| `ParallelConfig.sp` | `1` | 序列并行度，只允许 1 或等于 `tp` |
+| `ParallelConfig.zero_stage` | `0` | 0/1/2/3，越界报错 |
+| `ParallelConfig.micro_batch` | `1` | 每卡微批大小 |
+| `ParallelConfig.grad_accum` | `1` | 梯度累积步数，也是流水线在途微批数 |
+| `global_batch` | 属性 | `micro_batch * grad_accum * dp`，对应 (12.7) |
+| `world_size` | 属性 | `dp * tp * pp` |
+
+实现要点：
+
+- 本章不新增模型模块，`ModelConfig`、`TinyLM`、`CausalLMOutput` 均未改动；`ch12_parallel.py` 复用第 8 章的 `ModelConfig`/`TinyLM`、第 10 章的语料与评测、第 11 章的 `AdamW` 与数据构造。
+- `PRECISION_BYTES` 给出权重、梯度、主权重、单个 Adam 矩与激活的每参数字节；FP32/TF32 的 `master=0`，FP8 的权重与激活为 1 字节、梯度仍为 2 字节。
+- `param_state_bytes` 实现 (12.1)；`zero_state_bytes` 实现 (12.4)，其中 `dp` 是数据并行组大小，不是总卡数；阶段 1/2/3 分别分片优化器状态、梯度、参数。
+- `memory_ledger` 实现 (12.2)、(12.3)：激活按 `n_layers/pp` 与 `seq_len/sp` 缩放，默认系数 12；`recompute=True` 时除以 `sqrt(layers)`；只合计状态与激活，临时缓冲不在内。
+- `ring_all_reduce_bytes` 实现 (12.5) 的 `2(N-1)/N` 系数；`dp_grad_bytes` 与 `tp_block_bytes` 分别按梯度张量与激活张量代入。
+- 集合通信用"每 rank 一个张量"的列表模拟：`all_reduce_sum` 返回每卡相同的总和；`reduce_scatter_sum` 让 rank `r` 只保留总和的第 `r` 段；`shard_reduce_gather` 先散射再收集，并正确处理不能整除时的 padding；`shard_flat` 要求元素数能被 world 整除。
+- `column_parallel_linear` 按输出维切分、前向无通信；`row_parallel_linear` 按输入维切分、用一次 all-reduce 求和；测试验证两者拼接/组合与稠密矩阵乘等价。
+- `LossScaler` 实现 (12.12)：`scale_loss` 放大损失，`unscale_` 除回并返回是否全部有限；`update(False)` 时 scale 减半、`good_steps` 归零、记录跳过；连续 `growth_interval` 步正常后倍增。
+- 实验统一用 `d_model=32`、2 层、4 头 GQA-2、序列 32、批 16、50 步、学习率 2e-3、3 个种子；整批训练是基准，其余三种按全局平均归一化后比对。
+- 所有随机源（模型初始化、批采样）固定种子；输出中的耗时随机器波动，其余数字逐字可复现。
+- 本章只执行数据并行与 ZeRO-1 的等价性；张量并行与流水并行验证原语与公式，不模拟完整层间调度；集合通信不测量真实带宽。
+
+## 第 13 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/data/collate.py` | 章节内嵌实现 | `PackedBatch`、`block_causal_mask`、`pack_documents`、`token_utilization` |
+| `tinylm/train/long_context.py` | 章节内嵌实现 | `attention_flops`、`linear_flops`、`attention_share`、`crossover_length`、`kv_cache_bytes`、`activation_bytes`、`length_schedule`、`token_budget_shares`、`effective_context` |
+| `tinylm/eval/needle.py` | 章节内嵌实现 | `needle_positions`、`passkey_batch`、`retrieval_correct`、`bucket_accuracy` |
+| `tests/test_long_context.py` | 章节内嵌实现 | 11 个用例：FLOPs 解析式与翻倍关系、交叉长度占比、KV/激活账本、课程表与有效上下文、块对角掩码、打包边界、打包等价与泄漏、2D 掩码兼容、Token 利用率、针位置、分桶统计 |
+| `examples/ch13_long_context.py` | 章节内嵌实现 | 7B 账本、KV 表、打包等价性、NIAH 自检、固定/混合/课程三种长度策略的外推表 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 13 章行为 |
+| --- | --- | --- |
+| `ModelConfig.max_seq_len` | 与第 3 章一致 | RoPE 路径允许前向长度超过它；注意力按当前长度动态重建因果掩码 |
+| `ModelConfig.rope_scaling` | `None` | 复用第 4 章的 PI/NTK/YaRN 配置，本章实验用它做零样本外推对照 |
+| `attention_mask`（前向参数） | `None` | 新增 4D 布尔掩码支持：`(B,1,T,T)` 按块对角文档掩码处理；2D `(B,T)` padding 掩码行为不变 |
+
+实现要点：
+
+- 本章不新增模型模块，`ModelConfig`、`TinyLM`、`CausalLMOutput` 均未改动；只在第 4 章 `PositionAwareAttention` 与第 6 章 `VariantAttention`/`LatentAttention` 中把 `attention_mask.dim() == 4` 的分支接上 `masked_fill`。
+- `pack_documents` 把多篇文档拼成一条序列：输入是拼接后的前 `T-1` 个 Token，标签是后 `T-1` 个 Token；跨文档位置的标签置为 `-100`；`position_ids` 在每篇文档内从 0 开始；`attention_mask` 是 `(1,1,T,T)` 块对角因果掩码。
+- `block_causal_mask` 实现 (13.8)：同文档且不越界；`token_utilization` 实现 (13.7)，返回 `{"pad", "packed"}`。
+- `attention_flops`、`linear_flops` 实现 (13.1)、(13.2)；`crossover_length` 实现 (13.3)；`kv_cache_bytes` 与第 6 章 (6.6) 同形，本章按 (13.4) 复用；`activation_bytes` 实现 (13.5)，`materialize_scores=True` 时增加分数矩阵项。
+- `length_schedule` 实现 (13.6) 的几何课程；`token_budget_shares` 按 $$1/L_i$$ 归一化；`effective_context` 实现 (13.10)。
+- `needle_positions` 实现 (13.11)：末两位留给 value 与 QUERY，KEY 的位置范围是 `[0, T-3]`；`passkey_batch` 在指定位置放 KEY、下一位放随机 value、末位放 QUERY；`bucket_accuracy` 按深度分桶。
+- 实验统一用 2 层、`d_model=32`、2 个头、`d_ff=128`、词表 17、400 步、学习率 3e-3、3 个种子；固定长度训练的 `max_seq_len=32`，混合长度与课程训练的 `max_seq_len=128`。
+- 全部随机源固定种子；输出中的耗时随机器波动，其余数字逐字可复现。
+- 本章的零样本外推结论只适用于这个玩具任务；正文明确说明不能外推到真实 LLM，PI/NTK/YaRN 的种子间双峰现象按原始结果报告。
+
 ## 下一章待实现
 
-第 12 章《分布式训练》在第 11 章基线上扩展训练系统。本章是核心章，预算 10,000–12,000 字。待定内容：
+第 14 章《监督微调（SFT）》在第 13 章基线上进入后训练。本章预算 6,000–9,000 字。待定内容：
 
-- 数据并行、张量并行、流水并行与序列并行的切分方式与通信量账本；
-- ZeRO 各阶段对参数、梯度、优化器状态的显存分解，衔接第 11 章 Adam 的两份状态；
-- 全局批大小、梯度累积与学习率缩放的落地；
-- 混合精度（FP16/BF16/FP8）的损失缩放、主权重与溢出处理，衔接第 11 章的尖峰诊断；
-- 单机 CPU 可跑的通信量/显存账本与分片—聚合等价性演示。
+- 指令数据构造：任务来源、模板、答案质量、规模与多样性，衔接第 10 章的数据工程；
+- 对话模板与损失掩码：多轮拼接、角色标记、只在回答部分计算损失，衔接本章的 `-100` 与打包；
+- 数据质量与数量的权衡：少量高质量指令数据与大规模数据的对照，过拟合与灾难性遗忘；
+- SFT 的训练目标与超参数：学习率、轮数、序列打包、eval 与早停；
+- 合成数据与拒绝采样在 SFT 中的作用，衔接第 19 章的蒸馏。
 
-第 12 章不得修改 `TinyLM.forward` 与 `CausalLMOutput`；并行策略与训练超参应作为训练脚本参数。实验必须报告至少 3 个种子的等价性验证，并把优化器状态、梯度累积与混合精度纳入显存账本。具体模块名与文件名在开工前按 CLAUDE.md 与 SUMMARY.md 确认，不得沿用本章的暂定命名。
+第 14 章不得修改 `TinyLM.forward` 与 `CausalLMOutput`；新能力应通过配置项或训练脚本分派。实验须报告至少 3 个种子的对照，并明确区分训练集内与分布外评测。具体模块名与文件名在开工前按 CLAUDE.md 与 SUMMARY.md 确认，不得沿用本章的暂定命名。
 
 ## 验收门槛
 
@@ -408,3 +476,31 @@
 - 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig`；实验只读取第 8 章的 `ModelConfig` 与 `TinyLM`；
 - `ch11.py` 的所有数字除耗时外必须逐字可复现；训练实验必须报告 3 个种子的均值与标准差；
 - 玩具模型（2 层、`d_model=32`、150–300 步）的结论必须标注不可外推；Muon 的玩具实验若不占优，不得删去负面结果后只报正面结论。
+- `param_state_bytes` 对 FP32/FP16/BF16 返回 16、对 FP8 返回 15；未知精度必须报错；
+- `zero_state_bytes(7e9, 8, s, "bf16")` 在阶段 0/1/2/3 分别为 112.0/38.5/26.25/14.0 GB，且随阶段单调不增；阶段越界必须报错；
+- `memory_ledger` 的合计等于状态加激活；激活按 `n_layers/pp`、`seq_len/sp`、微批与 `d_model` 缩放；`recompute=True` 时激活严格变小；
+- `ring_all_reduce_bytes(S,1)==0`、`(100,4)==150`、`(100,64)==196.875`；
+- `dp_grad_bytes` 与 `tp_block_bytes` 与 (12.5)、(12.9) 逐位一致；`pp_bubble_fraction(1,A)==0`，`(4,8)==3/11`，段数或微批非正时报错；
+- `global_batch_size(4,2,8)==64`；`scale_lr` 在 `kappa=1` 时线性、`kappa=0.5` 时平方根；`kappa` 越界报错；
+- `all_reduce_sum` 在每个 rank 返回相同的总和；`shard_reduce_gather` 在元素数不能被卡数整除时，padding 不得污染结果；
+- `shard_flat` 要求元素数能被 world 整除，否则报错；`merge_shards` 能拼回原扁平张量；
+- 列并行输出拼接后与稠密矩阵乘误差小于 `1e-6`；行并行与稠密矩阵乘误差小于 `1e-6`；列/行组合的 MLP 与稠密 MLP 误差小于 `1e-6`；
+- 分片 AdamW 与稠密 AdamW 在相同梯度下逐元素误差小于 `1e-6`；
+- `LossScaler` 连续 `growth_interval` 步正常后倍增；检测到非有限梯度时减半并跳过，`good_steps` 归零、`skipped_steps` 加一；`unscale_` 在梯度除回后能识别 `inf`；
+- 四模式（整批、梯度累积、DP、ZeRO-1）在 3 个种子上验证损失一致、最大参数偏差小于 `1e-4`；每卡优化器状态比例约为 `1/dp`（含 padding）；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig`；并行度与混合精度只作为训练脚本参数；
+- `ch12_parallel.py` 除耗时外必须逐字可复现；玩具模型的等价性结论不得外推为真实带宽或吞吐结论。
+- `attention_flops`、`linear_flops` 与 (13.1)、(13.2) 逐位一致；`F_attn(2T)/F_attn(T)` 等于 `2(2T+1)/(T+1)`，`F_lin` 严格翻倍；
+- `crossover_length` 实现 (13.3)；在该长度上 `attention_share` 等于 0.5，半长小于 0.5、倍长大于 0.5；
+- `kv_cache_bytes(1, 131072, 32, 8, 128)` 等于 1.7179869184e10 字节（16 GiB），批大小线性放大；
+- `activation_bytes` 实现 (13.5)；`materialize_scores=True` 时恰好多出 `B*n_layers*n_heads*T^2*b` 字节；
+- `length_schedule(32,128,3)` 返回 `[32,64,128]` 且步数占比之和为 1；`token_budget_shares` 之和为 1 且随长度递减；`effective_context` 返回达标的最长长度，全不达标返回 0；
+- `block_causal_mask` 的形状为 `(1,1,T,T)`，只在对角块的下三角为真；
+- `pack_documents` 的 `input_ids` 与 `labels` 长度均为 `sum(len(doc))-1`；跨文档标签为 `-100`；位置在每篇文档内从 0 重置；总长超过 `max_len` 必须报错；
+- 打包 + 块对角掩码的 logits、逐位置损失与逐条前向在 `1e-5` 内一致；仅保留因果掩码时必须出现可测偏差，证明文档隔离不是可选项；
+- 2D padding 掩码“全 1”时与原前向逐位一致，`TinyLM.forward` 的签名与 2D 语义不得改变；
+- `token_utilization` 在 6 篇文档、长度 9/12/7/15/11/8、`max_len=32` 时返回 padding 62/192、packed 62/64；
+- `needle_positions(T,n)` 的首尾为 0 与 `T-3`、去重且有序；`T<3` 或 `n_probes<1` 必须报错；`passkey_batch` 在 KEY 位置写入 `key_id`、在末位写入 `query_id`，越界必须报错；
+- `bucket_accuracy` 的样本数之和等于输入数，分桶边界左闭右开；`retrieval_correct` 只比较末位 argmax 与目标；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；4D 掩码只作为 `attention_mask` 的新分支；
+- `ch13_long_context.py` 除耗时外必须逐字可复现；零样本外推与课程/混合长度的结论必须标注为 2 层 32 维、400 步玩具实验，不得外推为真实 LLM 的普适结论。

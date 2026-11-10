@@ -247,11 +247,41 @@
 | 混合精度 | Mixed Precision | 同时使用低精度与高精度进行训练 | 第 12 章 |
 | BF16 | BFloat16 | 指数范围与 FP32 相同、尾数更短的浮点格式 | 第 12 章 |
 | FP8 | 8-bit Floating Point | 训练或推理用的 8 位浮点格式 | 第 12 章 |
+| 分布式训练 | Distributed Training | 把训练任务切分到多设备协同完成 | 第 12 章 |
+| 上下文并行 | Context Parallelism (CP) | 把长序列或 KV 块分到多卡并行计算 | 第 12 章 |
+| 模型状态 | Model States | 权重、梯度、主权重与优化器状态的总和 | 第 12 章 |
+| 微批 | Micro-batch | 一次前向反向处理的最小数据片 | 第 12 章 |
+| 全局批 | Global Batch | 一步更新所覆盖的全部样本数 | 第 12 章 |
+| 在途微批 | In-flight Micro-batches | 流水线中同时处于不同阶段的微批 | 第 12 章 |
+| 全归约 | All-Reduce | 所有设备求和并把结果广播给每台设备 | 第 12 章 |
+| 归约散射 | Reduce-Scatter | 先求和再按设备切分，各设备只留一段 | 第 12 章 |
+| 全收集 | All-Gather | 各设备收集所有分片并拼接成完整张量 | 第 12 章 |
+| 环形全归约 | Ring All-Reduce | 沿环传递分片完成归约与收集 | 第 12 章 |
+| 列并行 | Column Parallel | 按输出维切分权重，前向无需通信 | 第 12 章 |
+| 行并行 | Row Parallel | 按输入维切分权重，前向需一次全归约 | 第 12 章 |
+| 词表并行 | Vocabulary Parallel | 按词表维切分输出投影与交叉熵 | 第 12 章 |
+| 流水线气泡 | Pipeline Bubble | 填充与排空阶段设备空闲的比例 | 第 12 章 |
+| 1F1B | One-Forward-One-Backward | 稳态交替执行前向与反向的流水调度 | 第 12 章 |
+| 交错式调度 | Interleaved Schedule | 把每段切成虚拟段以进一步缩小气泡 | 第 12 章 |
+| 动态损失缩放 | Dynamic Loss Scaling | 按溢出情况自动调整缩放系数 | 第 12 章 |
+| 逐块缩放 | Per-Block Scaling | 每个量化块单独计算缩放系数 | 第 12 章 |
+| 延迟缩放 | Delayed Scaling | 用历史最大值估计当前步的缩放系数 | 第 12 章 |
+| 高精度累加 | High-Precision Accumulation | 低精度矩阵乘后用 FP32 累加结果 | 第 12 章 |
+| DualPipe | DualPipe | 双向流水并重叠 all-to-all 的调度 | 第 12 章 |
 | 长上下文 | Long Context | 上下文窗口显著超过训练常见长度的设定 | 第 13 章 |
-| 长度外推 | Length Extrapolation | 在短序列上训练、在更长序列上保持性能 | 第 13 章 |
-| 大海捞针 | Needle in a Haystack | 在长文本中检索特定信息的长上下文评测 | 第 13 章 |
+| 渐进式长度扩展 | Progressive Length Extension | 从短长度分阶段加长到目标长度的训练策略 | 第 13 章 |
+| 长度课程 | Length Curriculum | 按预设阶段分配不同序列长度的训练安排 | 第 13 章 |
+| 混合长度训练 | Mixed-Length Training | 每一步从多个训练长度中轮流采样 | 第 13 章 |
+| 短上下文遗忘 | Short-Context Forgetting | 长长度训练后短序列性能下降的现象 | 第 13 章 |
+| 文档隔离 | Document Masking | 打包序列中阻止跨文档注意力的掩码 | 第 13 章 |
+| 块对角因果掩码 | Block-Diagonal Causal Mask | 同文档且满足因果性的注意力掩码 | 第 13 章 |
+| 环形注意力 | Ring Attention | KV 块在设备间轮转以分摊长序列注意力 | 第 13 章 |
+| 大海捞针 | Needle in a Haystack (NIAH) | 在长文本指定深度检索关键信息的评测 | 第 13 章 |
+| 单针检索 | Single-Needle Retrieval | 只放一条关键信息的 NIAH 变体 | 第 13 章 |
+| 多针检索 | Multi-Needle Retrieval | 同时放多条关键信息的 NIAH 变体 | 第 13 章 |
+| 迷失在中间 | Lost in the Middle | 关键信息位于长文中部时性能下降的现象 | 第 13 章 |
+| RULER | RULER | 覆盖 13 项任务的长上下文评测套件 | 第 13 章 |
 | 检索增强生成 | Retrieval-Augmented Generation (RAG) | 先检索外部文档再让模型基于文档生成 | 第 13 章 |
-| StreamingLLM | StreamingLLM | 保留注意力汇与近期窗口以支持无限流式输入 | 第 13 章 |
 
 ## C.7 后训练
 
