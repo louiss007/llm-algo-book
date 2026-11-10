@@ -104,9 +104,9 @@
 
 ## 当前进度
 
-- 已完成：第 1–8 章（`part1/chapter01.md`–`part2/chapter06.md`、`part2/chapter07.md`、`part2/chapter08.md`），交接文件已更新。
-- 下一步：第 9 章《预训练与缩放定律》（`part2/chapter09.md`，其余章，6,000–9,000 字）。
-- 第 9 章要点：Chinchilla 计算最优、数据重复与质量、学习率与批大小缩放、涌现与相变的争议；TinyLM 复用第 8 章的 `decode_flops`/`state_bytes` 做算力账本，新增 `tinylm/scaling.py`。
+- 已完成：第 1–11 章（`part1/chapter01.md`–`part2/chapter08.md`、`part3/chapter09.md`–`part3/chapter11.md`），交接文件已更新。
+- 下一步：第 12 章《分布式训练》（`part3/chapter12.md`，核心章，10,000–12,000 字）。
+- 第 12 章要点：数据并行、张量并行、流水并行与序列并行的切分与通信量；ZeRO 各阶段对参数、梯度、优化器状态的显存分解（衔接第 11 章 Adam 的两份状态）；全局批大小、梯度累积与学习率缩放的落地；混合精度（FP16/BF16/FP8）的损失缩放、主权重与溢出处理（衔接第 11 章尖峰诊断）；单机 CPU 可跑的通信量/显存账本与分片—聚合等价性演示。具体模块名与文件名在开工前按 `SUMMARY.md` 与本章交接确认，不沿用暂定命名。
 
 ## 文件地图
 

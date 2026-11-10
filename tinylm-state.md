@@ -11,6 +11,8 @@
 - **注意力变体**：第 6 章增加 `VariantAttention`（MHA/MQA/GQA）与 `LatentAttention`（MLA），由 `attention`、`n_kv_heads`、`d_c`、`d_head_rope` 分派；新增 `attention_params` 与 `kv_cache_bytes` 两个账本函数；代码仍以章节内嵌形式存在。
 - **混合专家**：第 7 章增加 `MoEConfig` 与 `MoE`（路由器、Top-K 分派、容量丢弃、共享专家、辅助损失），`TransformerBlock` 的前馈子层在稠密 FFN 与 MoE 之间分派；新增 `model_params(active=...)`、`moe_layer_params`、`expert_params` 账本函数；`CausalLMOutput.aux_loss` 开始生效；代码仍以章节内嵌形式存在。
 - **替代架构**：第 8 章增加 `block_type`（`attention` / `linear_attention` / `ssm` / `hybrid`）、`ssm_d_state`、`ssm_expand`、`hybrid_attn_every`；新增 `SelectiveSSM`、`LinearAttention`、`scan_states`、`SSMBlock`、`LinearAttentionBlock` 与 `make_block`/`layer_kinds` 分派；新增 `ssm_layer_params`、`state_bytes`、`decode_flops` 账本函数；默认 `attention` 与第 7 章逐位一致；代码仍以章节内嵌形式存在。
+- **数据工程**：第 10 章增加 `tinylm/data/filter.py`（分词、精确去重、shingle、Jaccard、MinHash、LSH、近似去重、质量过滤、污染检测与去污染）与 `tinylm/data/mixture.py`（温度采样、最大余数预算、按配额交错）；不修改模型模块。代码仍以章节内嵌形式存在。
+- **训练优化**：第 11 章增加 `tinylm/train/optim.py`（`AdamW`、`make_param_groups`、`lr_factor`、`clip_grad_norm_`、`LossSpikeDetector`、Newton-Schulz 正交化与 `muon_update`）；优化器属于训练脚本选择，不进入 `ModelConfig`，模型接口未改动。代码仍以章节内嵌形式存在。
 - **接口契约**：未修改。`TinyLM.forward` 保持附录 F 的签名，新增字段只出现在 `ModelConfig` 与 `CausalLMOutput` 中。
 - **配置**：`ModelConfig` 首次落地（见第 3 章变更）。`pos_encoding` 与 `rope_theta` 在第 4 章启用，新增 `rope_scaling`；第 6 章启用 `attention`、`n_kv_heads`、`d_c`、`d_head_rope`；第 7 章启用 `moe` 与 `MoEConfig`（含 `capacity_factor`）；部分字段仍为后续章节预留。
 
@@ -248,17 +250,77 @@
 - 线性注意力直接物化 $$\mathbf{S}_t$$（`cumsum`），只适合教学规模；生产实现必须分块；
 - 账本函数全部解析计算，不为大配置实例化模型；`state_bytes` 与 `decode_flops` 区分注意力层与递推层。
 
+## 第 9 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/scaling.py` | 章节内嵌实现 | `power_law_loss`、`optimal_exponents`、`compute_optimal`、`fit_scaling_law`、`effective_data`、`training_flops` |
+| `tests/test_scaling.py` | 章节内嵌实现 | 9 个用例：幂律与算力手算、指数和为一、预算约束、平衡条件、合成数据参数恢复、有效数据饱和、损失随预算下降 |
+| `examples/ch09_scaling.py`（章内为 `ch09.py`） | 章节内嵌实现 | 合成数据拟合、计算最优分配表、重复数据表、复制任务扫描、训练加推理账本 |
+
+实现要点：
+
+- 本章不新增模型模块，`ModelConfig`、`TinyLM`、`CausalLMOutput` 均未改动；`ch09.py` 直接 `from ch08 import ModelConfig, TinyLM, decode_flops, model_params`。
+- `power_law_loss` 实现 (9.1)；`training_flops` 实现 (9.2)；`optimal_exponents` 返回 (9.5) 的两个指数；`compute_optimal` 在 $$\log_{10}N$$ 上做 200 轮黄金分割，约束由 $$D=C/(6N)$$ 自动满足。
+- `fit_scaling_law` 在 log 损失上做 Huber 回归；$$L_\infty$$ 用 softplus、$$A,B$$ 用 exp、$$\alpha,\beta$$ 用 sigmoid 保证取值合法；默认 3 次重启，返回最优 RMSE 与参数。
+- `effective_data` 实现 (9.8)，`R_STAR=15.4`；$$D\le U$$ 时直接返回 $$D$$，避免负的重复轮数。
+- 训练加推理账本复用第 8 章的 `decode_flops` 与 `model_params`，没有另起一套 FLOPs 口径；玩具扫描复用第 8 章的复制任务（lag=8、T=32、V=16）。
+- 账本函数全部解析计算，不为大配置实例化模型；70B/1.4T 的 $$g_0$$ 由 `scaling_allocation` 的默认参数 1.858 校准。
+
+## 第 10 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/data/filter.py` | 章节内嵌实现 | `tokenize`、`exact_dedup`、`shingles`、`jaccard`、`minhash_signature`、`lsh_candidates`、`near_dedup`、`quality_score`、`quality_filter`、`contamination_hits`、`decontaminate` |
+| `tinylm/data/mixture.py` | 章节内嵌实现 | `temperature_probs`、`allocate_counts`、`interleave` |
+| `tests/test_data.py` | 章节内嵌实现 | 13 个用例：分词、精确去重、Jaccard 边界、MinHash 估计、近似去重、LSH 分桶、质量过滤、污染检测、去污染、温度采样、预算分配、交错配额、非法温度 |
+| `examples/ch10_data.py`（章内为 `ch10.py`） | 章节内嵌实现 | 合成语料构造、漏斗、污染检测、3 种子训练对照、配比表与配比消融 |
+
+实现要点：
+
+- 本章不新增模型模块，`ModelConfig`、`TinyLM`、`CausalLMOutput` 均未改动；`ch10.py` 直接 `from ch08 import ModelConfig, TinyLM`。
+- `tokenize` 是教学用混合分词：英文与代码按词，中文按空白分隔的连续汉字串，标点单独成 Token；它不是第 2 章的 BPE，只用于数据管道的集合运算与实验编码。
+- `exact_dedup` 对规范化 Token 序列做 BLAKE2b-128 哈希，保留首次出现；`near_dedup` 先用 MinHash 签名与 LSH 分桶找候选，再用精确 Jaccard 复核，保留每簇第一个文档。
+- `minhash_signature` 用 $$m$$ 个随机仿射哈希 $$(ax+b)\bmod(2^{61}-1)$$，空集合返回全 $$2^{61}-1$$；`lsh_candidates` 要求 `bands * rows <= num_perm`。
+- `quality_score` 实现 (10.6)，对短文档与符号噪声加惩罚；`quality_filter` 默认 $$\tau=0.55$$。
+- `contamination_hits` 计算每个评测文档被训练集 n-gram 覆盖的比例；`decontaminate` 反向计算每篇训练文档与评测集的覆盖率并删除超阈值文档，默认 $$n=8$$、阈值 0.5。
+- `temperature_probs` 在 log 空间计算并减最大值，温度非正时报错；`allocate_counts` 用最大余数法保证计数之和等于预算；`interleave` 域内先打乱、按配额轮流取样，配额超过文档数时循环复用。
+- 实验的清洗顺序固定为：质量过滤 → 精确去重 → 近似去重 → 防污染；统计口径是"本阶段删除"为相对上一级的文档数差。
+- 训练对照统一用 `d_model=32`、2 层、4 头、GQA-2、RMSNorm、SwiGLU、RoPE、150 步、批 16、序列 32、3 个种子；配比消融用 2 个种子、120 步。
+- 账本与漏斗均为纯函数，不依赖 GPU；所有随机源固定种子，输出可逐字复现。
+
+## 第 11 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/train/optim.py` | 章节内嵌实现 | `AdamW`、`make_param_groups`、`lr_factor`、`clip_grad_norm_`、`LossSpikeDetector`、`zeropower_newtonschulz5`、`muon_update` |
+| `tests/test_optim.py` | 章节内嵌实现 | 13 个用例：AdamW 闭式解、偏差修正、解耦 vs 耦合、参数分组、预热端点、余弦单调、WSD 平台与衰减、非法调度、全局裁剪、小梯度不变、尖峰检测、Newton-Schulz 条件数、Muon 二次下降 |
+| `examples/ch11_optim.py`（章内为 `ch11.py`） | 章节内嵌实现 | 病态二次型对照、优化器/预热/调度 3 种子实验、注入梯度裁剪演示 |
+
+实现要点：
+
+- 本章不新增模型模块，`ModelConfig`、`TinyLM`、`CausalLMOutput` 均未改动；`ch11.py` 直接 `from ch08 import ModelConfig, TinyLM`，并复用第 10 章的语料、编码与评测函数。
+- `AdamW` 继承 `torch.optim.Optimizer`，实现 (11.3)–(11.7)：一阶/二阶矩用 `mul_` + `add_`/`addcmul_` 原地更新，偏差修正后再做 `(1 - lr * wd)` 的解耦收缩。
+- `make_param_groups` 只对 `ndim >= 2` 的参数施加权重衰减，偏置与归一化增益进入 `weight_decay=0` 组；嵌入层默认在衰减组，正文说明这一选择没有理论定论。
+- `lr_factor(step, total, warmup, kind, min_ratio, decay_start, power)` 中 `step` 表示"已完成的更新次数"，取值 0..total；预热结束处乘子恰为 1。`kind` 支持 `constant`、`cosine`、`wsd`，未知调度抛 `ValueError`。
+- `clip_grad_norm_` 把全部参数梯度视为一个向量，按全局 L2 范数缩放，返回裁剪前的范数；`max_norm <= 0` 报错。
+- `LossSpikeDetector` 用长度为 `window` 的滑动窗口计算均值与标准差，先判定当前点再入队，避免尖峰抬高自己的基线；历史不足 `min_history` 时不报警。
+- `zeropower_newtonschulz5` 只接受二维张量，按 (11.20) 做 5 次迭代，形状为"宽矩阵"时先转置以减小中间矩阵；`muon_update` 按 (11.19) 返回新动量，并按 `sqrt(max(1, n_out/n_in))` 缩放更新。
+- 优化器状态、参数分组与调度都属于训练侧，不写入模型 `state_dict` 之外的结构；`TinyLM.forward` 签名未变。
+- 训练实验统一用 `d_model=32`、2 层、4 头 GQA-2、RMSNorm、SwiGLU、RoPE、批 16、序列 32、3 个种子；裁剪演示用 2 维二次目标并人为在第 10 步把梯度放大 50 倍。
+- 所有随机源（模型初始化、批采样）固定种子；输出中的耗时随机器波动，其余数字逐字可复现。
+
 ## 下一章待实现
 
-第 9 章《缩放定律》在第 8 章基线上不需要新增模型模块，重点是实验与拟合：
+第 12 章《分布式训练》在第 11 章基线上扩展训练系统。本章是核心章，预算 10,000–12,000 字。待定内容：
 
-| 文件 | 内容 |
-| --- | --- |
-| `tinylm/scaling.py` | 幂律拟合、计算最优分配、Chinchilla 风格的参数/数据配比 |
-| `tests/test_scaling.py` | 幂律拟合在合成数据上的参数恢复、计算最优解的边界条件 |
-| `examples/ch09_scaling.py` | 小模型扫描、损失-计算曲线、不同架构的每 Token FLOPs 口径对照 |
+- 数据并行、张量并行、流水并行与序列并行的切分方式与通信量账本；
+- ZeRO 各阶段对参数、梯度、优化器状态的显存分解，衔接第 11 章 Adam 的两份状态；
+- 全局批大小、梯度累积与学习率缩放的落地；
+- 混合精度（FP16/BF16/FP8）的损失缩放、主权重与溢出处理，衔接第 11 章的尖峰诊断；
+- 单机 CPU 可跑的通信量/显存账本与分片—聚合等价性演示。
 
-第 9 章不得修改 `TinyLM.forward` 与 `CausalLMOutput`；若引入架构相关的 FLOPs 口径，必须复用第 8 章的 `decode_flops` 与 `state_bytes`，不得另起一套账本。
+第 12 章不得修改 `TinyLM.forward` 与 `CausalLMOutput`；并行策略与训练超参应作为训练脚本参数。实验必须报告至少 3 个种子的等价性验证，并把优化器状态、梯度累积与混合精度纳入显存账本。具体模块名与文件名在开工前按 CLAUDE.md 与 SUMMARY.md 确认，不得沿用本章的暂定命名。
 
 ## 验收门槛
 
@@ -312,3 +374,37 @@
 - `state_bytes` 对 SSM/线性注意力与序列长度无关，对注意力随长度线性增长；同配置下 SSM 状态小于线性注意力；
 - `block_type` 不在四个合法值内时必须在 `ModelConfig.__post_init__` 中报错；
 - 全零输入经过线性注意力不得产生 NaN（分母裁剪生效）。
+- `power_law_loss` 在给定参数上与手算值逐位一致；`training_flops(N,D)` 等于 $$6ND$$；
+- `optimal_exponents(0.34,0.28)` 返回 $$(0.28/0.62,0.34/0.62)$$，两指数之和为 1；
+- `scaling_allocation(C)` 对任意 $$C$$ 满足 $$6ND=C$$（相对误差小于 `1e-12`）；
+- `compute_optimal` 的解满足平衡条件 (9.4)（左右比值误差小于 `1e-3`），且损失随预算单调下降；
+- 在 35 个带 1% 噪声的合成点上，`fit_scaling_law` 恢复 $$L_\infty$$ 的相对误差小于 5%、$$\alpha,\beta$$ 的绝对误差小于 0.05，log-RMSE 小于 0.02；
+- `effective_data` 在 $$D\le U$$ 时等于 $$D$$，在 $$D\to\infty$$ 时趋于 $$U(1+R^*)$$，且对 $$D$$ 单调递增；
+- 训练加推理账本必须复用第 8 章的 `decode_flops`，不得另写解码 FLOPs 公式；8B/15T 与 70B/1.4T 的盈亏平衡点由两者训练算力差与每 Token 解码差解出；
+- 玩具扫描只允许用于验证实现方向，不得用其 9 个点拟合 (9.1) 的五个参数；正文必须说明算力跨度与贴近下界的限制。
+- `exact_dedup` 保留首次出现，重复输入的第二份进入 `dropped`；规范化只做空白拼接，不做大小写或 Unicode 折叠；
+- `jaccard` 在两边均为空集时返回 1.0；`minhash_signature` 对空集合返回全 `_MERSENNE`；`lsh_candidates` 对相同签名必须返回 `(0,1)`；
+- `bands=8`、`rows=8` 时 `bands * rows = 64`，与默认 `num_perm=64` 一致；`bands * rows > num_perm` 必须触发断言；
+- `near_dedup` 在长文档单字符改动上必须召回，在完全不同的文档上不得误删；阈值与 shingle 大小必须作为参数暴露；
+- `quality_filter` 必须拒绝高重复、过短、纯符号噪声三类文档，保留正常文档；阈值默认 0.55，可通过参数覆盖；
+- `contamination_hits` 对逐字泄漏返回 1.0，对干净文档返回小于 0.5；`decontaminate` 必须删除泄漏文档而保留干净文档；
+- `temperature_probs` 对任意正温度返回和为 1 的分布，温度升高时分布更平坦，温度非正时抛出 `ValueError`；
+- `allocate_counts` 的计数之和必须等于预算，且每个计数非负；`interleave` 必须满足各域配额，配额超过文档数时循环复用；
+- 数据漏斗必须同时报告每一级的文档数与 Token 数，并给出清洗前后的总量与保留率；不得只报清洗后的损失；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；实验只读取第 8 章的 `ModelConfig` 与 `TinyLM`；
+- `ch10.py` 的输出必须可复现：固定语料种子、模型种子与批采样种子，重复运行逐字一致；
+- 训练对照至少报告 3 个种子的均值与标准差；配比消融至少报告 2 个种子；
+- 合成语料与玩具模型的结论必须标注不可外推；污染检测与清洗收益的相互作用不得被表述为普适结论。
+- `AdamW` 第一步与闭式解一致：参数初值 1、梯度 2、`lr=0.1`、`betas=(0.9,0.95)`、`eps=0`、`weight_decay=0.1` 时，更新后参数为 `0.99 - 0.1*2/sqrt(4)`；
+- 偏差修正使第一步更新幅度约等于学习率：梯度 `1e-3`、`lr=0.05`、无衰减时，参数变化约为 `-0.05`；
+- 解耦衰减不被二阶矩放大：相同梯度与衰减系数下，AdamW 的收缩幅度与 `lr*wd` 一致，耦合 L2 的衰减约为其 `1/sqrt(v)` 倍；
+- `make_param_groups` 只把二维以上参数放进衰减组，偏置与归一化增益进入不衰减组；
+- `lr_factor` 的端点正确：预热起点为 0、中点为 0.5、预热结束为 1、末步为 `min_ratio`；余弦在预热后单调不增；WSD 在 `decay_start` 处平直、末步为 `min_ratio`；
+- 未知 `kind` 必须抛出 `ValueError`；`total <= 0` 或 `step < 0` 必须报错；
+- `clip_grad_norm_` 按全局 L2 范数缩放：两参数梯度为 `(3,0)` 与 `(4)` 时，返回 5.0，裁剪后范数为 1.0；小梯度不得被改动；
+- `LossSpikeDetector` 在历史不足 `min_history` 时不报警；稳定序列后注入 3 倍均值必须触发尖峰，且随后的正常值不报警；
+- `zeropower_newtonschulz5` 只接受二维张量；5 次迭代后条件数必须显著下降，谱范数接近 1（不要求精确正交）；
+- `muon_update` 必须在二次目标上降低损失，返回与参数同形状的新动量；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig`；实验只读取第 8 章的 `ModelConfig` 与 `TinyLM`；
+- `ch11.py` 的所有数字除耗时外必须逐字可复现；训练实验必须报告 3 个种子的均值与标准差；
+- 玩具模型（2 层、`d_model=32`、150–300 步）的结论必须标注不可外推；Muon 的玩具实验若不占优，不得删去负面结果后只报正面结论。

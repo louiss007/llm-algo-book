@@ -159,28 +159,83 @@
 | 中文 | 英文 | 一句话定义 | 首次出现 |
 | --- | --- | --- | --- |
 | 缩放定律 | Scaling Law | 损失随参数量、数据量、算力变化的经验规律 | 第 9 章 |
+| 幂律 | Power Law | 两个量按固定指数成比例变化的函数关系 | 第 9 章 |
+| 不可约损失 | Irreducible Loss | 模型与数据无限大时仍无法消除的损失下限 | 第 9 章 |
 | Kaplan 定律 | Kaplan Scaling Law | 早期提出的幂律缩放关系 | 第 9 章 |
 | Chinchilla 定律 | Chinchilla Scaling Law | 指出最优数据量应随参数量同比增长的缩放关系 | 第 9 章 |
-| 计算最优 | Compute-Optimal | 在固定算力下使损失最小的参数/数据配比 | 第 9 章 |
-| 推理最优 | Inference-Optimal | 考虑推理成本后选择的更小模型、更多数据配比 | 第 9 章 |
-| 涌现能力 | Emergent Abilities | 规模超过阈值后突然出现的能力 | 第 9 章 |
-| μP | Maximal Update Parametrization | 使超参数可跨宽度迁移的参数化方案 | 第 9 章 |
-| 数据去重 | Data Deduplication | 移除重复或近重复样本来提升数据效率 | 第 10 章 |
-| 质量分类器 | Quality Classifier | 给样本打分并过滤低质数据的模型 | 第 10 章 |
-| 数据配比 | Data Mixture | 各来源数据在训练中的比例 | 第 10 章 |
-| 数据课程 | Data Curriculum | 按难度或阶段安排数据顺序 | 第 10 章 |
-| 数据退火 | Data Annealing | 训练末期切换到高质量数据以提升效果 | 第 10 章 |
-| 合成数据 | Synthetic Data | 由模型生成而非人工采集的训练数据 | 第 10 章 |
-| 数据污染 | Data Contamination | 评测数据出现在训练集中导致分数虚高 | 第 10 章 |
+| 计算最优 | Compute-Optimal | 在固定训练算力下使损失最小的参数/数据配比 | 第 9 章 |
+| 推理最优 | Inference-Optimal | 把推理成本计入总成本后选择的更小模型、更多数据配比 | 第 9 章 |
+| 过训练 | Overtraining | 训练 Token 数显著超过计算最优配比的做法 | 第 9 章 |
+| 数据受限 | Data-Constrained | 唯一数据不足、必须重复训练的情形 | 第 9 章 |
+| 唯一数据 | Unique Data | 去重后可用的不重复 Token 总量 | 第 9 章 |
+| 有效数据量 | Effective Data | 重复数据折算成全新数据后的等效 Token 数 | 第 9 章 |
+| 数据重复 | Data Repetition | 同一语料被训练多轮，用重复轮数度量 | 第 9 章 |
+| 关键批大小 | Critical Batch Size | 继续增大批大小、收益开始明显递减的临界点 | 第 9 章 |
+| 线性缩放规则 | Linear Scaling Rule | 批大小远小于关键值时，学习率与批大小成正比 | 第 9 章 |
+| 平方根缩放规则 | Square-Root Scaling Rule | 批大小远大于关键值时，学习率与批大小的平方根成正比 | 第 9 章 |
+| 最大更新参数化 | Maximal Update Parametrization (μP) | 使超参数可跨宽度、跨深度迁移的参数化方案 | 第 9 章 |
+| 参数迁移 | Hyperparameter Transfer | 在小模型上调好超参数、直接用于大模型的做法 | 第 9 章 |
+| 涌现能力 | Emergent Abilities | 规模超过某阈值后评测分数突然跳升的现象 | 第 9 章 |
+| 相变 | Phase Transition | 系统宏观行为在参数越过临界点时发生质变 | 第 9 章 |
+| 逆缩放 | Inverse Scaling | 规模增大反而使某项指标变差的现象 | 第 9 章 |
+| IsoFLOP 曲线 | IsoFLOP Curve | 固定训练算力时，损失随参数/数据分配变化的曲线 | 第 9 章 |
+| Token/参数比 | Tokens per Parameter | 训练 Token 数与参数量的比值 | 第 9 章 |
+| 算力账本 | Compute Ledger | 把训练、推理各项 FLOPs 分项相加的核算表 | 第 9 章 |
+| 数据管道 | Data Pipeline | 从原始抓取到训练 Token 的逐级处理流程 | 第 10 章 |
+| 数据漏斗 | Data Funnel | 用逐级保留率描述管道删减的模型 | 第 10 章 |
+| 正文抽取 | Content Extraction | 从网页 HTML 中剥离正文、去掉导航与广告 | 第 10 章 |
+| 语种识别 | Language Identification | 判断文档语言并按目标语种过滤 | 第 10 章 |
+| 精确去重 | Exact Deduplication | 对规范化文本做哈希，删除逐字相同的副本 | 第 10 章 |
+| 近似去重 | Near Deduplication | 用相似度阈值删除改写、转载等近似副本 | 第 10 章 |
+| Shingle | Shingle | 文档切成的连续 n 元组，用于集合相似度 | 第 10 章 |
+| Jaccard 相似度 | Jaccard Similarity | 两个集合交集大小与并集大小之比 | 第 10 章 |
+| MinHash | MinHash | 用随机哈希最小值估计 Jaccard 的签名方法 | 第 10 章 |
+| 局部敏感哈希 | Locality-Sensitive Hashing (LSH) | 用分桶把可能相似的文档对召回为候选 | 第 10 章 |
+| 质量过滤 | Quality Filtering | 按启发式分、分类器分或模型分删除低质文档 | 第 10 章 |
+| 过滤产出率 | Yield | 保留文档数占输入文档数的比例 | 第 10 章 |
+| 过滤精确率 | Filter Precision | 保留文档中真正高质量文档的比例 | 第 10 章 |
+| 数据配比 | Data Mixture | 各数据来源在训练 Token 中的比例 | 第 10 章 |
+| 温度采样 | Temperature Sampling | 用 $$p_i\propto w_i^{1/T}$$ 调节配比平滑程度 | 第 10 章 |
+| 最大余数法 | Largest Remainder Method | 按小数部分分配剩余预算，使计数之和等于总量 | 第 10 章 |
+| 配比定律 | Data Mixing Law | 领域损失随各领域配比呈指数变化的经验规律 | 第 10 章 |
+| 分组分布鲁棒优化 | Group DRO | 按领域分组、优化最差领域损失的权重学习方法 | 第 10 章 |
+| 数据课程 | Data Curriculum | 按训练阶段安排数据分布的做法 | 第 10 章 |
+| 退火 | Annealing | 训练末段切换到高质量数据并衰减学习率 | 第 10 章 |
+| WSD 调度 | Warmup-Stable-Decay | 预热、稳定、衰减三段式学习率调度 | 第 10 章 |
+| 合成数据 | Synthetic Data | 由模型生成的教科书、问答、代码或改写文本 | 第 10 章 |
+| 模型坍缩 | Model Collapse | 反复自训练导致分布尾部丢失、多样性下降 | 第 10 章 |
+| 评测污染 | Benchmark Contamination | 评测样本或近似副本出现在训练集中 | 第 10 章 |
+| 去污染 | Decontamination | 从训练集删除与评测集重叠超阈值的文档 | 第 10 章 |
+| n-gram 覆盖率 | n-gram Coverage | 评测文档的 n-gram 中出现在训练集的比例 | 第 10 章 |
+| 金丝雀串 | Canary String | 嵌入数据中的特殊标记，用于检测记忆与泄漏 | 第 10 章 |
 | AdamW | Adam with Decoupled Weight Decay | 把权重衰减与梯度更新解耦的 Adam | 第 11 章 |
 | 学习率调度 | Learning Rate Schedule | 学习率随训练步数变化的规则 | 第 11 章 |
 | 预热 | Warmup | 训练初期让学习率从很小线性上升 | 第 11 章 |
 | 余弦退火 | Cosine Decay | 学习率按余弦曲线衰减到接近零 | 第 11 章 |
-| WSD 调度 | Warmup-Stable-Decay | 先升、再恒定、最后快速衰减的调度 | 第 11 章 |
 | Muon | Muon | 对动量矩阵做正交化的优化器 | 第 11 章 |
 | 损失尖峰 | Loss Spike | 训练中损失突然大幅上升的现象 | 第 11 章 |
 | 梯度裁剪 | Gradient Clipping | 限制梯度范数以防止更新过大 | 第 11 章 |
-| 梯度累积 | Gradient Accumulation | 多次前向反向后再更新一次参数 | 第 12 章 |
+| 优化器状态 | Optimizer State | Adam 为每个参数保存的一阶矩与二阶矩 | 第 11 章 |
+| 一阶矩 | First Moment | 梯度的指数滑动平均，估计更新方向 | 第 11 章 |
+| 二阶矩 | Second Moment | 梯度平方的指数滑动平均，估计逐坐标尺度 | 第 11 章 |
+| 偏差修正 | Bias Correction | 用 $$1-\beta^t$$ 校正零初始化矩的偏小 | 第 11 章 |
+| 耦合 L2 | Coupled L2 | 把 $$\lambda\theta$$ 加进梯度、再被二阶矩归一化的衰减 | 第 11 章 |
+| 解耦权重衰减 | Decoupled Weight Decay | 直接按 $$(1-\eta\lambda)$$ 收缩参数的衰减 | 第 11 章 |
+| 参数分组 | Parameter Groups | 按是否衰减把参数拆成不同超参数组 | 第 11 章 |
+| 学习率乘子 | Learning Rate Multiplier | 相对峰值学习率的比例因子 | 第 11 章 |
+| z 分数 | z-score | 损失相对滑动均值的标准差倍数 | 第 11 章 |
+| 更新比例 | Update-to-Weight Ratio | 单步更新范数与参数范数之比 | 第 11 章 |
+| 注意力熵 | Attention Entropy | 注意力权重分布的熵，用于诊断 softmax 饱和 | 第 11 章 |
+| QK-norm | Query-Key Normalization | 对查询、键做归一化以限制打分幅度 | 第 11 章 |
+| QK-Clip | Query-Key Clipping | 监控并缩放 query/key 的最大值 | 第 11 章 |
+| z-loss | z-loss | 惩罚输出层配分函数对数的正则项 | 第 11 章 |
+| 损失缩放 | Loss Scaling | 放大损失以避免低精度梯度下溢 | 第 11 章 |
+| 主权重 | Master Weights | 在 FP32 中保存的参数副本 | 第 11 章 |
+| Newton-Schulz 迭代 | Newton-Schulz Iteration | 只用矩阵乘逼近正交化的五次迭代 | 第 11 章 |
+| 极分解 | Polar Decomposition | 把矩阵分解为正交因子与半正定因子的乘积 | 第 11 章 |
+| 正交化 | Orthogonalization | 把矩阵奇异值推向 1 的变换 | 第 11 章 |
+| 谱范数 | Spectral Norm | 矩阵最大奇异值，Muon 的约束范数 | 第 11 章 |
+| 梯度累积 | Gradient Accumulation | 多个微批累加梯度后再更新一次；第 12 章并入全局批大小 | 第 11 章 |
 | 序列打包 | Sequence Packing | 把多条短序列拼进一个定长样本以减少填充 | 第 12 章 |
 | 数据并行 | Data Parallelism (DP) | 每卡持有完整模型、分摊不同数据 | 第 12 章 |
 | 张量并行 | Tensor Parallelism (TP) | 把单个矩阵运算切分到多卡 | 第 12 章 |
