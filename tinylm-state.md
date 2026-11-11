@@ -499,17 +499,84 @@
 - 示例的偏好对按提示成对组织；评测回报任务正确率、干扰词比例、内容长度与逐 Token KL，避免把“偏好准确率”误当成任务质量。
 - 实验 3 个种子；SFT 512 条、400 步；偏好对 2,000 条、评测 400 条；DPO 300 步、批 32；评测采样 256 条；所有随机源固定种子，除耗时外逐字可复现。
 
+## 第 18 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/posttrain/grpo.py` | 章节内嵌实现 | `GRPOConfig`（冻结 dataclass，校验 `group_size/lr/beta/clip_low/clip_high/epochs/minibatch/max_new/temperature/max_grad_norm`）；`group_advantages`（组均值、可选标准差、留一法）；`zero_variance_groups`、`mixed_group_probability`；`sample_groups`；`tempered_logprobs`；`grpo_loss`（逐 Token 比率、裁剪、k3 KL、Token/序列级归一化）；`answer_positions`、`verifiable_reward` |
+| `tests/test_grpo.py` | 章节内嵌实现 | 17 个用例：`G=1` 零优势、留一法要求 `G≥2`、组均值优势求和为零、有限 G 收缩与 LOO 对比、标准差归一化、零方差组标记、混合组概率、单位比率损失、上下侧裁剪、Token/序列级差异、参考等于策略时 KL 为零、答案位置跳过 EOS/PAD、最终/任意位置奖励、温度对数概率手算、组采样形状与重复提示、配置校验 |
+| `examples/ch18_grpo.py` | 章节内嵌实现 | 模 10 加 3 任务；弱 SFT 50 步；`G=1/4/8` 三档、3 个种子、300 轮；报告贪心正确率、pass@1、pass@8、奖励均值与零方差组比例 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 18 章行为 |
+| --- | --- | --- |
+| `GRPOConfig.group_size` | `8` | 每个提示采样的回答数 $$G$$；`G=1` 时优势恒为零 |
+| `GRPOConfig.lr` | `1e-3` | 策略学习率；实验中固定 `1e-3` |
+| `GRPOConfig.beta` | `0.0` | KL 系数；`0` 表示不使用参考模型，实验中取 0 |
+| `GRPOConfig.clip_low` / `clip_high` | `0.2` / `0.2` | 下侧与上侧裁剪半径；DAPO 风格可取 0.2/0.28 |
+| `GRPOConfig.epochs` / `minibatch` | `2` / `64` | 固定 rollout 上重复更新；玩具实验取 1 个 epoch |
+| `GRPOConfig.max_new` | `4` | 响应最多生成的 Token 数（含 EOS） |
+| `GRPOConfig.temperature` | `1.0` | 采样温度；必须与 `tempered_logprobs` 一致 |
+| `GRPOConfig.normalize_std` | `True` | 是否除以组内标准差；实验未做该消融 |
+| `GRPOConfig.leave_one_out` | `False` | 是否使用留一基线；测试覆盖，实验未启用 |
+| `GRPOConfig.token_level` | `True` | `True` 用批内 Token 平均，`False` 用逐序列平均 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | GRPO 配置只作训练脚本参数；采样、奖励与损失均在 `tinylm/posttrain/grpo.py` |
+
+实现要点：
+
+- `group_advantages` 先把奖励 reshape 成 `(B, G)`，再按组减均值；`G=1` 直接返回零，避免出现“均值为自身、优势为零”的浮点路径；`leave_one_out=True` 时用 `(总和 − 自身)/(G−1)`，并显式拒绝 `G=1`。
+- `sample_groups` 用 `repeat_interleave` 复制提示，逐 Token 按 `temperature` 采样；EOS 之后写 `pad_id`，返回 `attn` 掩码；采样分布与 `tempered_logprobs` 使用同一温度。
+- `tempered_logprobs` 的 logits 先除以温度再 `log_softmax`，用 `gather` 取目标 Token；位置 `t` 的对数概率对应“在 `t` 之后预测 `t+1`”，因此左移一位并在首位补零，padding 位填零。
+- `grpo_loss` 的比率用 `exp(logp - old_logp)`；裁剪用 `torch.clamp(ratio, 1-clip_low, 1+clip_high)` 后与未裁剪项取 `min`；Token 级归一化除以 `mask.sum()`，序列级先按每条回答平均再对回答平均。
+- k3 KL 只在 `ref_logp` 存在且 `beta > 0` 时计算；`log_ratio` 裁剪到 `[-20, 20]` 防指数溢出；KL 加到损失上，因此 `loss = -pg + beta * kl`。
+- `verifiable_reward` 的 `final` 模式取最后一个非 PAD、非 EOS 且位置 ≥ `prompt_len` 的 Token；`anywhere` 模式只要求答案出现在响应任意位置；空响应返回 0。
+- 实验统一用 2 层、`d_model=32`、4 个头、`d_ff=128`、16 词表、3 个种子；SFT 50 步、30% 正确标签；GRPO 300 轮、批 16 提示、1 个 epoch、温度 1.0、`beta=0`；评测贪心与固定种子的 8 条采样。
+- 所有随机源固定种子；输出中的耗时随机器波动，其余数字逐字可复现；正文明确标注玩具任务不能外推。
+
+## 第 19 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/posttrain/distill.py` | 章节内嵌实现 | `DistillConfig`（冻结 dataclass，校验 `temperature/alpha/lr/max_new/max_grad_norm`）；`softmax_with_temperature`；`distill_loss`（$$\tau^2$$ 缩放 KL、可选硬标签 CE、诊断量）；`sft_labels`；`generate_greedy`；`teacher_targets`；`magnitude_prune_`；`apply_masks_`；`global_sparsity`；`parameter_count`；`compression_ratio` |
+| `tests/test_distill.py` | 章节内嵌实现 | 21 个用例：温度归一化与熵单调、非法温度、相同 logits 零 KD、`alpha=1` 退化为 CE、`alpha=0` 等于 $$\tau^2$$ KL、常数平移不变、梯度方向、SFT 标签对齐两种长度、贪心生成形状与掩码、教师目标形状与无梯度、幅度剪枝稀疏度与嵌入保护、掩码在稠密更新后仍生效、剪枝比例校验、参数量与压缩比、形状不匹配报错、配置校验 |
+| `examples/ch19_distill.py` | 章节内嵌实现 | 模 10 加法；40/100 提示带标签；教师 600 步、学生 800 步；SFT-40/Seq-KD/Logit-KD 三组对照；Logit-KD 学生 80% 幅度剪枝 + 200 步蒸馏恢复；3 个种子 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 19 章行为 |
+| --- | --- | --- |
+| `DistillConfig.temperature` | `2.0` | 软标签温度 $$\tau$$；必须为正，实验中取 2.0 |
+| `DistillConfig.alpha` | `0.5` | 硬标签权重；`0` 为纯蒸馏，`1` 为纯 CE；实验取 `0.0` |
+| `DistillConfig.lr` | `1e-3` | 学生训练学习率；恢复阶段示例另用 `5e-4` |
+| `DistillConfig.max_new` | `4` | 教师贪心生成的最大 Token 数 |
+| `DistillConfig.max_grad_norm` | `1.0` | 梯度裁剪范数 |
+| `DistillConfig.pad_id` / `eos_id` | `0` / `4` | 生成时的填充与结束 Token |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 蒸馏配置只作训练脚本参数；生成、损失与剪枝均在 `tinylm/posttrain/distill.py` |
+
+实现要点：
+
+- `softmax_with_temperature` 显式拒绝 `temperature <= 0`；`distill_loss` 先检查学生与教师 logits 形状一致，再在 $$\tau$$ 下分别做 `log_softmax` 与 `softmax`，KL 用 `batchmean` 后乘 $$\tau^2$$。
+- `distill_loss` 的 `alpha=1` 路径只剩硬标签 CE，`alpha=0` 路径完全跳过 CE；`labels=None` 时纯蒸馏仍可运行；诊断量包含 `kd`、`ce` 与教师熵。
+- `sft_labels` 的监督从位置 `prompt_len - 1` 开始：该位置预测回答的第一个 Token，末尾位置预测 EOS，最后一个位置的标签保持 `-100`。
+- `generate_greedy` 在 `torch.no_grad()` 下逐 Token 取 argmax，EOS 之后写 `pad_id`，返回布尔注意力掩码；批内全部结束后提前退出。
+- `teacher_targets` 只取教师提示末位的 logits，并显式 `eval()` 与 `no_grad()`，避免教师进入学生优化图。
+- `magnitude_prune_` 只处理二维以上参数并跳过 `tok_emb`/`lm_head`；用全局分位数阈值一次性置零，返回 `(threshold, total, masks)`；非结构化剪枝不改变张量形状。
+- `apply_masks_` 必须在每次恢复优化器更新后调用，否则被置零的权重会重新长出来（原型中不调用时稀疏度从 0.80 掉到约 0.01）。
+- 实验统一用 2 层、`d_model=32/64`、4 头、16 词表、3 个种子；教师与学生均只预测答案与 EOS；正文明确标注 40 条标注与 100 个提示的玩具设置不能外推。
+- 所有随机源固定种子；输出中的耗时随机器波动，其余数字逐字可复现；SFT 与 KD 的差距同时含数据覆盖与软标签两个因素，正文已标注不可完全分离。
+
 ## 下一章待实现
 
-第 18 章《可验证奖励强化学习与推理模型》在第 16–17 章之上展开，重点是 RLVR 与 GRPO。待定内容：
+第 20 章《解码策略》在第 1、6、18 章之上展开。待定内容：
 
-- 用规则可验证的奖励（数学答案、代码单测、工具返回）替代人工偏好与奖励模型；
-- GRPO 的组内采样、组均值基线、优势标准化与去掉价值网络的推导；
-- 与 PPO 的 (16.7)–(16.9)、DPO 的 (17.4) 对照：数据从哪来、奖励是否可验证、是否需要参考模型；
-- 采样温度、组大小、长度惩罚与“全对/全错组”零梯度问题；
-- 与第 15 章 LoRA、第 13 章长上下文、第 21 章推理引擎的接口关系。
+- 从训练目标到解码：最大似然训练与序列级 MAP/采样目标的不一致；
+- 贪心、束搜索、纯采样与温度缩放；
+- top-k、top-p（nucleus）、min-p 与重复惩罚的截断几何；
+- 似然最大化导致的退化、曝光偏差与采样多样性；
+- pass@k、评测温度与解码配置对读数的影响。
 
-第 18 章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名；RLVR/GRPO 的配置放在训练脚本或 `tinylm/posttrain/` 中，具体模块名与文件名在开工前按 CLAUDE.md、SUMMARY.md 与附录 F 确认。
+第 20 章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名；解码配置放在生成函数或 `DecodeConfig` 中，不进入 `ModelConfig`；可复用第 18 章 `sample_groups` 的采样循环，但具体模块名与文件名在开工前按 CLAUDE.md、SUMMARY.md 与附录 F 确认。
 
 ## 验收门槛
 
@@ -678,3 +745,25 @@
 - 偏置标签必须显示长度增加（4.768 对 3.977），去偏标签必须显示长度回落（4.357）；若玩具实验不呈现，不得删去负面结果；
 - 报告必须同时包含任务正确率、干扰词、长度、逐 Token KL 与留出偏好对准确率；不得只报损失或只报偏好准确率；
 - 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`DPOConfig` 只作训练脚本参数；参考模型必须是独立冻结副本，玩具结论不得外推为真实 LLM 的 β 或学习率。
+- `group_advantages` 在 `group_size=1` 时必须返回全零；`leave_one_out=True` 且 `group_size=1` 时必须报错；
+- 不标准化时，每个 `group_size` 组的优势之和在数值误差内为零；包含自身的组均值对单个样本的收缩必须等于 `(G-1)/G` 倍；
+- 留一优势与组均值优势必须满足 `r_i - b_i^{(-i)} = G/(G-1)(r_i - mean)`；标准化后两者逐元素相等；
+- `zero_variance_groups` 必须同时标记全对与全错组，混合组不得标记；`mixed_group_probability(0.5, 1) == 0` 且 `mixed_group_probability(0.5, 2) == 0.5`；
+- `grpo_loss` 在比率为 1 时等于负优势；正优势且比率超过上界时目标被裁剪到 `(1+clip_high)A`；负优势且比率低于下界时目标被裁剪到 `(1-clip_low)A`；
+- Token 级与序列级损失在回答长度不等且优势不同时必须给出不同结果；参考模型与策略相同时 k3 KL 必须严格为零；
+- `verifiable_reward` 的 `final` 模式必须跳过 EOS 与 PAD，只看最后一个答案 Token；`anywhere` 模式必须能找到出现在响应任意位置的答案；空响应返回 0；
+- `tempered_logprobs` 必须与同温度手算的 `log_softmax` 一致；`sample_groups` 必须按组重复提示，返回的 `attn` 与序列同形且为布尔；
+- `ch18_grpo.py` 除耗时外必须逐字可复现；`G=1` 的贪心正确率必须与 SFT 逐位相同，零方差组比例必须为 1.00；`G=8` 的 3 种子均值必须高于 `G=4`；
+- 报告必须同时包含贪心正确率、pass@1、pass@8、奖励均值与零方差组比例；不得只报奖励或只报一个种子；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`GRPOConfig` 只作训练脚本参数；采样温度必须与 `tempered_logprobs` 一致，玩具结论不得外推为真实 LLM 的组大小或学习率。
+- `softmax_with_temperature` 的输出每行和为 1；同一 logits 下温度升高时熵严格增大；`temperature <= 0` 必须报 `ValueError`；
+- `distill_loss` 在师生 logits 完全相同时 KD 为零；`alpha=1` 时与 `F.cross_entropy` 逐位一致；`alpha=0` 时等于手算的 $$\tau^2$$ KL；师生同时平移常数时损失不变；
+- KD 梯度方向必须正确：教师偏好某类时学生该类 logit 的梯度为负、其余类别为正；
+- `sft_labels(seqs, prompt_len)` 在位置 `prompt_len - 1` 放回答首 Token、在 `prompt_len` 放后续 Token，最后一个位置为 `-100`；两种回答长度均成立；
+- `generate_greedy` 返回的序列与掩码同形，掩码为 `seqs != pad_id`；`teacher_targets` 形状为 `(B, V)` 且 `requires_grad == False`；
+- `magnitude_prune_` 在 `fraction=0.5` 时 `global_sparsity` 落在 0.5±0.03；跳过的嵌入与输出头不得被置零；`fraction` 越界必须报错；
+- 恢复阶段每次优化器更新后调用 `apply_masks_`，稀疏度必须保持目标值；不调用时稀疏度下降是可复现的负结果，正文不得删去；
+- `parameter_count` 与 `compression_ratio` 的比值必须等于两模型参数量之比；
+- `ch19_distill.py` 除耗时外必须逐字可复现；3 个种子的教师准确率、三种学生结果与剪枝前后准确率必须与正文表一致；
+- 报告必须同时给出全量/留出准确率、参数量、压缩比与剪枝稀疏度；不得只报全量准确率或只报一个种子；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`DistillConfig` 只作训练脚本参数；教师必须冻结，玩具结论不得外推为真实 LLM 的温度、剪枝率或压缩比。

@@ -104,9 +104,9 @@
 
 ## 当前进度
 
-- 已完成：第 1–17 章（`part1/chapter01.md`–`part2/chapter08.md`、`part3/chapter09.md`–`part3/chapter13.md`、`part4/chapter14.md`–`part4/chapter17.md`），交接文件已更新。
-- 下一步：第 18 章《可验证奖励强化学习与推理模型》（核心章，10,000–12,000 字）。
-- 第 18 章要点：用规则可验证的奖励（数学答案、代码单测、工具返回）替代人工偏好；GRPO 的组内采样、组均值基线、优势标准化与去掉价值网络的推导；与第 16 章 PPO (16.7)–(16.9)、第 17 章 DPO (17.4) 的对照（数据来源、奖励可验证性、是否需要参考模型）；采样温度、组大小、长度惩罚与全对/全错组零梯度问题；衔接第 15 章 LoRA、第 13 章长上下文与第 21 章推理引擎。配置与损失放在训练脚本或 `tinylm/posttrain/` 中，不改 `TinyLM.forward`、`CausalLMOutput` 与已有 `ModelConfig` 字段；具体模块名与文件名在开工前按 `SUMMARY.md` 与附录 F 确认。
+- 已完成：第 1–19 章（`part1/chapter01.md`–`part2/chapter08.md`、`part3/chapter09.md`–`part3/chapter13.md`、`part4/chapter14.md`–`part4/chapter19.md`），交接文件已更新。
+- 下一步：第 20 章《解码策略》（其余章，6,000–9,000 字）。
+- 第 20 章要点：贪心、束搜索、温度采样与 top-k/top-p/min-p；重复惩罚；似然最大化与文本退化；pass@k 与评测温度。衔接第 1 章自回归分解、第 6 章 KV Cache 与第 18 章采样循环；解码配置放在生成函数或 `DecodeConfig` 中，不改 `TinyLM.forward`、`CausalLMOutput` 与已有 `ModelConfig` 字段；具体模块名与文件名在开工前按 `SUMMARY.md` 与附录 F 确认。
 
 ## 文件地图
 

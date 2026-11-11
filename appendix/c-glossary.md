@@ -371,10 +371,34 @@
 | 过程奖励 | Process Reward | 对推理中间步骤给出的奖励 | 第 18 章 |
 | 结果奖励 | Outcome Reward | 只对最终答案给出的奖励 | 第 18 章 |
 | 验证器 | Verifier | 判定答案或步骤正确性的程序或模型 | 第 18 章 |
+| 组大小 | Group Size | 每个提示采样的回答数 $$G$$，决定基线与混合组概率 | 第 18 章 |
+| 组内均值基线 | Group-Mean Baseline | 用同一问题 $$G$$ 条回答的平均奖励构造的优势基线 | 第 18 章 |
+| 组内优势 | Group Advantage | 回答奖励相对同题组均值的偏离，可再除以组内标准差 | 第 18 章 |
+| 留一法基线 | Leave-One-Out Baseline (LOO) | 用除当前样本外其余样本的均值作基线，避免自身收缩 | 第 18 章 |
+| 零方差组 | Zero-Variance Group | 组内奖励全相同（全对或全错），优势为零、无梯度 | 第 18 章 |
+| 混合组 | Mixed Group | 组内既有正确又有错误回答，是 RLVR 唯一提供梯度的组型 | 第 18 章 |
+| 动态采样 | Dynamic Sampling | 过滤零方差组并补采，保证每个 batch 都有有效梯度 | 第 18 章 |
+| 裁剪上界放宽 | Clip-Higher | 令上侧裁剪半径大于下侧，缓解正优势 Token 的熵塌缩 | 第 18 章 |
+| 超长奖励塑形 | Overlong Reward Shaping | 对超过长度上限的回答做软惩罚，抑制无意义的长推理 | 第 18 章 |
+| 序列级重要性比 | Sequence-Level Importance Ratio | 用整条回答的似然比替代逐 Token 比率的稳定性方案 | 第 18 章 |
 | 知识蒸馏 | Knowledge Distillation | 用教师模型的输出指导学生学习 | 第 19 章 |
+| 教师模型 | Teacher Model | 提供监督信号的强模型，通常冻结 | 第 19 章 |
+| 温度软标签 | Temperature-Softened Label | logits 除以温度 $$\tau$$ 后得到的概率分布 | 第 19 章 |
+| 暗知识 | Dark Knowledge | 软标签中非目标类别的相对概率所携带的结构信息 | 第 19 章 |
 | Logit 蒸馏 | Logit Distillation | 让学生匹配教师的完整输出分布 | 第 19 章 |
+| 序列级蒸馏 | Sequence-Level Distillation | 用教师生成的序列作硬标签训练学生 | 第 19 章 |
+| 曝光偏差 | Exposure Bias | 训练用教师前缀、推理用学生前缀导致的分步误差累积 | 第 19 章 |
 | On-policy 蒸馏 | On-policy Distillation | 在学生自己生成的序列上做蒸馏 | 第 19 章 |
+| 广义知识蒸馏 | Generalized Knowledge Distillation (GKD) | 在教师数据与学生数据间插值、用 JSD 统一 KL 方向的蒸馏框架 | 第 19 章 |
+| 拒绝采样 | Rejection Sampling | 只保留验证正确的教师轨迹，兼顾正确性与多样性 | 第 19 章 |
+| Top-k 蒸馏 | Top-k Distillation | 只在教师概率最高的 k 个类别上计算蒸馏损失 | 第 19 章 |
 | 剪枝 | Pruning | 移除不重要权重、通道或层 | 第 19 章 |
+| 幅度剪枝 | Magnitude Pruning | 按权重绝对值排序并删除最小的一批 | 第 19 章 |
+| 非结构化剪枝 | Unstructured Pruning | 把任意单个权重置零，稀疏率高但不改变张量形状 | 第 19 章 |
+| 结构化剪枝 | Structured Pruning | 删除整个头、神经元或通道，张量形状真实变小 | 第 19 章 |
+| 恢复微调 | Recovery Fine-tuning | 剪枝后继续训练以恢复精度，常用蒸馏作监督 | 第 19 章 |
+| 压缩比 | Compression Ratio | 教师参数量除以学生或剪枝后参数量 | 第 19 章 |
+| long2short | Long-to-Short Distillation | 用长思维链教师教短回答学生，缩短推理长度 | 第 19 章 |
 
 ## C.8 推理与效率
 
