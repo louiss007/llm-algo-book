@@ -15,6 +15,10 @@
 - **训练优化**：第 11 章增加 `tinylm/train/optim.py`（`AdamW`、`make_param_groups`、`lr_factor`、`clip_grad_norm_`、`LossSpikeDetector`、Newton-Schulz 正交化与 `muon_update`）；优化器属于训练脚本选择，不进入 `ModelConfig`，模型接口未改动。代码仍以章节内嵌形式存在。
 - **分布式训练**：第 12 章增加 `tinylm/train/parallel.py`（`ParallelConfig`、显存与通信账本、CPU 集合通信模拟、列/行并行原语与 `LossScaler`）；并行度、全局批与混合精度属于训练脚本参数，不进入 `ModelConfig`，模型接口未改动。代码仍以章节内嵌形式存在。
 - **长上下文**：第 13 章增加 `tinylm/data/collate.py`（`PackedBatch`、块对角因果掩码、文档打包与 Token 利用率）、`tinylm/train/long_context.py`（算力/显存账本、长度课程、Token 预算与有效上下文）与 `tinylm/eval/needle.py`（单针检索构造、正确性与深度分桶）；注意力新增 4D 块对角掩码分支，2D padding 掩码与 `TinyLM.forward` 不变。代码仍以章节内嵌形式存在。
+- **监督微调**：第 14 章增加 `tinylm/tokenizer/chat.py`（`ChatTemplate`、`encode_conversation`、`count_supervised`）与 `tinylm/posttrain/sft.py`（`SFTConfig`、掩码交叉熵、Token/序列平均、批拼接、`pack_sft_examples`、监督统计、标签噪声与拒绝采样公式）；复用第 13 章的 `block_causal_mask`；模型接口未改动。代码仍以章节内嵌形式存在。
+- **参数高效微调**：第 15 章增加 `tinylm/posttrain/lora.py`（`LoraConfig`、`LoRALinear`、`apply_lora`、`lora_parameters`/`lora_state_dict`/`load_lora_state_dict`、`trainable_stats`、`lora_module_params`、`state_bytes`、NF4 量化/反量化与 `quantize_lora_bases`）；适配器通过替换线性层注入，不修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig`，未启用 LoRA 时默认路径与第 14 章逐位一致。代码仍以章节内嵌形式存在。
+- **对齐训练**：第 16 章增加 `tinylm/posttrain/rm.py`（`ScalarModel`、`init_scalar_from_lm`、`bradley_terry_loss`、`pairwise_accuracy`、`preference_probability`、`reward_standardizer`）与 `tinylm/posttrain/ppo.py`（`RLConfig`、`Rollout`、`sample_responses`、`response_mask`、`token_logprobs`、`token_values`、`compute_gae`、`normalize_advantage`、`clipped_surrogate`、`kl_penalty`、`kl_estimator_k3`、`collect_rollout`、`ppo_update`）；奖励模型通过替换 `lm_head` 注入，PPO 配置只作训练脚本参数，不修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig`。代码仍以章节内嵌形式存在。
+- **偏好优化**：第 17 章增加 `tinylm/posttrain/dpo.py`（`DPOConfig`、`completion_logprobs`、`log_ratio_margin`、`implicit_reward`、`dpo_loss`、`preference_accuracy`）；损失同时支持 DPO、cDPO 标签平滑与 IPO，参考模型为独立的冻结副本，配置只作训练脚本参数，不进入 `ModelConfig`。代码仍以章节内嵌形式存在。
 - **接口契约**：未修改。`TinyLM.forward` 保持附录 F 的签名，新增字段只出现在 `ModelConfig` 与 `CausalLMOutput` 中。
 - **配置**：`ModelConfig` 首次落地（见第 3 章变更）。`pos_encoding` 与 `rope_theta` 在第 4 章启用，新增 `rope_scaling`；第 6 章启用 `attention`、`n_kv_heads`、`d_c`、`d_head_rope`；第 7 章启用 `moe` 与 `MoEConfig`（含 `capacity_factor`）；部分字段仍为后续章节预留。
 
@@ -378,17 +382,134 @@
 - 全部随机源固定种子；输出中的耗时随机器波动，其余数字逐字可复现。
 - 本章的零样本外推结论只适用于这个玩具任务；正文明确说明不能外推到真实 LLM，PI/NTK/YaRN 的种子间双峰现象按原始结果报告。
 
+## 第 14 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/tokenizer/chat.py` | 章节内嵌实现 | `ChatTemplate`（角色标记、EOS、`answer_only` 开关）、`encode_conversation`、`count_supervised` |
+| `tinylm/posttrain/sft.py` | 章节内嵌实现 | `SFTConfig`、`masked_cross_entropy`、`token_mean_loss`/`sequence_mean_loss`、`collate_examples`、`PackedSFTBatch`/`pack_sft_examples`、`supervision_stats`、`label_noise_mixture`、拒绝采样三公式 |
+| `tests/test_sft.py` | 章节内嵌实现 | 14 个用例：答案掩码、全序列监督、多轮监督、监督比例、掩码交叉熵、两种平均、padding、打包边界与位置、超长报错、打包等价、监督统计、均匀噪声、拒绝采样公式与模拟 |
+| `examples/ch14_sft.py` | 章节内嵌实现 | 掩码对照、数据质量与数量、打包等价性、拒绝采样四组实验 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 14 章行为 |
+| --- | --- | --- |
+| `SFTConfig.answer_only` | `True` | 只监督 assistant 内容与 EOS；`False` 时用户内容也进入损失 |
+| `SFTConfig.lr` / `epochs` / `batch_size` | `2e-5` / `3.0` / `8` | 真实全参数微调的脚本默认值；玩具实验另用 `3e-3` 与 250–600 步 |
+| `SFTConfig.replay_ratio` | `0.0` | 预留的回放比例字段，本章只给公式 (14.8)，实验未启用 |
+| `TinyLM.forward` / `CausalLMOutput` | 不变 | 仍通过 `labels=` 触发交叉熵；掩码由 `-100` 表达 |
+
+实现要点：
+
+- 模板渲染返回与输入等长的 `labels`：`labels[:-1]` 由右移一位的输入按掩码填充，最后一位固定 `-100`；这样 EOS 是监督目标，打包时也不会丢边界信息。
+- 掩码交叉熵实现 (14.1)；`token_mean_loss`/`sequence_mean_loss` 实现 (14.2)；`supervision_stats` 与 `count_supervised` 实现 (14.3)；`label_noise_mixture` 实现 (14.4)；`pack_sft_examples` 的边界处理对应 (14.6)；拒绝采样三函数对应 (14.7)。
+- 打包复用第 13 章的 `block_causal_mask`；`position_ids` 在每条对话内从 0 重置；跨对话边界标签置 `-100`。
+- 实验统一用 2 层、`d_model=32`、2 个头、`d_ff=128`、词表 16、3 个种子；掩码对照 250 步、质量对照 600 步；ID 评测长度 3–5，长度 OOD 为 7–8，模板 OOD 使用训练中未出现的角色标记 13/14；随机水平 0.125。
+- 所有随机源固定种子；输出中的耗时随机器波动，其余数字逐字可复现。
+- 正文明确标注 2 层 32 维、250–600 步的玩具结论不可外推；遗忘只给公式与工业经验，未单独跑实验。
+
+## 第 15 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/posttrain/lora.py` | 章节内嵌实现 | `LoraConfig`；`LoRALinear`（冻结基座、`lora_A`/`lora_B`、`alpha/r` 缩放、`merge`/`unmerge`）；`apply_lora`、`lora_parameters`、`lora_state_dict`/`load_lora_state_dict`、`trainable_stats`、`lora_module_params`、`state_bytes`；NF4 码本、`nf4_quantize`/`nf4_dequantize`、`nf4_storage_bytes`、`quantize_lora_bases` |
+| `tests/test_lora.py` | 章节内嵌实现 | 10 个用例：初始输出恒等、合并/撤销等价、仅适配器可训练、零初始化 B 的第一步梯度、适配器状态往返、目标模块选择、NF4 往返误差、存储比特数、QLoRA 冻结基座、适配器键校验 |
+| `examples/ch15_peft.py` | 章节内嵌实现 | 「加二」预训练 + 「加一」SFT；全参数/LoRA 秩与目标模块/QLoRA/随机基座对照；静态状态与激活测量；合并等价性；NF4 误差与存储 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 15 章行为 |
+| --- | --- | --- |
+| `LoraConfig.r` / `alpha` | `8` / `16` | 缩放为 `alpha/r`；实验中令 `alpha=2r` 以固定有效步长 |
+| `LoraConfig.dropout` | `0.0` | 作用在低秩分支的输入上；合并前应关闭或切到推理模式 |
+| `LoraConfig.target_modules` | 9 个线性层后缀 | 按完整名或末段名匹配；`lm_head` 不在默认目标内 |
+| `LoraConfig.bias` | `"none"` | 可选 `all`/`lora_only`；默认只训练 `lora_A`/`lora_B` |
+| `TinyLM.forward` / `CausalLMOutput` | 不变 | 适配器通过替换 `nn.Linear` 注入；未调用 `apply_lora` 的路径与第 14 章逐位一致 |
+| `state_bytes` | fp32 记账 | 可训练 16 字节/参数、冻结 4 字节/参数；`_nf4` 存在时被量化部分按 4 比特记账 |
+
+实现要点：
+
+- `LoRALinear` 冻结 `base`，`lora_A` 用 Kaiming 初始化、`lora_B` 置零，因此初始前向与基座逐位相同；第一次反向时 `lora_A` 梯度为零，`lora_B` 先更新。
+- `merge` 把 `(lora_B @ lora_A) * scaling` 加进基座权重并缓存 `_delta`，`unmerge` 减去同一增量；合并前后 logits 偏差约 `2e-6`。
+- `apply_lora` 先冻结全部参数，再按目标名替换线性层；重复调用不会重复包装，`lm_head` 与嵌入层保持冻结。
+- `quantize_lora_bases` 只做「NF4 量化—反量化」的数值模拟，并在 `model._nf4` 记录量化元素数与解析字节数；它不把张量真的压成 4 比特，正文已明确这一点。
+- 实验用 5 个种子；预训练 1,200 步、SFT 600 步；全参数学习率 `3e-3`，LoRA/QLoRA 为 `1e-2`；评测 200 条长度 3–5。
+- 所有随机源固定种子；输出中的耗时随机器波动，其余数字逐字可复现；正文明确标注玩具结论不可外推。
+
+## 第 16 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/posttrain/rm.py` | 章节内嵌实现 | `ScalarModel`（复用 `TinyLM` 主干，把 `lm_head` 换成 `d_model → 1` 的标量头，`score` 取最后一个有效位置）；`init_scalar_from_lm`（从 SFT 权重初始化，丢弃 `lm_head.*`）；`bradley_terry_loss`、`preference_probability`、`pairwise_accuracy`、`reward_standardizer` |
+| `tinylm/posttrain/ppo.py` | 章节内嵌实现 | `RLConfig`（冻结 dataclass，校验 `beta/clip/epochs/max_new`）；`Rollout`；`sample_responses`、`response_mask`、`token_logprobs`、`token_values`、`compute_gae`、`normalize_advantage`、`clipped_surrogate`、`kl_penalty`、`kl_estimator_k3`、`collect_rollout`、`ppo_update` |
+| `tests/test_rlhf.py` | 章节内嵌实现 | 13 个用例：BT 零差值损失、损失随差值单调、偏好概率对称、标量模型形状与末位打分、从 LM 初始化保留主干、GAE 手算、GAE 忽略 padding、裁剪三分支、同策略比值为一、KL 估计量同模型为零、采样尊重期限并在 EOS 后补 padding、rollout 形状有限、`RLConfig` 校验 |
+| `examples/ch16_rlhf.py` | 章节内嵌实现 | 4 主题玩具对话：SFT 冷启动 → 奖励模型训练 → PPO；三档 β 与 Best-of-8 对照；长度/正确性/干扰词三个奖励作弊探针；3 个种子 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 16 章行为 |
+| --- | --- | --- |
+| `ScalarModel.backbone` | 复用 `TinyLM(cfg)` | 除 `lm_head` 外与输入 LM 的权重逐位一致；要求 `cfg.tie_embeddings == False` |
+| `ScalarModel.forward` | 输出 `(B, T)` | 每个位置一个标量；`score` 用 `attention_mask.sum(-1)-1` 取末位 |
+| `RLConfig.beta` | `0.5` | KL 正则系数；`0` 表示不约束，实验中取 0.10/0.50/2.00 |
+| `RLConfig.clip` | `0.2` | PPO 裁剪半径 ε，必须满足 `0 < clip < 1` |
+| `RLConfig.gamma` / `lam` | `1.0` / `0.95` | 语言模型回合取 γ=1；λ 控制 GAE 偏差—方差 |
+| `RLConfig.epochs` / `minibatch` | `2` / `16` | 固定 rollout 上重复更新；策略与价值用独立优化器 |
+| `RLConfig.max_new` | `6` | 响应最多生成的 Token 数（含 EOS）；无 EOS 时按有限期回合截断 |
+| `RLConfig.normalize_reward` | `True` | 批内标准化 RM 分数；不改变最优策略，只稳定价值回归 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 奖励与价值通过替换 `lm_head` 注入；PPO 不进入模型配置 |
+
+实现要点：
+
+- `sample_responses` 不做词表截断、不强制 EOS、不做最小长度约束，保证「采样分布 = 计算 log 概率的分布」；EOS 之后的 Token 一律写成 `pad_id`。
+- `token_logprobs` 返回对齐到「预测下一个 Token」的 log 概率，第 0 位与 padding 位填 0；`token_values` 用同样对齐，价值对应 `V(s_{t-1})`。
+- `compute_gae` 从后往前扫，padding 与序列末尾的下一状态价值置零；`normalize_advantage` 只在 `mask` 上做零均值、单位方差。
+- `collect_rollout` 先算 `-β(logπ−logπ_ref)` 的逐 Token 塑形奖励，再用 `scatter_add_` 在最后一个有效位置加 RM 分数；回报由 `adv + values` 得到并 detach。
+- `ppo_update` 每个 minibatch 重新计算新策略 log 概率与价值，重要性比由 `logp - batch.logp` 指数化；策略损失按有效 Token 平均，价值损失为 MSE，两者分别反向、分别裁剪梯度、分别 step。
+- 奖励模型与价值网络都从 SFT 权重初始化：`init_scalar_from_lm` 只丢 `lm_head.weight`，其余键严格加载；价值网络在实验中直接载入 RM 权重。
+- 实验 3 个种子；RM 2,000 对训练、400 对评测、400 步；PPO 50 轮、批 48；评测 256 条；所有随机源固定种子，除耗时外逐字可复现。
+
+## 第 17 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/posttrain/dpo.py` | 章节内嵌实现 | `DPOConfig`（冻结 dataclass，校验 `beta/lr/epochs/batch_size/loss_type/label_smoothing/max_grad_norm`）；`completion_logprobs`（左移掩码，支持长度归一化）；`log_ratio_margin`、`implicit_reward`、`dpo_loss`（DPO / cDPO / IPO）、`preference_accuracy` |
+| `tests/test_dpo.py` | 章节内嵌实现 | 12 个用例：零间隔损失为 `log(2)`、损失随间隔单调下降、共同平移不变、标签平滑提高置信对损失、IPO 在 `1/(2β)` 处为零、隐式奖励尺度、梯度方向与对称、序列对数概率对齐手算、padding 不改变结果、长度归一化除以响应长度、平局计为失败、`DPOConfig` 校验 |
+| `examples/ch17_dpo.py` | 章节内嵌实现 | 复用第 16 章玩具对话与 SFT 流程；偏置/去偏两套偏好数据；β=0.10/0.50/2.00、IPO β=0.50、去偏 DPO β=0.50 五组对照；3 个种子；报告任务正确率、干扰词、长度、逐 Token KL 与留出偏好对排序准确率/间隔 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 17 章行为 |
+| --- | --- | --- |
+| `DPOConfig.beta` | `0.1` | 隐式奖励温度；实验中取 0.10/0.50/2.00，必须大于 0 |
+| `DPOConfig.lr` | `5e-5` | DPO 学习率；实验中取 `5e-4`；与 β 耦合，报告时必须同时给出 |
+| `DPOConfig.epochs` / `batch_size` | `1` / `8` | 固定离线偏好对上的训练轮数与批大小；实验为 300 步、批 32 |
+| `DPOConfig.loss_type` | `"dpo"` | `dpo` 或 `ipo`；IPO 使用平方损失与目标间隔 `1/(2β)` |
+| `DPOConfig.label_smoothing` | `0.0` | cDPO 平滑系数，必须满足 `0 ≤ ε < 0.5` |
+| `DPOConfig.length_normalize` | `False` | 按响应 Token 数平均对数概率；改变 β 的单位 |
+| `DPOConfig.max_grad_norm` | `1.0` | 梯度裁剪阈值，必须大于 0 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 参考模型为独立冻结副本；DPO 配置只作训练脚本参数 |
+
+实现要点：
+
+- `completion_logprobs` 用 `log_softmax` 加 `gather`，掩码左移一位（位置 `t` 的 logits 预测 `t+1`），并把 padding 与提示位置置零；不得先取 `exp` 再取对数。
+- `dpo_loss` 先算不含 β 的对数比差，再乘 β 得到 logit；DPO 走 `logsigmoid`，cDPO 用 `logsigmoid(m)` 与 `logsigmoid(-m)` 的加权，IPO 直接对 `(Δ − 1/(2β))²` 求均值。
+- 参考模型与策略严格分离：参考模型 `requires_grad_(False)` 并 `eval()`；示例中参考对数概率本可预计算，但为了与教学代码一致，训练循环内实时计算。
+- 示例的偏好对按提示成对组织；评测回报任务正确率、干扰词比例、内容长度与逐 Token KL，避免把“偏好准确率”误当成任务质量。
+- 实验 3 个种子；SFT 512 条、400 步；偏好对 2,000 条、评测 400 条；DPO 300 步、批 32；评测采样 256 条；所有随机源固定种子，除耗时外逐字可复现。
+
 ## 下一章待实现
 
-第 14 章《监督微调（SFT）》在第 13 章基线上进入后训练。本章预算 6,000–9,000 字。待定内容：
+第 18 章《可验证奖励强化学习与推理模型》在第 16–17 章之上展开，重点是 RLVR 与 GRPO。待定内容：
 
-- 指令数据构造：任务来源、模板、答案质量、规模与多样性，衔接第 10 章的数据工程；
-- 对话模板与损失掩码：多轮拼接、角色标记、只在回答部分计算损失，衔接本章的 `-100` 与打包；
-- 数据质量与数量的权衡：少量高质量指令数据与大规模数据的对照，过拟合与灾难性遗忘；
-- SFT 的训练目标与超参数：学习率、轮数、序列打包、eval 与早停；
-- 合成数据与拒绝采样在 SFT 中的作用，衔接第 19 章的蒸馏。
+- 用规则可验证的奖励（数学答案、代码单测、工具返回）替代人工偏好与奖励模型；
+- GRPO 的组内采样、组均值基线、优势标准化与去掉价值网络的推导；
+- 与 PPO 的 (16.7)–(16.9)、DPO 的 (17.4) 对照：数据从哪来、奖励是否可验证、是否需要参考模型；
+- 采样温度、组大小、长度惩罚与“全对/全错组”零梯度问题；
+- 与第 15 章 LoRA、第 13 章长上下文、第 21 章推理引擎的接口关系。
 
-第 14 章不得修改 `TinyLM.forward` 与 `CausalLMOutput`；新能力应通过配置项或训练脚本分派。实验须报告至少 3 个种子的对照，并明确区分训练集内与分布外评测。具体模块名与文件名在开工前按 CLAUDE.md 与 SUMMARY.md 确认，不得沿用本章的暂定命名。
+第 18 章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名；RLVR/GRPO 的配置放在训练脚本或 `tinylm/posttrain/` 中，具体模块名与文件名在开工前按 CLAUDE.md、SUMMARY.md 与附录 F 确认。
 
 ## 验收门槛
 
@@ -504,3 +625,56 @@
 - `bucket_accuracy` 的样本数之和等于输入数，分桶边界左闭右开；`retrieval_correct` 只比较末位 argmax 与目标；
 - 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；4D 掩码只作为 `attention_mask` 的新分支；
 - `ch13_long_context.py` 除耗时外必须逐字可复现；零样本外推与课程/混合长度的结论必须标注为 2 层 32 维、400 步玩具实验，不得外推为真实 LLM 的普适结论。
+- `ChatTemplate().render` 对 `user=[5,6]`、`assistant=[7,8]` 返回 `input_ids == [1,2,5,6,3,7,8,4]`、`labels == [-100,-100,-100,-100,7,8,4,-100]`，监督数 3；
+- `answer_only=False` 时同一对话的监督数为 5；多轮对话中每个 assistant 内容与 EOS 都被监督，第二个 assistant 内容位于第 8 个 Token 之后；
+- `count_supervised` 返回 `(3, 8, 0.375)`；`supervision_stats` 的 `ratio` 与逐条统计一致；
+- `masked_cross_entropy` 与手写 `F.cross_entropy(..., ignore_index=-100, reduction="none")` 的掩码均值在浮点误差内一致；
+- `token_mean_loss` 与 `sequence_mean_loss` 在长短样本混合时不等：给定逐 Token 损失 `[[1,1,9],[1,-100,-100]]`，前者为 3.0、后者为 `7/3`；
+- `collate_examples` 补齐后 padding 位置的标签为 `-100`、注意力掩码为假，未 padding 样本的掩码全真；
+- `pack_sft_examples` 的 `labels[n-1] == -100`（跨对话边界），`doc_ids` 为两段常量，`position_ids` 在每条对话内从 0 重置，`supervised` 等于两条对话监督数之和；
+- 总长超过 `max_len` 必须报 `ValueError`，不得静默截断；
+- 打包与逐条前向的 logits 与逐位置损失在 `1e-6` 内一致（TinyLM 随机初始化，三条对话）；
+- `label_noise_mixture` 保持分布归一化与 argmax，且满足 (14.4) 的逐元素值；
+- `acceptance_probability` 越界报错；`pass_at_n(0.25,8) == 1-0.75^8`；`expected_draws(0.25,100) == 400`；`pass_at_n(0, n) == 0`；
+- 4,000 次独立采样模拟的 pass@8 与解析值相差小于 0.03；
+- `ch14_sft.py` 除耗时外必须逐字可复现；掩码、噪声、打包与拒绝采样的结论必须标注为 2 层 32 维、250–600 步玩具实验，不得外推为真实 LLM 的 SFT 结论；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`SFTConfig` 只作为训练脚本参数。
+- `LoRALinear` 在 `lora_B=0` 时的前向与基座逐位相同（`torch.equal`）；未调用 `apply_lora` 的模型路径不得改变；
+- `merge` 后的 logits 与未合并前误差小于 `1e-6`，`unmerge` 后恢复；连续两次 `merge` 必须幂等；
+- `apply_lora` 后只有 `lora_A`/`lora_B` 的 `requires_grad` 为真（默认 `bias="none"`）；`trainable_stats()["trainable"]` 等于 `lora_module_params` 的求和；
+- 第一次反向时 `lora_B.grad` 非零而 `lora_A.grad` 全零，证明零初始化 B 的梯度阻断；
+- `lora_state_dict`/`load_lora_state_dict` 往返后输出完全一致；缺键或多键必须报 `KeyError`；
+- `LoraConfig` 的 `r>=1`、`alpha>0`、`0<=dropout<1`、`bias` 取值必须校验；
+- `nf4_quantize` 的码字在 0–15，反量化形状与输入一致；随机正态权重的相对误差小于 0.2；
+- `nf4_storage_bytes` 在 `b=64`、双重量化时约 4.127 比特/参数，不做双重量化时约 4.5；1,048,576 个元素的字节数与公式一致；
+- `quantize_lora_bases` 后基座权重 `requires_grad=False`、适配器仍可训练，且 `model._nf4` 记录的元素数与目标线性层一致；
+- `state_bytes` 对全参数、LoRA q/v、LoRA 全线性、QLoRA 的合计与正文表一致（530/149/225/113 KB，允许 1 KB 舍入）；
+- `saved_activation_bytes` 的测量只用于相对比较，不得当作峰值显存；正文必须说明 CPU 分配器与张量复用会影响绝对值；
+- `ch15_peft.py` 除耗时外必须逐字可复现；LoRA 秩/目标模块、QLoRA 与随机基座的结论必须标注为 2 层 32 维、600 步、5 种子玩具实验，适配器占比 14.8% 不得外推为真实模型比例；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`LoraConfig` 只作为适配器配置，QLoRA 的 NF4 模拟不得被表述为真实显存节省。
+- `bradley_terry_loss` 在奖励差为零时返回 `log(2)`，奖励差增大时单调下降；`preference_probability(a,b) + preference_probability(b,a) == 1`；
+- `ScalarModel` 要求 `cfg.tie_embeddings == False`；`forward` 返回 `(B, T)`，`score` 返回 `(B,)` 且等于每个样本最后一个有效位置的标量；
+- `init_scalar_from_lm` 只丢弃 `lm_head.*`，其余主干权重与输入 LM 逐位一致；缺失键集合必须恰好是 `{"lm_head.weight"}`；
+- `compute_gae` 在奖励 `[0,0,1]`、价值全零、`γ=λ=1` 时返回 `[1,1,1]`，`λ=0` 时返回 `[0,0,1]`；padding 位置的优点与回报必须为零；
+- `clipped_surrogate` 在比值 0.5/1.0/2.0、优势 `[-1,1,1]`、`ε=0.2` 时返回 `[-0.8,1.0,1.2]`；比值落在区间内时等于未裁剪目标；
+- `token_logprobs` 与 `token_values` 的位置对齐必须满足 `logp[:,t] = log π(seqs[t] | seqs[:t])`、价值对应 `V(s_{t-1})`；padding 位填 0，不得出现 `-inf`；
+- 策略与参考模型同权重时，`kl_penalty` 与 `kl_estimator_k3` 在任意输入上都必须严格为零；
+- `sample_responses` 必须使用全词表 softmax，不得截断词表、强制 EOS 或限制最小长度；EOS 之后的位置一律为 `pad_id`，生成长度不超过 `prompt_len + max_new`；
+- `response_mask` 只标记提示之后且非 padding 的位置，EOS 计入响应；提示位置不得有 KL 塑形奖励；
+- `RLConfig` 必须拒绝 `beta < 0`、`clip <= 0` 或 `clip >= 1`、`epochs < 1`、`max_new < 1`；
+- `collect_rollout` 的 `rm_score` 形状为 `(B,)`，只在最后一个有效 Token 处加到奖励；`adv`、`returns`、`rewards`、`values`、`logp` 必须全部有限；
+- `ppo_update` 必须重算新策略 log 概率，比值由 `exp(logp - 旧 logp)` 得到；策略与价值使用独立优化器与独立梯度裁剪；
+- `ch16_rlhf.py` 除耗时外必须逐字可复现；3 个种子的 RM 准确率、三档 β 与 Best-of-8 的数字必须与正文表一致；
+- 奖励作弊探针必须分别报告长度、正确性、干扰词三个维度；RM 在某个维度上系统性偏向时，不得只报成对准确率；
+- PPO β=0.10/0.50/2.00 的正确率、长度与逐 Token log 比必须呈现「β 越小、奖励越高、偏离越大」的方向；若玩具实验不呈现，不得删去负面结果；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`ScalarModel` 只能替换 `lm_head`，`RLConfig` 只作训练脚本参数；玩具结论不得外推为真实 LLM 的 PPO 超参数。
+- `dpo_loss` 在四个对数概率全相等时返回 `log(2)`；固定其他项、只增大赢家间隔时损失单调下降；策略与参考模型同时平移同一常数时损失不变；
+- `label_smoothing > 0` 时，置信偏好对的损失必须大于未平滑版本；IPO 在 `Δ = 1/(2β)` 处损失为零，超过后损失回升；
+- `dpo_loss` 对赢家的梯度必须为负、对输家的梯度必须为正，且两者在零间隔处绝对值相等；`implicit_reward` 等于 `β(logπ−logπ_ref)`；
+- `completion_logprobs` 必须与逐位置手算的 `log_softmax` 对数概率之和一致；提示位置、padding 位置与 EOS 之后的 Token 不得计入；长度归一化后等于总和除以有效响应 Token 数；
+- `preference_accuracy` 对间隔严格大于零的样本计为成功，平局与负间隔计为失败；
+- `DPOConfig` 必须拒绝 `beta <= 0`、`lr <= 0`、`epochs < 1`、`batch_size < 1`、未知 `loss_type`、`label_smoothing >= 0.5` 与 `max_grad_norm <= 0`；
+- `ch17_dpo.py` 除耗时外必须逐字可复现；3 个种子的五组对照数字必须与正文表一致；
+- 偏置标签必须显示长度增加（4.768 对 3.977），去偏标签必须显示长度回落（4.357）；若玩具实验不呈现，不得删去负面结果；
+- 报告必须同时包含任务正确率、干扰词、长度、逐 Token KL 与留出偏好对准确率；不得只报损失或只报偏好准确率；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`DPOConfig` 只作训练脚本参数；参考模型必须是独立冻结副本，玩具结论不得外推为真实 LLM 的 β 或学习率。

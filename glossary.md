@@ -309,6 +309,97 @@
 | 迷失在中间 | Lost in the Middle | 关键信息位于长文中部时性能下降的现象 | 第 13 章 |
 | RULER | RULER | 覆盖 13 项任务的长上下文评测套件 | 第 13 章 |
 
+## 第 14 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 监督微调 | Supervised Fine-Tuning (SFT) | 用人工标注的输入输出对继续训练模型 | 第 14 章 |
+| 指令微调 | Instruction Tuning | 用指令-回答数据让模型学会遵循指令 | 第 14 章 |
+| 对话模板 | Chat Template | 把多轮对话序列化为固定格式的规则 | 第 14 章 |
+| 损失掩码 | Loss Masking | 只在目标回答部分计算损失 | 第 14 章 |
+| 监督比例 | Supervision Ratio | 监督 Token 占总 Token 的比例 | 第 14 章 |
+| Token 平均 | Token Mean | 对整个批次的监督 Token 统一平均 | 第 14 章 |
+| 序列平均 | Sequence Mean | 先对每条样本平均，再对样本平均 | 第 14 章 |
+| 系统性标签噪声 | Systematic Label Noise | 错误与任务规则相关、不会被平均掉的标签噪声 | 第 14 章 |
+| 拒绝采样 | Rejection Sampling | 采样多条输出并只保留通过验证的样本 | 第 14 章 |
+| 多样性塌缩 | Diversity Collapse | 采样数据去重后种类极少、输出分布收窄 | 第 14 章 |
+| 灾难性遗忘 | Catastrophic Forgetting | 学习新任务时丢失旧能力 | 第 14 章 |
+| 回放 | Replay | 在微调中混入预训练数据以保持旧能力 | 第 14 章 |
+| 表面对齐 | Surface Alignment | SFT 主要学习回答格式与风格，而非注入新知识 | 第 14 章 |
+
+## 第 15 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 参数高效微调 | Parameter-Efficient Fine-Tuning (PEFT) | 冻结大部分基座参数、只训练少量增量参数的微调路线 | 第 15 章 |
+| 低秩适配 | Low-Rank Adaptation (LoRA) | 用两个小矩阵的乘积参数化权重增量 | 第 15 章 |
+| 低秩分解 | Low-Rank Decomposition | 把大矩阵表示为两个瘦长矩阵的乘积 | 第 15 章 |
+| LoRA 秩 | LoRA Rank | 低秩矩阵的中间维度 $$r$$，控制适配容量 | 第 15 章 |
+| 缩放系数 | Scaling Factor | LoRA 分支的 $$\alpha/r$$，决定有效步长 | 第 15 章 |
+| 目标模块 | Target Modules | 被替换为 LoRA 层的线性层集合 | 第 15 章 |
+| 合并 | Merging | 把低秩增量写回基座权重，推理时消除额外分支 | 第 15 章 |
+| 量化低秩适配 | QLoRA | 4 比特基座加 LoRA 适配器的微调方法 | 第 15 章 |
+| NF4 | 4-bit NormalFloat | 按正态分布分位数设计的 16 级量化码本 | 第 15 章 |
+| 分块量化 | Block-wise Quantization | 每个小块独立按 absmax 缩放后量化 | 第 15 章 |
+| 双重量化 | Double Quantization | 把第一层量化尺度再量化到 8 比特 | 第 15 章 |
+| 分页优化器 | Paged Optimizer | 用统一内存把优化器状态换出以吸收显存尖峰 | 第 15 章 |
+| 适配器 | Adapter | 插入 Transformer 块的瓶颈前馈模块 | 第 15 章 |
+| 前缀微调 | Prefix-Tuning | 在每层键值前拼接可学习前缀 | 第 15 章 |
+| 提示微调 | Prompt Tuning | 只在输入嵌入前拼接可学习软提示 | 第 15 章 |
+| 多适配器服务 | Multi-LoRA Serving | 一份基座批量服务多个 LoRA 适配器 | 第 15 章 |
+| 权重分解低秩适配 | DoRA | 把权重分为幅度与方向、只对方向做低秩更新 | 第 15 章 |
+
+## 第 16 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 基于人类反馈的强化学习 | Reinforcement Learning from Human Feedback (RLHF) | 用人类偏好训练的奖励模型指导策略优化 | 第 16 章 |
+| 奖励模型 | Reward Model (RM) | 给回答打分的模型，通常由成对偏好数据训练 | 第 16 章 |
+| Bradley–Terry 模型 | Bradley–Terry Model | 用分数差的 sigmoid 建模成对偏好概率 | 第 16 章 |
+| 偏好数据 | Preference Data | 由提示与优胜/劣质回答三元组构成的数据集 | 第 16 章 |
+| 成对偏好 | Pairwise Preference | 同一提示下两条回答的相对好坏 | 第 16 章 |
+| 奖励校准 | Reward Calibration | 奖励模型预测的胜率与经验胜率一致 | 第 16 章 |
+| 策略梯度 | Policy Gradient | 用奖励对对数概率的梯度直接优化策略 | 第 16 章 |
+| 优势函数 | Advantage Function | 动作相对状态平均水平好多少 | 第 16 章 |
+| 广义优势估计 | Generalized Advantage Estimation (GAE) | 用指数加权的 TD 残差估计优势 | 第 16 章 |
+| 近端策略优化 | Proximal Policy Optimization (PPO) | 用重要性比裁剪近似信赖域的策略梯度算法 | 第 16 章 |
+| 重要性比 | Importance Ratio | 新旧策略在同一动作上的概率之比 | 第 16 章 |
+| 裁剪目标 | Clipped Objective | 把重要性比限制在 $$[1-\epsilon,1+\epsilon]$$ 并取较小值的目标 | 第 16 章 |
+| 参考模型 | Reference Model | 计算 KL 惩罚时冻结的基准策略 | 第 16 章 |
+| 旧策略 | Behavior Policy | 产生当前 rollout 的策略快照 | 第 16 章 |
+| KL 塑形奖励 | KL Shaping Reward | 逐 Token 的 $$-\beta(\log\pi_\theta-\log\pi_{\rm ref})$$ 奖励 | 第 16 章 |
+| 价值网络 | Value Network | 估计状态价值的标量网络，与策略联合训练 | 第 16 章 |
+| 回报 | Return | 从某状态起的折扣累积奖励 | 第 16 章 |
+| 奖励作弊 | Reward Hacking | 策略利用奖励模型盲区获得高分而非完成任务 | 第 16 章 |
+| 长度偏置 | Length Bias | 奖励模型或策略系统性偏好更长回答 | 第 16 章 |
+| Best-of-N | Best-of-N Sampling | 采样 N 条回答并选奖励最高的一条 | 第 16 章 |
+| 拒绝采样微调 | Rejection Sampling Fine-Tuning | 用奖励筛选采样结果，再对通过者做 SFT | 第 16 章 |
+| 在线偏好优化 | Online Preference Optimization | 训练中持续采样新回答并打分 | 第 16 章 |
+| 离线偏好优化 | Offline Preference Optimization | 只在固定偏好数据上优化，不额外采样 | 第 16 章 |
+| 奖励集成 | Reward Ensemble | 训练多个奖励模型并聚合分数以降低方差 | 第 16 章 |
+| k1 估计量 | k1 Estimator | 用对数比直接估计 KL，无偏但方差大 | 第 16 章 |
+| k3 估计量 | k3 Estimator | 用 $$r-\log r-1$$ 估计 KL，逐 Token 非负 | 第 16 章 |
+
+## 第 17 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 直接偏好优化 | Direct Preference Optimization (DPO) | 把 KL 正则最优策略反解成隐式奖励，直接用成对偏好做监督训练 | 第 17 章 |
+| 隐式奖励 | Implicit Reward | 策略与参考模型对数比乘以 β 得到的奖励，不需要独立奖励模型 | 第 17 章 |
+| 对数比 | Log Ratio | $$\log\pi_\theta(y\mid x)-\log\pi_{\rm ref}(y\mid x)$$ | 第 17 章 |
+| DPO 损失 | DPO Loss | 隐式奖励差上的负 log-sigmoid，等价于重参数化的 Bradley–Terry 似然 | 第 17 章 |
+| 目标间隔 | Target Margin | IPO 等变体希望达到的隐式奖励差，通常为 $$1/(2\beta)$$ | 第 17 章 |
+| 长度归一化 | Length Normalization | 用响应 Token 数平均序列对数概率，削弱长回答的权重 | 第 17 章 |
+| 似然位移 | Likelihood Displacement | 同时压低赢家与输家的绝对对数概率、只拉大相对间隔的现象 | 第 17 章 |
+| 参考模型失配 | Reference Mismatch | 参考模型与产生偏好数据的策略不一致，使隐式奖励零点偏移 | 第 17 章 |
+| 偏好对排序准确率 | Pairwise Preference Accuracy | 隐式奖励把赢家排在输家之前的比例，平局计为失败 | 第 17 章 |
+| 迭代 DPO | Iterative DPO | 定期用当前策略重新生成回答并重新标注的离线—在线折中 | 第 17 章 |
+| 恒等偏好优化 | Identity Preference Optimization (IPO) | 用带目标间隔的平方损失替代 log-sigmoid，避免间隔无限拉大 | 第 17 章 |
+| 卡尼曼—特沃斯基优化 | Kahneman–Tversky Optimization (KTO) | 只需单条回答的好/坏二元标签，借用前景理论的价值函数 | 第 17 章 |
+| 简单偏好优化 | Simple Preference Optimization (SimPO) | 去掉参考模型，用长度归一化对数似然加目标间隔 | 第 17 章 |
+| 优势比偏好优化 | Odds Ratio Preference Optimization (ORPO) | 用优势比把偏好项并入 SFT 损失，单阶段完成对齐 | 第 17 章 |
+| 保守 DPO | Conservative DPO (cDPO) | 对偏好标签做平滑，缓解标注噪声与过拟合 | 第 17 章 |
+
 ## 术语一致性约定
 
 - 正文统一使用 "Token"，首次出现时注明"词元"；不混用"标记""词块"。
