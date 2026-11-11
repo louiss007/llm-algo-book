@@ -23,6 +23,9 @@
 | 第 17 章 | 完成 | 10240 | 已在本机运行 | 隐式奖励与 DPO 损失/梯度、长度归一化、IPO/KTO/SimPO/ORPO；偏置/去偏偏好数据 3 种子对照，12 项测试 |
 | 第 18 章 | 完成 | 10700 | 已在本机运行 | RLVR 与 GRPO、组内优势/裁剪/KL、零方差组；模运算任务 3 种子 G 消融，17 项测试 |
 | 第 19 章 | 完成 | 7726 | 已在本机运行 | 温度软标签与 Logit 蒸馏、序列级/on-policy 蒸馏、幅度剪枝与恢复；模 10 加法 3 种子、40 标注/100 提示对照，21 项测试 |
+| 第 20 章 | 完成 | 7328 | 已在本机运行 | 贪心、束搜索、温度、Top-k/Top-p/Min-p、重复惩罚、约束解码与 pass@k；合成马尔可夫链 3 种子 7 策略对照，17 项测试 |
+| 第 21 章 | 完成 | 10285 | 已在本机运行 | KV Cache 账本、roofline、FlashAttention 在线 Softmax、PagedAttention、连续批/分块预填充/PD 分离；缓存等价性与碎片/延迟账本，20 项测试 |
+| 第 22 章 | 完成 | 7593 | 已在本机运行 | 拒绝采样无损性、接受率与加速比账本、树状草稿、Medusa/EAGLE、MTP、KV 回滚；20 万次分布核对与 10 万轮接受数模拟，14 项测试 |
 
 ## 第 1 章交接
 
@@ -1126,3 +1129,192 @@
 - [x] 事实性数字可复算：全部实验数字由程序输出；DistilBERT 66M/110M、DeepSeek-R1 蒸馏约 80 万条与 Qwen-7B/32B 的 AIME、MATH-500 数字来自公开论文；推测与时效性内容已标注。
 - [x] 实验诚实报告：明确标注 100 提示、2 层、32/64 维、40 条标注的玩具任务不能外推；SFT 与 KD 的数据覆盖混杂、教师近确定导致两种蒸馏打平、剪枝不恢复的崩溃均如实写明。
 - [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名未改；`DistillConfig` 只作训练脚本参数，不进入 `ModelConfig`；蒸馏、生成与剪枝均在 `tinylm/posttrain/distill.py`。
+
+## 第 20 章交接
+
+### 本章摘要
+
+本章把解码统一写成“把模型分布 $$p_\theta$$ 重写为解码分布 $$q$$”。先给出贪心 (20.2) 与束搜索 (20.3)–(20.5)，用“单步最大不等于序列最大”的反例说明贪心为何错过全局更优路径，并指出束搜索的剪枝、长度偏置与线性增长的代价。温度 (20.6) 只改变分布形状、不改变排序；Top-k (20.7)、Top-p (20.8) 与 Min-p (20.9) 分别用固定基数、累积质量与相对最大概率定义支撑集，截断后按 (20.10) 重新归一化。重复惩罚 (20.11) 与约束解码 (20.12) 是两类“外挂”：前者压低已出现 Token，后者用掩码保证语法合法，二者都把 $$q$$ 推离 $$p$$。随后从似然最大化与典型文本的目标错位解释神经文本退化，最后给出 pass@k 的无偏估计 (20.13) 及其期望 (20.14)，强调温度、$$n$$、$$k$$ 与截断配置必须一起报告。实验在合成马尔可夫链上比较 7 种策略：贪心与束搜索全部陷入 16 Token 循环，纯采样以低约 2.9 nats 的似然换来 56% 结束率与 pass@8=1.00，Top-p=0.9 在尖分布上剪掉结束符，Min-p 的相对阈值更稳健。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (20.1) | $$p_\theta(x_{t+1}\mid x_{\le t})=\operatorname{softmax}(\boldsymbol{\ell}_t)$$ | 自回归条件分布 |
+| (20.2) | $$x_{t+1}=\arg\max_{v\in\mathcal{V}}p_\theta(v\mid x_{\le t})$$ | 贪心解码 |
+| (20.3) | $$S(y_{1:t})=\sum_{i=1}^{t}\log p_\theta(y_i\mid y_{<i})$$ | 序列对数似然 |
+| (20.4) | $$\mathcal{B}_t=\operatorname{top-}W_{y_{1:t-1},v}[S(y_{1:t-1})+\log p_\theta(v\mid y_{1:t-1})]$$ | 束搜索更新 |
+| (20.5) | $$\tilde S(y)=S(y)/\lvert y\rvert^{\alpha}$$ | 长度归一化 |
+| (20.6) | $$p_i^{\tau}=\frac{\exp(\ell_i/\tau)}{\sum_j\exp(\ell_j/\tau)}$$ | 温度缩放 |
+| (20.7) | $$\mathcal{S}_k=\operatorname{TopK}_v(\ell_v,k)$$ | Top-k 支撑集 |
+| (20.8) | $$\mathcal{S}_p=\min\{\mathcal{S}:\sum_{v\in\mathcal{S}}p_v\ge p\}$$ | Top-p 最小前缀 |
+| (20.9) | $$\mathcal{S}_{\min p}=\{v:p_v\ge p_{\min}\max_j p_j\}$$ | Min-p 支撑集 |
+| (20.10) | $$q_v=\frac{p_v}{\sum_{u\in\mathcal{S}}p_u}\mathbb{1}[v\in\mathcal{S}]$$ | 截断后重新归一化 |
+| (20.11) | $$\ell_i\leftarrow\ell_i/\rho\ (\ell_i>0),\ \ell_i\rho\ (\ell_i\le 0),\ i\in\mathcal{C}$$ | 重复惩罚 |
+| (20.12) | $$q_v\propto p_v m_v,\ m_v\in\{0,1\}$$ | 约束解码掩码 |
+| (20.13) | $$\widehat{\mathrm{pass@}}k=1-\binom{n-c}{k}/\binom{n}{k}$$ | pass@k 无偏估计 |
+| (20.14) | $$\mathbb{E}[\widehat{\mathrm{pass@}k}]=1-(1-p_{\rm succ})^k$$ | 独立同分布下的期望 |
+
+### 实验与关键数字
+
+- 设计：8 词表合成马尔可夫链，`BOS` 后进入 A–B 或 C–D 循环；循环内继续概率 0.9，结束与切换各 0.05；2 层、`d_model=32`、4 头、`d_ff=128`，700 步、批 64、lr $$3\times10^{-3}$$，3 个种子，每条策略 128 条样本、最大 16 Token。
+- 贪心：结束率 0.00，平均长度 16.00，唯一序列比例 0.01，平均对数似然 −2.28；束宽 4 为 −2.14，长度归一化后不变，仍是 0 结束率。三种确定性策略都停在循环里。
+- 纯采样 T=1：结束率 0.56，平均长度 11.45，唯一序列比例 0.54，平均对数似然 −5.04，pass@1 0.56、pass@8 1.00。
+- Top-p：`T=0.8, top_p=0.9` 结束率 0.00、pass@8 0.00；放宽到 0.95 后结束率 0.17、pass@8 0.74。尖分布下单 Token 超过阈值会剪掉结束符。
+- Min-p：`T=1.0, min_p=0.05` 结束率 0.45、唯一序列比例 0.36、平均对数似然 −4.08、pass@1 0.45、pass@8 0.97。
+- 测试：17 项全部通过（约 0.9 s）；示例在 CPU 上约 42 s，除耗时外逐字可复现。
+- 关键观察：似然最高的路径不等于最自然的路径；温度只改形状不改排序；截断改变支撑集，阈值必须结合分布形状解释；单种子方差明显（Top-p 0.95 的结束率在 0.08–0.27 之间），正文已如实报告。
+
+### 留给后续章节的伏笔
+
+- **第 21 章（推理加速）**：本章每步重算完整前向，`generate` 的 `use_cache` 被显式忽略；第 21 章的 KV Cache、PagedAttention 与连续批处理要接在这个冻结入口上，采样配置必须随请求走。
+- **第 22 章（投机解码）**：草稿模型的接受率依赖目标模型的解码分布；温度与截断会改变验证阶段的有效分布，比较接受率时必须固定采样配置。
+- **第 23 章（量化）**：低精度 logits 会放大温度与截断的边界效应；Top-p 的最小前缀在数值误差下可能抖动，评测要固定精度与内核。
+- **第 24 章（测试时计算）**：Best-of-N、自洽性与树搜索都以采样为入口；本章的 pass@k 与采样预算直接决定这些方法的成本与收益。
+- **第 18、19 章**：采样温度、蒸馏温度与强化学习 rollouts 的温度都缩放 logits，但不是同一个超参数；跨章比较必须确认参数出现在训练还是推理段落。
+- **第 6 章（KV Cache）**：解码循环的复杂度账本要与第 6 章的缓存分析对齐，本章的玩具实现不承担吞吐结论。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全。
+- [x] 字数：正文 7328 个中文字符（剔除代码块与公式），在其余章 6,000–9,000 预算内；偏向下限，未注水。
+- [x] 公式编号 (20.1)–(20.14) 连续；贪心反例、束搜索更新、温度熵变、三种截断几何、重复惩罚分段、pass@k 无偏性均有推导或说明。
+- [x] 至少 1 张对比表（表 20-1，9 种策略的目标/随机性/多样性/场景/风险）；工业案例含 Hugging Face `generate`、vLLM `SamplingParams`、Llama 3 模型卡、GNMT 与 guided decoding；论文导读 5 篇；误区 6 条。
+- [x] 代码可运行：从章内 Markdown 重新提取 `tinylm/inference/sample.py` 与 `examples/ch20_decode.py` 到干净目录，`/tmp/ch20final` 实测 17 项测试通过、示例输出与章内数字逐字一致（耗时秒数随机器波动）。
+- [x] 测试可运行：17 项全部通过（约 0.9 s）。
+- [x] 公式与代码对应：`filtered_probs` 标注 (20.6)/(20.10)，`top_k_mask`/`top_p_mask`/`min_p_mask` 标注 (20.7)–(20.9)，`apply_repetition_penalty` 标注 (20.11)，`beam_search` 标注 (20.3)–(20.5)，`pass_at_k` 标注 (20.13)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$q,q_t,S(y),W,\tau,p,p_{\min},p_{\rm succ},k,\rho,\mathcal{S}_k,\mathcal{S}_p,\mathcal{S}_{\min p},n,c$$ 等，并说明与第 19 章蒸馏温度、第 6 章序列长度、第 3 章词表等重名冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：文本退化、长度惩罚、局部典型采样、pass@k、频率惩罚、存在惩罚、结构化输出、语法约束解码；附录 C 已有的贪心/束搜索/温度/Top-k/Top-p/Min-p/重复惩罚/约束解码/Logit 处理器未重复添加。
+- [x] GitBook 语法：hint 使用 info/success/warning；1 个 Mermaid、1 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`。
+- [x] 事实性数字可复算：全部实验数字由程序输出；Llama 3 的 `temperature=0.6, top_p=0.9`、Codex 的 $$n=200$$ 与 GNMT 束宽 4–8 来自公开资料并标注「截至写作时」或「通常」；推测内容已标注。
+- [x] 实验诚实报告：明确标注 8 词表、2 层 32 维、700 步的玩具任务不能外推；长度归一化无效、Top-p 0.9 失效、三种种子方差偏大等负结果均保留。
+- [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名未改；`SamplingConfig` 只作生成参数，不进入 `ModelConfig`；所有解码逻辑在 `tinylm/inference/sample.py`。
+
+## 第 21 章交接
+
+### 本章摘要
+
+本章把一次生成拆成预填充与解码两段，用同一本账解释它们为什么一个吃算力、一个吃带宽。先给出 KV Cache 的显存公式 (21.1) 与 MLA 的压缩形式 (21.2)，说明 GQA/MQA/MLA、量化与驱逐如何缩小每 Token 的 KV；再推导解码的 FLOPs (21.3)、每步搬运字节 (21.4)、算术强度 (21.5) 与 roofline 下界 (21.6)，用 7B 在 4K 下的数字说明解码的算术强度只有约 1.1，远低于 H100 的 295 FLOP/Byte。批处理能摊薄权重却摊不薄 KV，因此渐近强度 (21.7) 只有约 31，仅靠加批无法让解码变成算力受限。FlashAttention 部分从 $$T\times T$$ 中间矩阵的显存爆炸出发，推导分块在线 Softmax 的 (21.8)–(21.11)，证明运行量更新的不变量，并给出 HBM 访问复杂度 (21.12)；强调它是精确注意力，省的是 IO 不是 FLOPs。PagedAttention 把 KV 当虚拟内存，用块表消除内外碎片，给出碎片率 (21.13)；调度部分依次讨论连续批处理、抢占、分块预填充 (21.14)、PD 分离与前缀缓存 (21.15)。最后用容量 (21.16)、TTFT (21.17)、TPOT 与端到端延迟 (21.18)、吞吐与利特尔法则 (21.19) 组成延迟–吞吐账本，把 goodput 作为真正的优化目标。代码在 TinyLM 上新增 `KVCache`、`cached_forward`/`cached_greedy_decode`、`flash_attention` 与 `BlockTable`，不改冻结的 `TinyLM.forward`。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (21.1) | $$M_{\mathrm{kv}}=2n_lBTn_{kv}d_hb_{\mathrm{elem}}$$ | KV Cache 显存 |
+| (21.2) | $$M_{\mathrm{kv}}^{\mathrm{MLA}}=n_lBT(d_c+d_{\mathrm{rope}})b_{\mathrm{elem}}$$ | MLA 压缩缓存 |
+| (21.3) | $$F_{\mathrm{dec}}=2N+4n_lTd_{\mathrm{model}}$$ | 解码一步 FLOPs |
+| (21.4) | $$M_{\mathrm{step}}=Nb_{\mathrm{elem}}+M_{\mathrm{kv}}(B)$$ | 解码一步搬运字节 |
+| (21.5) | $$I_{\mathrm{arith}}=\frac{BF_{\mathrm{dec}}}{Nb_{\mathrm{elem}}+M_{\mathrm{kv}}(B)}$$ | 算术强度 |
+| (21.6) | $$t_{\mathrm{step}}=\max\left(\frac{BF_{\mathrm{dec}}}{F_{\max}},\frac{M_{\mathrm{step}}}{B_{\mathrm{bw}}}\right)$$ | roofline 下界 |
+| (21.7) | $$I_\infty=\frac{2N+4n_lTd_{\mathrm{model}}}{2n_lTn_{kv}d_hb_{\mathrm{elem}}}$$ | 批趋于无穷的渐近强度 |
+| (21.8) | $$m_{\mathrm{new}}=\max\left(m,\max_j s_j\right)$$ | 在线最大值 |
+| (21.9) | $$\ell_{\mathrm{new}}=\alpha\ell+\sum_j e^{s_j-m_{\mathrm{new}}}$$ | 在线指数和 |
+| (21.10) | $$\mathbf{O}_{\mathrm{new}}=\alpha\mathbf{O}+\sum_j e^{s_j-m_{\mathrm{new}}}\mathbf{v}_j$$ | 在线输出累积 |
+| (21.11) | $$\mathbf{O}=\mathbf{O}/\ell$$ | 最终归一化 |
+| (21.12) | $$\Theta\left(T^2d^2/M+Td\right)$$ | 分块注意力的 HBM 访问 |
+| (21.13) | $$w_{\mathrm{frag}}=1-\frac{\sum_i n_i}{\sum_i\lceil n_i/s\rceil s}$$ | 块内碎片率 |
+| (21.14) | $$T_{\mathrm{chunk}}\le R_{\mathrm{pre}}\left(t_{\mathrm{budget}}-t_{\mathrm{dec}}(B)\right)$$ | 分块大小上界 |
+| (21.15) | $$s_{\mathrm{prefix}}=T_{\mathrm{shared}}/(T_{\mathrm{shared}}+T_{\mathrm{new}})$$ | 前缀缓存节省比例 |
+| (21.16) | $$B_{\max}=\left\lfloor\frac{M_{\mathrm{total}}-M_{\mathrm{weights}}-M_{\mathrm{act}}}{M_{\mathrm{kv,seq}}}\right\rfloor$$ | 显存容量上限 |
+| (21.17) | $$\mathrm{TTFT}=W_q+T_{\mathrm{prompt}}/R_{\mathrm{pre}}$$ | 首 Token 延迟 |
+| (21.18) | $$\mathrm{TPOT}=t_{\mathrm{step}},\quad W=\mathrm{TTFT}+(n_{\mathrm{out}}-1)\mathrm{TPOT}$$ | 每 Token 时间与端到端延迟 |
+| (21.19) | $$R_{\mathrm{tok}}=B/\mathrm{TPOT},\quad N_{\mathrm{inflight}}=r_{\mathrm{arr}}\bar W$$ | 吞吐与利特尔法则 |
+
+### 实验与关键数字
+
+- 设计：TinyLM 小模型（`vocab_size=64`、`d_model=64`、3 层、8 个查询头、2 个 KV 头）验证缓存等价；速度对照用 `d_model=128`、4 层、提示 32 Token、生成 96 Token；roofline 用 7B GQA（32 层、8 个 KV 头、`d_h=128`、4K 上下文）与 H100 SXM 的 989 TFLOPS / 3.35 TB/s。
+- 缓存等价性（最大绝对误差）：整段预填充 `0.00e+00`，分块预填充 `1.49e-07`，逐 Token 解码 `1.49e-07`。
+- FlashAttention 与稠密注意力在 T=256 时最大绝对误差 `4.77e-07`，输出形状 `(2, 8, 256, 64)`。
+- KV 账本（FP16，单序列）：7B GQA 4K 为 512.0 MiB、32K 为 4.0 GiB，每 GiB 约 8,192 Token，24 GB 卡最多约 40 条；13B MHA 4K 为 3.1 GiB、32K 为 25.0 GiB，每 GiB 约 1,311 Token，最多约 6 条；MLA（V2 规模）4K 为 270.0 MiB、32K 为 2.1 GiB，每 GiB 约 15,534 Token，最多约 75 条。
+- 纯 PyTorch CPU 实测：每步重算全序列 0.186 s，KV Cache 增量 0.101 s，加速比 1.85×；该数字只在 32 Token 提示、96 Token 生成的玩具设置下成立，不能外推为真实服务加速比。
+- 分页 vs 朴素预分配（`block=16`，长度 `[2048,17,4000,256,1,512]`）：有效 Token 6,834；分页预留 6,864 槽位、利用率 99.563%；朴素预留 24,000 槽位、利用率 28.475%。
+- 解码 roofline（7B，T=4096）：B=1 时算术强度 1.1 F/B、搬运 14.0 GB、下界 4.5 ms、吞吐 223 tok/s；B=8 时 7.1 F/B、17.5 GB、5.6 ms、1,427 tok/s；B=32 时 16.8 F/B、29.5 GB、9.5 ms、3,386 tok/s；B=64 时 21.8 F/B、45.5 GB、14.6 ms、4,390 tok/s。
+- 关键观察：$$I_\infty\approx31$$ 远低于 H100 的 295，批大小无法把解码变成算力受限；要让 $$I_\infty$$ 达到 295，上下文需短到约 380 Token；KV 读取与批同阶增长，是吞吐的最终约束。
+- 测试：20 项全部通过（约 1 s）；示例除耗时外逐字可复现，速度对照行的绝对秒数随机器波动，正文已注明。
+
+### 留给后续章节的伏笔
+
+- **第 22 章（投机解码）**：本章的 roofline 账本解释了为什么一次验证多个 Token 能提高算术强度；草稿模型与目标模型的接受率决定实际节省，KV Cache 必须能回滚被拒绝的 Token。
+- **第 23 章（量化）**：KV 量化直接缩小 (21.1) 的 $$b_{\mathrm{elem}}$$，同时改变解码的带宽下界；量化误差在长上下文与远距离键上更敏感，需与本章的容量账本一起评估。
+- **第 24 章（测试时计算）**：Best-of-N、自洽性与树搜索会成倍放大解码步数与 KV 占用；本章的吞吐与利特尔法则决定这些方法的服务成本。
+- **第 12 章（并行训练）**：张量并行与流水并行在推理侧的通信、KV 分片与 PD 分离的资源放置，直接复用本章的账本；PD 分离本质上是把训练中的阶段划分搬到服务侧。
+- **第 6 章（注意力变体）**：GQA/MQA/MLA 的 KV 头数与压缩维度决定 (21.1)、(21.2) 的系数，本章不再重复推导结构，只消费其结论。
+- **第 20 章（解码策略）**：`generate` 的 `use_cache` 从第 21 章起真正生效；采样配置必须随请求进入调度器，连续批处理中不同请求的温度、Top-p 不能互相污染。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全。
+- [x] 字数：正文 10285 个中文字符（剔除代码块与公式），在核心章 10,000–12,000 预算内，接近 11,000 目标。
+- [x] 公式编号 (21.1)–(21.19) 连续；KV 显存、解码 FLOPs、算术强度、roofline、在线 Softmax、IO 复杂度、碎片率、分块上界、前缀节省、容量、TTFT/TPOT 与利特尔法则均有推导或说明。
+- [x] 至少 1 张对比表（表 21-1 四种调度方案，表 21-2 五条 KV 压缩路线）；工业案例含 vLLM、FlashAttention-2/3、TensorRT-LLM、SGLang、Orca、Sarathi-Serve、DistServe；论文导读 5 篇；误区 6 条。
+- [x] 代码可运行：从章内 Markdown 重新提取四个代码块到 `/tmp/ch21final`，与源文件 `diff` 一致；20 项测试通过，示例的确定性输出与章内逐字一致（耗时秒数随机器波动）。
+- [x] 测试可运行：20 项全部通过（约 1 s）。
+- [x] 公式与代码对应：`cache_bytes` 标注 (21.1)/(21.2)，`arithmetic_intensity`/`roofline_time` 标注 (21.5)/(21.6)，`flash_attention` 标注 (21.8)–(21.11)，`internal_fragmentation` 标注 (21.13)，`ttft`/`tpot`/`throughput` 标注 (21.17)–(21.19)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$M_{\mathrm{kv}},n_l,n_{kv},d_h,b_{\mathrm{elem}},F_{\mathrm{dec}},M_{\mathrm{step}},I_{\mathrm{arith}},F_{\max},B_{\mathrm{bw}},I_\infty,m,\ell,\mathbf{O},T_{\mathrm{chunk}},R_{\mathrm{pre}},s_{\mathrm{prefix}},B_{\max},\mathrm{TTFT},\mathrm{TPOT},W_q,n_{\mathrm{out}},N_{\mathrm{inflight}},r_{\mathrm{arr}},\bar W$$ 等，并说明与第 9 章 $$N$$、第 6 章 $$n_{kv}$$、第 13 章 $$T$$ 的重名冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：预填充、解码、算术强度、屋顶线模型、在线 Softmax、分块注意力、分页注意力、块表、内部/外部碎片、连续批处理、迭代级调度、抢占、分块预填充、无停顿调度、预填充-解码分离、前缀缓存、TTFT、TPOT、有效吞吐、写时复制、KV 量化。
+- [x] GitBook 语法：hint 使用 info/success/warning/danger；1 个 Mermaid、2 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`。
+- [x] 事实性数字可复算：实验数字全部由程序输出；vLLM 的 60%–80% 浪费与 2–4×、FlashAttention-2 的 50%–73% 与 2×、Orca 36.9×、Sarathi 2.6×、DistServe 7.4× 来自公开论文，正文标注了模型、硬件与 SLO 条件；推测与时效性内容已标注。
+- [x] 实验诚实报告：明确标注小模型、CPU、短序列的加速比不能外推；L2 命中率、CPU 分配器与固定开销会影响绝对耗时；批增大后吞吐收益递减的负结果保留。
+- [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名未改；缓存版本以同包 `cached_forward` 实现，`use_cache=True` 走该路径，`past_kv` 承载缓存对象；纯注意力块之外的架构被显式断言排除。
+
+## 第 22 章交接
+
+### 本章摘要
+
+本章回答“能不能让便宜的小模型先猜几个 Token，再让大模型一次验收”，并证明这种接受–拒绝规则不改变输出分布。先从第 21 章的 roofline 账本出发：解码受带宽限制，验证 $$\gamma+1$$ 个位置共享一次权重读取，因此“多算”比“多读”便宜。数学部分给出单步拒绝采样 (22.1)–(22.4)：接受概率 $$a(x)=\min(1,p/q)$$，拒绝后从残差 $$r(y)\propto\max(0,p-q)$$ 重采样，两项相加恰为 $$p$$；接受率 $$\alpha=\sum\min(p,q)=1-\mathrm{TV}$$ (22.5)。序列级用归纳证明每个位置的条件分布都等于目标分布，并补充贪心解码下的确定性接受规则。收益部分推导期望接受数 (22.6)、期望产出 Token 数 (22.7) 与加速比 (22.8)，说明 $$\gamma$$ 的边际收益为何指数衰减、最优 $$\gamma$$ 为何存在；按位置接受率给出更细的 (22.9)。方案部分对比外部草稿、Medusa、EAGLE 与 MTP，讲清“Token 层猜”“特征层猜”“训练时附带”的差别；树状草稿用祖先掩码 (22.10) 一次验证多条路径。MTP 部分给出损失 (22.11)–(22.12)，强调它首先是训练目标，推理时仍须验证。最后讨论 KV Cache 回滚 (22.13) 与位置对齐。代码在 TinyLM 中新增 `tinylm/inference/speculative.py`，以概率函数为接口，便于用玩具马尔可夫链精确验证。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (22.1) | $$a(x)=\min\left(1,\frac{p(x)}{q(x)}\right)$$ | 接受概率 |
+| (22.2) | $$r(y)=\frac{\max(0,p(y)-q(y))}{Z}$$ | 残差分布 |
+| (22.3) | $$\Pr(\text{reject})=Z=\sum_x\max(0,q(x)-p(x))$$ | 拒绝概率 |
+| (22.4) | $$\Pr(Y=y)=\min(p(y),q(y))+\max(0,p(y)-q(y))=p(y)$$ | 无损性 |
+| (22.5) | $$\alpha=\sum_x\min(p(x),q(x))=1-\mathrm{TV}(p,q)$$ | 接受率 |
+| (22.6) | $$\mathbb{E}[A]=\frac{\alpha(1-\alpha^\gamma)}{1-\alpha}$$ | 期望接受草稿数 |
+| (22.7) | $$\mathbb{E}[K]=\frac{1-\alpha^{\gamma+1}}{1-\alpha}$$ | 每轮期望产出 Token |
+| (22.8) | $$S=\frac{1-\alpha^{\gamma+1}}{(1-\alpha)(1+c\gamma)}$$ | 加速比 |
+| (22.9) | $$\mathbb{E}[K]=1+\alpha_1+\alpha_1\alpha_2+\cdots+\prod_{i=1}^{\gamma}\alpha_i$$ | 按位置接受率 |
+| (22.10) | $$M_{ij}=0\ \text{若}\ j\in\mathcal{A}(i),\ -\infty\ \text{否则}$$ | 树状祖先掩码 |
+| (22.11) | $$\mathcal{L}_{\mathrm{MTP}}=-\frac1k\sum_{i=1}^{k}\log p_i(x_{t+i}\mid\mathbf{h}_t)$$ | MTP 损失 |
+| (22.12) | $$\mathcal{L}=\mathcal{L}_{\mathrm{CE}}+\lambda\mathcal{L}_{\mathrm{MTP}}$$ | 总损失 |
+| (22.13) | $$L'=L+a$$ | 回滚后的缓存长度 |
+
+### 实验与关键数字
+
+- 设计：无损性与接受数用 5 词表分布做 20 万次/10 万轮蒙特卡洛；KV 回滚用 TinyLM（`vocab_size=32`、`d_model=64`、2 层、8 个查询头、2 个 KV 头）对比“截断缓存”与“重新预填充”；MTP 用 3 个线性头、`d_model=16`、词表 11；树掩码用 5 节点树。
+- 无损性：20 万次拒绝采样的经验分布与目标 $$p$$ 最大误差 0.001；实测接受率 0.5016，理论值 0.5000。
+- 草稿质量账本（$$\gamma=4$$、$$c=0.1$$）：混合系数 0.2/0.4/0.6/0.8 对应 $$\alpha=0.890/0.780/0.670/0.560$$，加速比 2.867/2.309/1.872/1.534。
+- $$\gamma$$ 的边际收益（$$\alpha=0.8$$、$$c=0.1$$）：$$\gamma=1,4,6,8$$ 的加速比分别为 1.636、2.401、2.470、2.405；最优在 $$\gamma=6$$ 附近。
+- 接受数模拟（10 万轮，$$\alpha=0.50$$、$$\gamma=4$$）：实测平均接受 0.9365，理论 0.9375；每轮平均输出 1.9365 Token。
+- KV 回滚（接受 2/4 个草稿）：回滚后缓存长度 11；与重新预填充的 logits 最大误差 $$2.98\times10^{-8}$$。
+- MTP：每步 logits 形状 `(1, 6, 11)` × 3；三步平均损失 2.7020，仅第一步损失 2.3890。
+- 玩具马尔可夫模型：平均每步接受率 0.700，$$\gamma=4$$ 的期望产出 2.773 Token。
+- 测试：14 项全部通过（约 1 s），覆盖接受率恒等式、残差归一化、无损性蒙特卡洛、$$p=q$$ 全接受、接受数上界、端点与单调性、内部最优 $$\gamma$$、KV 回滚等价、树掩码祖先性、MTP 形状/损失/忽略填充、确定性解码与非法批次拒绝。
+
+### 留给后续章节的伏笔
+
+- **第 23 章（量化）**：草稿模型量化会改变其分布 $$q$$，直接降低接受率；目标模型量化也会改变验证分布。量化误差对 $$\alpha$$ 的影响必须用真实负载测量，不能只看模型困惑度。
+- **第 24 章（测试时计算）**：Best-of-N、自洽性与树搜索增加的是采样次数而不是单次解码步数；投机解码可与这些方法叠加，但 KV 占用与调度开销要一起算。
+- **第 20 章（解码策略）**：温度、Top-k、Top-p 改变 $$p$$ 与 $$q$$，接受率随之变化；贪心与采样两条路径的无损规则不同，监控必须分开。
+- **第 21 章（推理加速）**：KV Cache 回滚依赖 `length` 指针与分页块归还；树状分支需要写时复制或按节点缓存，否则分支互相污染。
+- **第 19 章（蒸馏）**：蒸馏出的小模型是天然的草稿模型候选；师生分布的接近程度直接对应接受率。
+- **第 1 章（训练目标）**：MTP 作为训练目标的动机与本章的推理用法相互印证；训练时的多步监督与推理时的多 Token 验证不是同一件事。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全。
+- [x] 字数：正文 7593 个中文字符（剔除代码块与公式），在其余章 6,000–9,000 预算内，落在 7,500–8,500 目标区间。
+- [x] 公式编号 (22.1)–(22.13) 连续；单步无损性、残差归一化、序列归纳、接受率恒等式、期望收益、加速比、按位置接受率、树掩码、MTP 损失与回滚长度均有推导或说明。
+- [x] 至少 1 张对比表（表 22-1 四条路线）；工业案例含 Leviathan/Chen、Medusa、EAGLE、DeepSeek-V3、vLLM/TensorRT-LLM；论文导读 5 篇；误区 6 条。
+- [x] 代码可运行：从章内 Markdown 重新提取 `tinylm/inference/speculative.py` 与 `examples/ch22_speculative.py` 到 `/tmp/ch22final`，14 项测试通过，示例输出与章内逐字一致。
+- [x] 测试可运行：14 项全部通过（约 1 s）。
+- [x] 公式与代码对应：`acceptance_rate` 标注 (22.5)，`residual_probs` 标注 (22.2)，`rejection_sample`/`speculative_sample` 标注 (22.1)–(22.3)，`expected_output_tokens` 标注 (22.7)，`speculative_speedup` 标注 (22.8)，`truncate_cache` 标注 (22.13)，`MTPHead` 标注 (22.11)，`mtp_loss` 标注 (22.11)–(22.12)，`tree_attention_mask` 标注 (22.10)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$p,q,a(x),r(y),Z,\alpha,\mathrm{TV},\gamma,c,A,K,S,\alpha_i,\mathbf{h}_t,p_i,M_{ij},\mathcal{A}(i),\lambda,k,L'$$ 等，并说明与第 20 章采样概率、第 21 章缓存长度、第 13 章序列长度的重名冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：投机解码、草稿模型、目标模型、拒绝采样、残差分布、接受率、全变差距离、草稿长度、树状草稿、树状掩码、Medusa、EAGLE、多 Token 预测、KV Cache 回滚；附录 C 已有的贪心/温度/Top-p/蒸馏/KV Cache 未重复添加。
+- [x] GitBook 语法：hint 使用 warning；1 个 Mermaid、1 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`。
+- [x] 事实性数字可复算：实验数字全部由程序输出；Medusa 2.2–3.6×、EAGLE 约 2–3×、Leviathan 2–3×、DeepSeek-V3 的 671B/37B 来自公开论文并在正文标注模型与负载条件；推测与时效性内容已标注。
+- [x] 实验诚实报告：明确标注 5 词表、2 层小模型与玩具马尔可夫链的加速比不能外推；接受率随负载漂移、长上下文降低收益等负结果均保留。
+- [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名未改；`SpecConfig` 只作推理参数，不进入 `ModelConfig`；所有新逻辑在 `tinylm/inference/speculative.py`。
+

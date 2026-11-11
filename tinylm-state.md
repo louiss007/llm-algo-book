@@ -19,6 +19,8 @@
 - **参数高效微调**：第 15 章增加 `tinylm/posttrain/lora.py`（`LoraConfig`、`LoRALinear`、`apply_lora`、`lora_parameters`/`lora_state_dict`/`load_lora_state_dict`、`trainable_stats`、`lora_module_params`、`state_bytes`、NF4 量化/反量化与 `quantize_lora_bases`）；适配器通过替换线性层注入，不修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig`，未启用 LoRA 时默认路径与第 14 章逐位一致。代码仍以章节内嵌形式存在。
 - **对齐训练**：第 16 章增加 `tinylm/posttrain/rm.py`（`ScalarModel`、`init_scalar_from_lm`、`bradley_terry_loss`、`pairwise_accuracy`、`preference_probability`、`reward_standardizer`）与 `tinylm/posttrain/ppo.py`（`RLConfig`、`Rollout`、`sample_responses`、`response_mask`、`token_logprobs`、`token_values`、`compute_gae`、`normalize_advantage`、`clipped_surrogate`、`kl_penalty`、`kl_estimator_k3`、`collect_rollout`、`ppo_update`）；奖励模型通过替换 `lm_head` 注入，PPO 配置只作训练脚本参数，不修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig`。代码仍以章节内嵌形式存在。
 - **偏好优化**：第 17 章增加 `tinylm/posttrain/dpo.py`（`DPOConfig`、`completion_logprobs`、`log_ratio_margin`、`implicit_reward`、`dpo_loss`、`preference_accuracy`）；损失同时支持 DPO、cDPO 标签平滑与 IPO，参考模型为独立的冻结副本，配置只作训练脚本参数，不进入 `ModelConfig`。代码仍以章节内嵌形式存在。
+- **推理加速**：第 21 章增加 `tinylm/inference/kv_cache.py`（`KVCache`、`cache_bytes`、`cache_tokens_per_gib`、`weight_bytes`、`arithmetic_intensity`、`roofline_time`、`ttft`、`tpot`、`throughput`、`cached_attention`、`cached_forward`、`cached_prefill`、`cached_greedy_decode`）、`tinylm/inference/flash.py`（`dense_attention`、`flash_attention`）与 `tinylm/inference/paged.py`（`BlockTable`、`internal_fragmentation`、`padded_fragmentation`、`fragmentation_table`、`batch_capacity`）；缓存版本以同包 `cached_forward` 实现，不修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig`，只支持纯注意力块。代码仍以章节内嵌形式存在。
+- **投机解码**：第 22 章增加 `tinylm/inference/speculative.py`（`SpecConfig`、`acceptance_rate`、`residual_probs`、`rejection_sample`、`speculative_sample`、`expected_output_tokens`、`speculative_speedup`、`truncate_cache`、`MTPHead`、`mtp_loss`、`tree_attention_mask`、`speculative_decode`）；以概率函数为接口，便于用玩具马尔可夫链验证，不修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig`。代码仍以章节内嵌形式存在。
 - **接口契约**：未修改。`TinyLM.forward` 保持附录 F 的签名，新增字段只出现在 `ModelConfig` 与 `CausalLMOutput` 中。
 - **配置**：`ModelConfig` 首次落地（见第 3 章变更）。`pos_encoding` 与 `rope_theta` 在第 4 章启用，新增 `rope_scaling`；第 6 章启用 `attention`、`n_kv_heads`、`d_c`、`d_head_rope`；第 7 章启用 `moe` 与 `MoEConfig`（含 `capacity_factor`）；部分字段仍为后续章节预留。
 
@@ -566,17 +568,117 @@
 - 实验统一用 2 层、`d_model=32/64`、4 头、16 词表、3 个种子；教师与学生均只预测答案与 EOS；正文明确标注 40 条标注与 100 个提示的玩具设置不能外推。
 - 所有随机源固定种子；输出中的耗时随机器波动，其余数字逐字可复现；SFT 与 KD 的差距同时含数据覆盖与软标签两个因素，正文已标注不可完全分离。
 
+## 第 20 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/inference/sample.py` | 章节内嵌实现 | `SamplingConfig`（冻结 dataclass，校验温度、Top-k、Top-p、Min-p、重复惩罚）；`apply_repetition_penalty`；`top_k_mask`；`top_p_mask`；`min_p_mask`；`decode_mask`；`filtered_probs`；`sample_decode`；`greedy_decode`；`beam_search`；`sequence_logprob`；`pass_at_k`；`generate` |
+| `tests/test_sample.py` | 章节内嵌实现 | 17 个用例：配置校验、Top-k 基数、Top-p 最小前缀、Min-p 相对阈值、温度熵与 argmax、重复惩罚分段与 padding 跳过、截断归一化、贪心路径、Top-k=1 等于贪心、束搜索全局更优、束宽 1 等于贪心、序列似然手算、提示/padding 跳过、pass@k 端点、固定种子复现与 EOS 填充、`generate(None)` 为贪心 |
+| `examples/ch20_decode.py` | 章节内嵌实现 | 8 词表合成马尔可夫链；2 层 `d_model=32`、4 头、`d_ff=128`；700 步、批 64、3 个种子；比较贪心、束搜索（含长度归一化）、纯采样、Top-p 0.90/0.95、Min-p 0.05；统计 EOS 率、长度、distinct-2、唯一序列比例、平均对数似然与 pass@1/pass@8 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 20 章行为 |
+| --- | --- | --- |
+| `SamplingConfig.temperature` | `1.0` | 采样温度 $$\tau$$；必须严格大于 0；不提供“温度 0”，贪心用 `sampling=None` |
+| `SamplingConfig.top_k` | `None` | `None` 表示不截断；否则保留 logit 最大的 $$k$$ 个 |
+| `SamplingConfig.top_p` | `None` | `None` 表示不截断；否则保留累积概率达到 $$p$$ 的最小前缀 |
+| `SamplingConfig.min_p` | `0.0` | `0` 表示不截断；否则保留概率不低于最大概率 `min_p` 倍的 Token |
+| `SamplingConfig.repetition_penalty` | `1.0` | `1.0` 表示不惩罚；大于 1 时对已出现 Token 分段缩放 logits |
+| `SamplingConfig.seed` | `None` | 固定时用 `torch.Generator` 保证同设备可复现 |
+| `generate(...).use_cache` | `True` | 第 20 章尚未实现 KV Cache，传入时发 `UserWarning` 并忽略；第 21 章接入 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 采样配置只作生成参数；解码、束搜索、似然与 pass@k 均在 `tinylm/inference/sample.py` |
+
+实现要点：
+
+- `filtered_probs` 的固定顺序是“重复惩罚 → 温度 → Top-k → Top-p → Min-p → 重新归一化”；顺序会改变结果，复现时必须记录。温度只在正 logits 上等比例缩放，重复惩罚才做正负分段。
+- `top_p_mask` 先把概率降序排列并累加，`remove = cumulative > p` 右移一位、首位置 `False`，得到“累积概率首次达到 $$p$$”的最小前缀；不能简单用 `cumulative <= p`，否则会漏掉跨过阈值的那一项。
+- `top_k_mask` 用 `topk` 的索引 `scatter` 成布尔掩码；`k` 先截到词表大小，避免越界。`decode_mask` 对多个截断取交集，最终由 `masked_fill(-inf)` 保证支撑集外概率为零。
+- `apply_repetition_penalty` 用 `torch.unique(token_ids)` 取已出现集合，支持按批独立处理；`pad_id` 存在时从集合中剔除，避免惩罚 padding。正 logit 除以 $$\rho$$、非正 logit 乘以 $$\rho$$，$$\rho=1$$ 直接返回原张量。
+- `sample_decode` 用 `torch.multinomial(probs, 1, generator=...)` 逐 Token 采样；EOS 之后写 `pad_id`，全批结束后提前退出；返回 `(seqs, seqs != pad_id)`。
+- `greedy_decode` 与 `sample_decode` 共享相同的 EOS/padding 语义；`beam_search` 只接受 `(1, T)` 单条提示，按 (20.3) 累加对数似然，遇到 EOS 放入 `completed`，最后按 (20.5) 的长度归一化排序；不实现批内多提示并行。
+- `sequence_logprob` 用 `seqs[:, :-1]` 预测 `seqs[:, 1:]`，把提示位置与 `pad_id` 目标置零；只用于比较不同策略的似然，不参与训练。
+- `pass_at_k` 用 `math.comb` 实现 (20.13)，强制 `1 <= k <= n`；`c<=0` 返回 0，`n-c<k` 返回 1，避免组合数越界。
+- 实验固定所有随机源；同一设备、同一种子逐位可复现；正文明确标注 8 词表、2 层 32 维、700 步的玩具任务不能外推为真实 LLM 的超参数。
+
+## 第 21 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/inference/kv_cache.py` | 章节内嵌实现 | `KVCache`（按层预分配 `(B, n_kv_heads, max_len, d_head)`，共享 `length`）；`cache_bytes`；`cache_tokens_per_gib`；`weight_bytes`；`arithmetic_intensity`；`roofline_time`；`ttft`；`tpot`；`throughput`；`cached_attention`；`cached_forward`；`cached_prefill`；`cached_greedy_decode` |
+| `tinylm/inference/flash.py` | 章节内嵌实现 | `dense_attention`（参考实现）；`flash_attention`（分块 + 在线 Softmax，支持因果掩码） |
+| `tinylm/inference/paged.py` | 章节内嵌实现 | `BlockTable`（按 Token 数分配、扩容、释放、复用）；`internal_fragmentation`；`padded_fragmentation`；`fragmentation_table`；`batch_capacity` |
+| `tests/test_kv_cache.py` | 章节内嵌实现 | 20 个用例：缓存公式与 GQA/MLA 缩放、形状、整段/分块预填充与逐 Token 解码等价、填充掩码、溢出断言、贪心步数、FlashAttention 与稠密一致及分块不变性、块表分配/扩容/释放、碎片率、算术强度与 roofline、TTFT/TPOT/吞吐 |
+| `examples/ch21_inference.py` | 章节内嵌实现 | 缓存等价性、KV 账本、CPU 速度对照、FlashAttention 误差、分页碎片账本、7B roofline 扫描 |
+
+接口与状态：
+
+| 对象 | 第 21 章行为 |
+| --- | --- |
+| `KVCache.append(layer, k, v)` | 把新 Token 写到共享 `length` 处，不推进计数器；所有层写完由 `cached_forward` 统一 `advance(T)` |
+| `KVCache.keys/values(layer)` | 返回 `[:, :, :length]` 的视图；`cached_attention` 内部用 `length + T` 直接切片，避免 append 后计数器尚未推进时读到空历史 |
+| `cached_forward(model, ids, cache, ...)` | 与 `TinyLM.forward` 输入输出契约一致，读写缓存；只断言纯注意力块与 `TransformerBlock`；支持 GQA 的 `repeat_interleave`、RoPE/ALiBi 与 2D padding 掩码 |
+| `cached_prefill` | 整段提示词一次写入缓存，只返回最后位置 logits |
+| `cached_greedy_decode` | 预填充一次后每步只喂 1 个 Token；支持 EOS 与缓存溢出提前退出 |
+| `generate(..., use_cache=True)` | 第 21 章起可接到 `cached_forward`；`use_cache` 仍不改变 `TinyLM.forward` 签名 |
+| `flash_attention` | 实数运算下与 `dense_attention` 等价，差异只来自浮点累加顺序；初始 `row_max=-1e30`，避免全掩码块出现 `-inf - -inf` |
+| `BlockTable` | `free` 为物理块队列，`mapping` 为序列→物理块表；`allocate` 向上取整，`ensure_capacity` 只补差量，`free_sequence` 立即归还 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变；缓存、FlashAttention 与分页结构均在 `tinylm/inference/` 中，不进入模型签名 |
+
+实现要点：
+
+- `cache_bytes` 对 MLA 走 `n_l B T (d_c + d_head_rope) b_elem`；对 `hybrid` 只计实际含注意力的层；对非注意力块返回 0。
+- `cached_attention` 只投影新 Token 的 Q/K/V；GQA 在拼接后按 `repeat_interleave` 展开 K/V；因果掩码用绝对位置 `position_ids`，与第 4 章的 RoPE 约定一致。
+- `cached_forward` 不支持 SSM、线性注意力与混合架构，使用 `assert cfg.block_type == "attention"` 显式拒绝；并行块与普通块分别处理，MLP 返回 tuple 时取第一项。
+- `flash_attention` 的块内因果跳过条件为 `j0 > start + i1 - 1`；`start = Tk - Tq`，支持查询是完整序列后缀的缓存场景。
+- `internal_fragmentation` 按“已预留槽位”计分母；`padded_fragmentation` 按批内最长序列统一预留；`fragmentation_table` 同时返回利用率与浪费率。
+- 实验固定随机源；缓存等价性中的分块与逐 Token 误差为 `1.49e-07`，FlashAttention 在 T=256 的误差为 `4.77e-07`；CPU 速度对照的绝对秒数随机器波动，正文已注明不能外推。
+
+## 第 22 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/inference/speculative.py` | 章节内嵌实现 | `SpecConfig`；`acceptance_rate`；`residual_probs`；`rejection_sample`；`speculative_sample`；`expected_output_tokens`；`speculative_speedup`；`truncate_cache`；`MTPHead`；`mtp_loss`；`tree_attention_mask`；`speculative_decode` |
+| `tests/test_speculative.py` | 章节内嵌实现 | 14 个用例：接受率恒等式、残差归一化与支撑集、单步无损性蒙特卡洛、`p=q` 全接受、多步接受数上界、期望 Token 端点与单调性、加速比端点、内部最优 $$\gamma$$、KV 回滚等价、树掩码祖先性、MTP 形状/损失/忽略填充、确定性解码、非法批次拒绝 |
+| `examples/ch22_speculative.py` | 章节内嵌实现 | 20 万次拒绝采样分布核对、草稿质量与 $$\gamma$$ 账本、10 万轮接受数模拟、KV 回滚误差、MTP 损失、树掩码与玩具马尔可夫链 |
+
+接口与状态：
+
+| 对象 | 第 22 章行为 |
+| --- | --- |
+| `SpecConfig` | 冻结 dataclass，字段 `num_draft`（默认 4）与 `seed`（默认 `None`）；`num_draft >= 1` 在 `__post_init__` 断言；不进入 `ModelConfig` |
+| `acceptance_rate(p, q)` | 在最后一维逐行计算 $$\sum\min(p,q)$$，返回形状 `(B,)`；要求 `p`、`q` 同形 |
+| `residual_probs(p, q)` | 返回归一化的 $$\max(0,p-q)$$；当残差质量和为 0 时退回 `p`，避免对全零分布采样 |
+| `rejection_sample(q, p, generator)` | `q`、`p` 形状 `(B,V)`；返回 `(token, accepted)`，各为 `(B,)`；含接受、残差回退两条分支 |
+| `speculative_sample(q_seq, p_seq, generator)` | `q_seq` 形状 `(B,γ,V)`，`p_seq` 形状 `(B,γ+1,V)`；返回 `(drafts, n_accept, correction)`，形状 `(B,γ)`、`(B,)`、`(B,)`；用 `cumprod` 保证首次拒绝后不再接受 |
+| `expected_output_tokens(alpha, gamma)` | 实现 (22.7)；`alpha >= 1` 时返回 `gamma+1`，避免除零 |
+| `speculative_speedup(alpha, gamma, cost_ratio)` | 实现 (22.8)；只做账本计算，不测量真实延迟 |
+| `truncate_cache(cache, length)` | 只修改 `cache.length`，断言 `0 <= length <= cache.length`；不重算已接受前缀 |
+| `MTPHead` | 一组独立 `Linear(d_model, vocab_size, bias=False)`；`forward(hidden)` 返回长度为 `num_steps` 的 logits 列表 |
+| `mtp_loss(logits_list, targets, weights, ignore_index)` | 第 `i` 个头预测 `targets[:, i:]`，与 `logits[:, :T-i]` 计算交叉熵；`weights=None` 时等权平均，否则按权重归一化 |
+| `tree_attention_mask(parents)` | 输入父节点列表（根为 `-1`），返回 `(n,n)` 布尔掩码；节点只能看到自己与祖先 |
+| `speculative_decode(...)` | 只接受 `(1,T)` 的提示；草稿自回归提议，目标每轮重算前向；返回 `(1, start+max_new_tokens)`；用于算法验证，不是高性能实现 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变；投机解码、MTP 头与回滚工具均在 `tinylm/inference/speculative.py` 中 |
+
+实现要点：
+
+- `residual_probs` 的零质量回退是必要的：当 `p=q` 时残差全零，若不回退，`torch.multinomial` 会抛 “sum of probabilities <= 0”；回退到 `p` 不改变无损性，因为此时所有候选都应被接受。
+- `speculative_sample` 的 `prefix_ok = cumprod(accepted)` 把“首次拒绝后全部作废”压缩成一次向量化操作；`n_accept` 为前缀真值之和。
+- `truncate_cache` 与第 21 章的 `KVCache` 对齐：`append` 不推进计数器，所有层写完后统一 `advance`，因此回滚只改整数，不需要重算 K/V。
+- `speculative_decode` 每轮重算目标前向，未复用 KV Cache；这样代码最短、验证最直接，但不能作为吞吐基准。
+- 实验固定随机源；无损性误差与接受率、接受数模拟与理论值、回滚误差 `2.98e-08` 均写入正文，玩具结论明确标注不可外推。
+
 ## 下一章待实现
 
-第 20 章《解码策略》在第 1、6、18 章之上展开。待定内容：
+第 23 章《量化》在第 21、22 章之上展开。待定内容：
 
-- 从训练目标到解码：最大似然训练与序列级 MAP/采样目标的不一致；
-- 贪心、束搜索、纯采样与温度缩放；
-- top-k、top-p（nucleus）、min-p 与重复惩罚的截断几何；
-- 似然最大化导致的退化、曝光偏差与采样多样性；
-- pass@k、评测温度与解码配置对读数的影响。
+- 对称/非对称量化、逐张量/逐通道/逐组粒度的定点表示与反量化，以及零点、缩放因子的选择；
+- 训练后量化（PTQ）与量化感知训练（QAT），权重、激活与 KV Cache 量化的误差来源；
+- 低比特格式（INT8/INT4、FP8、NF4）与第 15 章 QLoRA 的 NF4 实现衔接，避免重复造轮子；
+- 量化对第 21 章带宽下界与第 22 章草稿/目标分布对齐的影响：草稿模型量化会降低接受率，目标模型量化会改变验证分布；
+- 困惑度、任务准确率与端到端延迟的联合评测，不能只报压缩率或只报困惑度。
 
-第 20 章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名；解码配置放在生成函数或 `DecodeConfig` 中，不进入 `ModelConfig`；可复用第 18 章 `sample_groups` 的采样循环，但具体模块名与文件名在开工前按 CLAUDE.md、SUMMARY.md 与附录 F 确认。
+第 23 章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名；量化逻辑放在新模块或新配置开关中；KV Cache 量化必须与第 21 章的 `KVCache` 数据布局兼容，并与第 22 章的接受率测量共用固定采样配置。具体模块名与文件名在开工前按 CLAUDE.md、SUMMARY.md 与附录 F 确认。
 
 ## 验收门槛
 
@@ -767,3 +869,43 @@
 - `ch19_distill.py` 除耗时外必须逐字可复现；3 个种子的教师准确率、三种学生结果与剪枝前后准确率必须与正文表一致；
 - 报告必须同时给出全量/留出准确率、参数量、压缩比与剪枝稀疏度；不得只报全量准确率或只报一个种子；
 - 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`DistillConfig` 只作训练脚本参数；教师必须冻结，玩具结论不得外推为真实 LLM 的温度、剪枝率或压缩比。
+- `SamplingConfig` 必须拒绝 `temperature <= 0`、`top_k < 1`、`top_p` 不在 `(0,1]`、`min_p` 不在 `[0,1]`、`repetition_penalty <= 0`；
+- `top_k_mask(logits, k)` 的保留数恰为 `min(k, V)`；`k >= V` 时全保留；`top_p_mask` 的最小前缀满足“累积概率 ≥ p，且去掉最后一项后 < p”；
+- `min_p_mask` 只保留 `p_v >= min_p * max_v p_v` 的 Token；`min_p=0` 全保留，`min_p=1` 只保留 argmax；
+- `filtered_probs` 输出的每一行和为 1（误差小于 `1e-6`），支撑集之外的零概率严格为 0；温度升高时熵增大且 argmax 不变；
+- `apply_repetition_penalty` 对已出现且 logit 为正的 Token 除以 $$\rho$$、对非正 logit 乘以 $$\rho$$，未出现 Token 不变；`pad_id` 必须跳过；
+- `greedy_decode` 与 `top_k=1` 的采样在同一种子下逐位一致；`beam_search(W=1)` 与贪心前几步一致；
+- 束搜索必须在手工玩具模型上找到贪心错过的全局更优路径，且 `sequence_logprob` 对该路径给出更高值；
+- `sequence_logprob` 必须跳过提示位置与 `pad_id`，与手算 `log_softmax` 之和误差小于 `1e-5`；
+- `pass_at_k(n,c,k)` 在 `k=1` 时等于 `c/n`，在 `n-c<k` 时等于 1，在 `c=0` 时等于 0；`k>n` 必须报错；
+- 固定 `seed` 的 `sample_decode` 两次运行逐位一致；EOS 之后的位置必须为 `pad_id`；
+- `generate(sampling=None)` 必须等价于贪心；`use_cache=True` 在 chapter 20 只发警告、不得改变输出；
+- `ch20_decode.py` 除耗时外必须逐字可复现；3 个种子的 7 组数字必须与正文表一致；
+- 报告必须同时给出 EOS 率、平均长度、唯一序列比例、平均对数似然与 pass@1/pass@8；不得只报似然或只报一个种子；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`SamplingConfig` 只作生成参数；玩具结论不得外推为真实 LLM 的温度、Top-p 或束宽。
+- `cache_bytes` 与 (21.1) 逐位一致；`attention="mla"` 时走 (21.2)，只计 `d_c + d_head_rope`；`block_type!="attention"` 时按实际注意力层数计，纯 SSM 返回 0；
+- `KVCache` 的 `append` 不得推进 `length`；所有层 append 后 `cached_forward` 只 `advance(T)` 一次；`keys/values` 只返回已推进的历史；
+- 整段预填充、分块预填充与逐 Token 解码的 logits 与 `TinyLM.forward` 误差小于 `1e-5`；缓存溢出必须触发断言；
+- `cached_forward` 必须拒绝非注意力块；GQA 的 K/V 展开后头数等于查询头数；RoPE/ALiBi 下的位置必须由 `position_ids` 决定；
+- `flash_attention` 与 `dense_attention` 的误差小于 `1e-5`，且改变块大小不改变结果（误差小于 `1e-6`）；全掩码块不得产生 NaN；
+- `arithmetic_intensity` 与 `roofline_time` 与 (21.5)/(21.6) 逐位一致；批增大时 `roofline_time` 单调不增，且返回的 FLOPs/字节数与账本一致；
+- 7B 配置在 B=1、T=4096 时算术强度约 1.1，`I_\infty` 约 31，低于 H100 的 295；该结论只用于账本，不得表述为实测加速比；
+- `BlockTable.allocate` 按 `ceil(n/block_size)` 分配，`ensure_capacity` 只补差量，`free_sequence` 后块可立即复用；块不足必须抛 `MemoryError`；
+- `internal_fragmentation` 在长度均为块大小整数倍时为 0；`padded_fragmentation` 不小于内部碎片率；`fragmentation_table` 的利用率与浪费率之和为 1；
+- `ttft`、`tpot`、`throughput` 与 (21.17)–(21.19) 一致；`throughput(B, tpot)` 必须等于 `B / tpot`；
+- `ch21_inference.py` 除耗时外必须逐字可复现；缓存等价性、FlashAttention 误差、KV 账本、碎片表与 roofline 数字必须与正文一致；
+- 报告必须同时给出缓存误差、KV 账本、碎片利用率与 roofline 下界；不得只报加速比或只报单请求 token/s；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；缓存以 `cached_forward` 实现，`use_cache` 走该路径；玩具 CPU 加速比不得外推为真实服务加速比。
+- `acceptance_rate(p,q)` 必须等于 $$1-\mathrm{TV}(p,q)$$，在 `p=q` 时为 1、完全不相交时为 0；
+- `residual_probs(p,q)` 每行和为 1，支撑集恰好是 `p>q` 的位置；`p=q` 时必须回退到 `p`，不得返回全零导致采样失败；
+- 单步拒绝采样的经验分布与目标 $$p$$ 的最大偏差在 2 万次采样下小于 0.015；`p=q` 时所有候选都被接受；
+- `speculative_sample` 的接受数在 `[0,γ]` 内，修正 Token 在词表内；首次拒绝之后的草稿不得被计入接受数；
+- `expected_output_tokens(0,γ)==1`、`(1,γ)==γ+1`，对 $$\alpha$$ 单调不减；`speculative_speedup` 在 $$\alpha=0$$ 时等于 $$1/(1+c\gamma)$$，在 $$\alpha=1$$ 时等于 $$(\gamma+1)/(1+c\gamma)$$；
+- 在固定 $$\alpha$$ 与 $$c$$ 下，加速比必须出现内部最优 $$\gamma$$，不得随 $$\gamma$$ 单调递增；
+- `truncate_cache(cache, L+a)` 后的下一次前向必须与“用已接受前缀重新预填充”的 logits 一致（误差小于 `1e-6`），且 `cache.length` 只增加新 Token 数；
+- `tree_attention_mask` 必须包含对角线且只包含祖先；兄弟分支互相不可见；
+- `MTPHead` 的每个头输出形状为 `(B,T,V)`；`mtp_loss` 在 `weights=[1,0,0]` 时等于仅第一头的交叉熵；`ignore_index=-100` 的填充位置不得贡献损失；
+- `speculative_decode` 在固定种子下两次运行逐位一致，返回长度恰为 `start+max_new_tokens`；批量不为 1 时必须抛 `ValueError`；
+- `ch22_speculative.py` 除耗时外必须逐字可复现；无损性误差、接受率、加速比账本、接受数模拟、回滚误差与 MTP 损失必须与正文一致；
+- 报告必须同时给出经验分布误差、接受率与理论值、加速比与最优 $$\gamma$$；不得只报加速比或只报一个负载的接受率；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`SpecConfig` 只作推理参数；玩具马尔可夫链与小模型的结论不得外推为真实模型的加速比。

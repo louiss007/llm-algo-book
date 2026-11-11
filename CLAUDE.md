@@ -104,9 +104,9 @@
 
 ## 当前进度
 
-- 已完成：第 1–19 章（`part1/chapter01.md`–`part2/chapter08.md`、`part3/chapter09.md`–`part3/chapter13.md`、`part4/chapter14.md`–`part4/chapter19.md`），交接文件已更新。
-- 下一步：第 20 章《解码策略》（其余章，6,000–9,000 字）。
-- 第 20 章要点：贪心、束搜索、温度采样与 top-k/top-p/min-p；重复惩罚；似然最大化与文本退化；pass@k 与评测温度。衔接第 1 章自回归分解、第 6 章 KV Cache 与第 18 章采样循环；解码配置放在生成函数或 `DecodeConfig` 中，不改 `TinyLM.forward`、`CausalLMOutput` 与已有 `ModelConfig` 字段；具体模块名与文件名在开工前按 `SUMMARY.md` 与附录 F 确认。
+- 已完成：第 1–22 章（`part1/chapter01.md`–`part2/chapter08.md`、`part3/chapter09.md`–`part3/chapter13.md`、`part4/chapter14.md`–`part4/chapter19.md`、`part5/chapter20.md`–`part5/chapter22.md`），交接文件已更新。
+- 下一步：第 23 章《量化》（核心章，10,000–12,000 字）。
+- 第 23 章要点：对称/非对称量化与逐张量/逐通道/逐组粒度；PTQ 与 QAT；权重、激活与 KV Cache 量化的误差来源；INT8/INT4、FP8 与第 15 章 NF4 的衔接；量化对第 21 章带宽下界与第 22 章草稿/目标分布对齐的影响。不改 `TinyLM.forward`、`CausalLMOutput` 与已有 `ModelConfig` 字段；具体模块名与文件名在开工前按 `SUMMARY.md` 与附录 F 确认。
 
 ## 文件地图
 

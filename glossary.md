@@ -445,6 +445,67 @@
 | long2short | Long-to-Short Distillation | 用长思维链教师教短回答学生，缩短推理长度 | 第 19 章 |
 | Top-k 蒸馏 | Top-k Distillation | 只在教师概率最高的 k 个类别上计算蒸馏损失 | 第 19 章 |
 
+## 第 20 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 解码分布 | Decoding Distribution | 模型分布经温度、截断、惩罚或掩码后实际用于选 Token 的分布 | 第 20 章 |
+| 文本退化 | Neural Text Degeneration | 最大化序列似然时生成平淡、重复甚至循环文本的现象 | 第 20 章 |
+| 长度惩罚 | Length Penalty | 束搜索中按长度归一化得分以比较不同长度候选 | 第 20 章 |
+| 局部典型采样 | Locally Typical Sampling | 按信息量接近熵的程度排序并截断采样 | 第 20 章 |
+| pass@k | Pass at k | 采样 n 条回答、随机取 k 条至少一条正确的概率估计 | 第 20 章 |
+| 频率惩罚 | Frequency Penalty | 按 Token 出现次数线性降低其 logit | 第 20 章 |
+| 存在惩罚 | Presence Penalty | 只要 Token 出现过就固定降低其 logit | 第 20 章 |
+| 结构化输出 | Structured Output | 用语法或 schema 约束模型输出为可解析格式 | 第 20 章 |
+| 语法约束解码 | Grammar-Constrained Decoding | 用有限状态机逐步限制允许 Token 的约束解码 | 第 20 章 |
+
+## 第 21 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 预填充 | Prefill | 一次并行处理整段提示词并填充 KV Cache 的阶段 | 第 21 章 |
+| 解码阶段 | Decode Phase | 预填充之后逐 Token 生成、每步只处理一个新 Token 的阶段 | 第 21 章 |
+| KV Cache | KV Cache | 缓存历史键值、避免解码时重算整段前缀的显存结构 | 第 21 章 |
+| 算术强度 | Arithmetic Intensity | 浮点运算量与搬运字节数之比 | 第 21 章 |
+| 屋顶线模型 | Roofline Model | 用峰值算力与带宽下界刻画性能上限的模型 | 第 21 章 |
+| FlashAttention | FlashAttention | 用分块与在线 Softmax 把注意力 IO 降到线性量级的精确实现 | 第 21 章 |
+| 分块注意力 | Tiled Attention | 把查询与键值分块读入片上存储、避免物化完整分数矩阵的注意力实现 | 第 21 章 |
+| 在线 Softmax | Online Softmax | 分块累加时动态维护最大值与分母的算法 | 第 21 章 |
+| 分页注意力 | PagedAttention | 用分页块管理 KV Cache 以消除碎片的方法 | 第 21 章 |
+| 块表 | Block Table | 逻辑 KV 块到物理块的映射表 | 第 21 章 |
+| 内部碎片 | Internal Fragmentation | 已预留块中未被 Token 使用的槽位 | 第 21 章 |
+| 外部碎片 | External Fragmentation | 释放后无法拼给新请求的空洞 | 第 21 章 |
+| 连续批处理 | Continuous Batching | 每步动态加入与移除请求的批处理方式 | 第 21 章 |
+| 迭代级调度 | Iteration-level Scheduling | 每一步重新决定批内序列的调度方式 | 第 21 章 |
+| 抢占 | Preemption | 显存不足时让在途序列换出或丢弃 KV 的机制 | 第 21 章 |
+| 分块预填充 | Chunked Prefill | 把长提示的预填充拆成多块与解码混合执行 | 第 21 章 |
+| 无停顿调度 | Stall-free Scheduling | 用分块预填充保证每轮迭代时间有上界的调度 | 第 21 章 |
+| 预填充-解码分离 | Prefill-Decode Disaggregation (PD) | 把预填充与解码放到不同资源上执行 | 第 21 章 |
+| 前缀缓存 | Prefix Caching | 复用相同 Token 前缀的 KV Cache | 第 21 章 |
+| 首 Token 延迟 | Time to First Token (TTFT) | 从请求到输出第一个 Token 的时间 | 第 21 章 |
+| 每 Token 延迟 | Time per Output Token (TPOT) | 解码阶段平均每个输出 Token 的耗时，也称 TBT | 第 21 章 |
+| 有效吞吐 | Goodput | 只统计满足 TTFT 与 TPOT 约束的请求吞吐 | 第 21 章 |
+| 写时复制 | Copy-on-Write | 多个请求共享 KV 块，写时才复制的机制 | 第 21 章 |
+| KV 量化 | KV Cache Quantization | 把缓存的键值以低精度存储，减少显存与带宽 | 第 21 章 |
+
+## 第 22 章
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 投机解码 | Speculative Decoding | 用小模型起草、大模型并行验证的推理加速方法 | 第 22 章 |
+| 草稿模型 | Draft Model | 投机解码中负责快速起草候选 Token 的小模型 | 第 22 章 |
+| 目标模型 | Target Model | 投机解码中负责验证候选并给出最终分布的大模型 | 第 22 章 |
+| 无损拒绝采样 | Lossless Rejection Sampling | 按接受概率与残差分布修正草稿、保持目标分布不变的采样规则 | 第 22 章 |
+| 残差分布 | Residual Distribution | 拒绝后用于重采样的归一化正差额分布 | 第 22 章 |
+| 接受率 | Acceptance Rate | 草稿 Token 被目标模型接受的概率，等于 $$1-\mathrm{TV}$$ | 第 22 章 |
+| 全变差距离 | Total Variation Distance | 两个分布差额绝对值之和的一半 | 第 22 章 |
+| 草稿长度 | Draft Length | 每轮投机解码提议的 Token 数，记作 $$\gamma$$ | 第 22 章 |
+| 树状草稿 | Tree Speculative Decoding | 同时保留多条候选路径并用树状掩码一次验证的方案 | 第 22 章 |
+| 树状掩码 | Tree Attention Mask | 只允许节点注意自身与祖先的注意力掩码 | 第 22 章 |
+| Medusa | Medusa | 在目标模型顶部挂多个解码头并构造候选树的投机方案 | 第 22 章 |
+| EAGLE | EAGLE | 在目标隐状态上做特征级自回归起草的投机方案 | 第 22 章 |
+| KV Cache 回滚 | KV Cache Rollback | 拒绝草稿后把缓存长度截回已接受前缀的操作 | 第 22 章 |
+
 ## 术语一致性约定
 
 - 正文统一使用 "Token"，首次出现时注明"词元"；不混用"标记""词块"。
@@ -536,3 +597,11 @@
 - "逐块缩放""延迟缩放""高精度累加"分别对应 per-block scaling、delayed scaling、high-precision accumulation；不把三者统称为"量化"。
 - "词表并行"对应 vocabulary parallel，与"张量并行"按切分维区分，不写作"输出并行"。
 - "DualPipe" 首字母大写、无空格；它是调度方式，不是并行维度。
+- "投机解码"统一对应 speculative decoding，不写作"推测解码""投机采样"；"投机采样"在部分文献中指同一类方法，本书统一用"投机解码"。
+- "草稿模型"与"目标模型"成对出现，简称"草稿"与"目标"时只在上下文明确时使用；不把草稿模型称为"小模型"（小模型是规模描述，不等于草稿角色）。
+- "拒绝采样"在第 14、16、19 章指数据筛选，在第 22 章指分布修正；第 22 章首次出现写"无损拒绝采样"以示区别。
+- "接受率"在第 22 章专指 $$\alpha=\sum\min(p,q)$$；第 14 章的"接受概率"、第 19 章的"通过率"不是同一个量，不互换。
+- "草稿长度"统一用 $$\gamma$$，不写作"推测步数"或"前瞻长度"；"接受长度"指实际被接受的草稿数，两者不同。
+- "树状草稿"对应 tree speculative decoding，"树状掩码"对应 tree attention mask；前者是算法，后者是实现细节，不互换。
+- "多 Token 预测"首次出现在第 1 章，第 22 章沿用同一英文 MTP；推理时的"投机解码"不是训练目标，两者不混用。
+- "Medusa" 与 "EAGLE" 保持首字母大写，不翻译；首次出现附一句话说明，之后直接用英文名。

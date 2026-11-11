@@ -405,6 +405,16 @@
 | 中文 | 英文 | 一句话定义 | 首次出现 |
 | --- | --- | --- | --- |
 | 解码 | Decoding | 从模型输出分布中选出一个 Token 的过程 | 第 20 章 |
+| 屋顶线模型 | Roofline Model | 用峰值算力与带宽下界刻画性能上限的模型 | 第 21 章 |
+| 分块注意力 | Tiled Attention | 把查询与键值分块读入片上存储、避免物化完整分数矩阵的注意力实现 | 第 21 章 |
+| 块表 | Block Table | 逻辑 KV 块到物理块的映射表 | 第 21 章 |
+| 内部碎片 | Internal Fragmentation | 已预留块中未被 Token 使用的槽位 | 第 21 章 |
+| 外部碎片 | External Fragmentation | 释放后无法拼给新请求的空洞 | 第 21 章 |
+| 迭代级调度 | Iteration-level Scheduling | 每一步重新决定批内序列的调度方式 | 第 21 章 |
+| 抢占 | Preemption | 显存不足时让在途序列换出或丢弃 KV 的机制 | 第 21 章 |
+| 无停顿调度 | Stall-free Scheduling | 用分块预填充保证每轮迭代时间有上界的调度 | 第 21 章 |
+| 有效吞吐 | Goodput | 只统计满足 TTFT 与 TPOT 约束的请求吞吐 | 第 21 章 |
+| 写时复制 | Copy-on-Write | 多个请求共享 KV 块，写时才复制的机制 | 第 21 章 |
 | 贪心解码 | Greedy Decoding | 每步选概率最大的 Token | 第 20 章 |
 | 束搜索 | Beam Search | 同时维护多条候选序列并保留最优者 | 第 20 章 |
 | 温度 | Temperature | 通过缩放 logits 调节分布尖锐程度的参数 | 第 20 章 |
@@ -414,13 +424,21 @@
 | 重复惩罚 | Repetition Penalty | 降低已出现 Token 的概率以减少重复 | 第 20 章 |
 | 约束解码 | Constrained Decoding | 通过掩码保证输出符合语法或格式 | 第 20 章 |
 | Logit 处理器 | Logit Processor | 在采样前修改 logits 的插件 | 第 20 章 |
+| 解码分布 | Decoding Distribution | 模型分布经温度、截断、惩罚或掩码后实际用于选 Token 的分布 | 第 20 章 |
+| 文本退化 | Neural Text Degeneration | 最大化序列似然时生成平淡、重复甚至循环文本的现象 | 第 20 章 |
+| 长度惩罚 | Length Penalty | 束搜索中按长度归一化得分以比较不同长度候选 | 第 20 章 |
+| 局部典型采样 | Locally Typical Sampling | 按信息量接近熵的程度排序并截断采样 | 第 20 章 |
+| pass@k | Pass at k | 采样 n 条回答、随机取 k 条至少一条正确的概率估计 | 第 20 章 |
+| 频率惩罚 | Frequency Penalty | 按 Token 出现次数线性降低其 logit | 第 20 章 |
+| 存在惩罚 | Presence Penalty | 只要 Token 出现过就固定降低其 logit | 第 20 章 |
+| 结构化输出 | Structured Output | 用语法或 schema 约束模型输出为可解析格式 | 第 20 章 |
+| 语法约束解码 | Grammar-Constrained Decoding | 用有限状态机逐步限制允许 Token 的约束解码 | 第 20 章 |
 | FlashAttention | FlashAttention | 用分块与在线 Softmax 把注意力 IO 降到线性量级 | 第 21 章 |
 | 在线 Softmax | Online Softmax | 分块累加时动态维护最大值与分母的算法 | 第 21 章 |
 | PagedAttention | PagedAttention | 用分页管理 KV Cache 以消除碎片 | 第 21 章 |
 | 连续批处理 | Continuous Batching | 每步动态加入与移除请求的批处理方式 | 第 21 章 |
 | 分块预填充 | Chunked Prefill | 把长提示的预填充拆成多块与解码混合执行 | 第 21 章 |
 | 预填充/解码分离 | Prefill-Decode Disaggregation (PD) | 把预填充与解码放到不同资源上执行 | 第 21 章 |
-| 前缀缓存 | Prefix Caching | 复用相同前缀的 KV Cache | 第 21 章 |
 | 首 Token 延迟 | Time to First Token (TTFT) | 从请求到输出第一个 Token 的时间 | 第 21 章 |
 | 每 Token 延迟 | Time per Output Token (TPOT) | 解码阶段平均每个 Token 的耗时 | 第 21 章 |
 | 投机解码 | Speculative Decoding | 用小模型起草、大模型并行验证 | 第 22 章 |
@@ -428,6 +446,14 @@
 | 接受率 | Acceptance Rate | 草稿 Token 被目标模型接受的比例 | 第 22 章 |
 | Medusa | Medusa | 用多个预测头并行生成候选 Token 的投机方案 | 第 22 章 |
 | EAGLE | EAGLE | 在特征层做自回归起草的投机方案 | 第 22 章 |
+| 目标模型 | Target Model | 投机解码中负责验证候选并给出最终分布的大模型 | 第 22 章 |
+| 无损拒绝采样 | Lossless Rejection Sampling | 用接受概率与残差分布修正草稿、保持目标分布不变的规则 | 第 22 章 |
+| 残差分布 | Residual Distribution | 拒绝后用于重采样的归一化正差额分布 | 第 22 章 |
+| 全变差距离 | Total Variation Distance | 两个分布差额绝对值之和的一半 | 第 22 章 |
+| 草稿长度 | Draft Length | 每轮投机解码提议的 Token 数 | 第 22 章 |
+| 树状草稿 | Tree Speculative Decoding | 同时保留多条候选路径并用树状掩码一次验证 | 第 22 章 |
+| 树状掩码 | Tree Attention Mask | 只允许节点注意自身与祖先的注意力掩码 | 第 22 章 |
+| KV Cache 回滚 | KV Cache Rollback | 拒绝草稿后把缓存长度截回已接受前缀 | 第 22 章 |
 | 量化 | Quantization | 用更低位宽表示权重或激活 | 第 23 章 |
 | 训练后量化 | Post-Training Quantization (PTQ) | 训练完成后直接量化，不重新训练 | 第 23 章 |
 | 量化感知训练 | Quantization-Aware Training (QAT) | 训练时模拟量化误差 | 第 23 章 |
@@ -437,7 +463,7 @@
 | AWQ | Activation-aware Weight Quantization | 根据激活重要性保护显著权重通道 | 第 23 章 |
 | SmoothQuant | SmoothQuant | 把激活的量化难度迁移到权重上 | 第 23 章 |
 | 离群值 | Outlier | 数值显著大于同组其他元素的激活或权重 | 第 23 章 |
-| KV Cache 量化 | KV Cache Quantization | 对缓存的键值做低精度存储 | 第 23 章 |
+| KV Cache 量化 | KV Cache Quantization | 对缓存的键值做低精度存储 | 第 21 章 |
 | 测试时计算扩展 | Test-time Scaling | 在推理阶段投入更多计算提升质量 | 第 24 章 |
 | Best-of-N | Best-of-N | 采样 N 条输出并选最优 | 第 24 章 |
 | 自洽性 | Self-Consistency | 多次采样并对最终答案投票 | 第 24 章 |
