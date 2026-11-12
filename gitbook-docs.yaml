@@ -1,7 +1,6 @@
 $schema: https://api.gitbook.com/gitbook-docs.yaml
-version: 1
 site:
-  title: 大语言模型算法：从 Transformer 到推理模型
+  title: 大语言模型算法
   structure:
     - type: space
       key: llm-algo-book
