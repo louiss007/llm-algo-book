@@ -18,34 +18,37 @@ tinylm/
 │   ├── tiny_cpu.yaml          # CPU 可跑的最小配置
 │   ├── tiny_24g.yaml          # 单卡 24GB 的主实验配置
 │   └── scaling/
-│       ├── s.yaml             # ≈7M
-│       ├── m.yaml             # ≈17M
-│       ├── l.yaml             # ≈36M
-│       └── xl.yaml            # ≈64M
+│       ├── s.yaml             # ≈6.5M
+│       ├── m.yaml             # ≈16M
+│       ├── l.yaml             # ≈32M
+│       └── xl.yaml            # ≈56M
 ├── tinylm/
 │   ├── __init__.py            # 公共 API 出口（唯一对外入口）
 │   ├── tokenizer/
 │   │   ├── base.py            # Tokenizer 协议
 │   │   ├── bpe.py             # 第 2 章：字节级 BPE
 │   │   └── chat.py            # 第 14 章：对话模板
-│   ├── model/
-│   │   ├── config.py          # ModelConfig / MoEConfig / RoPEScalingConfig
-│   │   ├── norm.py            # LayerNorm、RMSNorm
-│   │   ├── position.py        # 第 4 章：正弦编码、RoPE、ALiBi 与长度外推
-│   │   ├── attention.py       # MHA / MQA / GQA / MLA
-│   │   ├── ffn.py             # MLP / SwiGLU
-│   │   ├── moe.py             # 第 7 章：MoE 层
-│   │   ├── block.py           # TransformerBlock
-│   │   ├── ssm.py             # 第 8 章：线性注意力块、选择性 SSM 块与块类型分派
-│   │   └── model.py           # TinyLM 主模型
+│   ├── config.py              # ModelConfig / MoEConfig / RoPEScalingConfig
+│   ├── norm.py                # LayerNorm、RMSNorm
+│   ├── position.py            # 第 4 章：正弦编码、RoPE、ALiBi 与长度外推
+│   ├── attention.py           # MHA / MQA / GQA / MLA
+│   ├── ffn.py                 # MLP / SwiGLU
+│   ├── moe.py                 # 第 7 章：MoE 层
+│   ├── block.py               # TransformerBlock
+│   ├── ssm.py                 # 第 8 章：线性注意力块、选择性 SSM 块与块类型分派
+│   ├── model.py               # TinyLM 主模型
+│   ├── scaling.py             # 第 9 章：缩放定律拟合与算力预算
 │   ├── data/
 │   │   ├── dataset.py         # 打包后的 Token 数据集
+│   │   ├── filter.py          # 第 10 章：去重、质量过滤与污染检测
 │   │   ├── mixture.py         # 第 10 章：数据配比
-│   │   └── collate.py         # 第 12 章：序列打包
+│   │   └── collate.py         # 第 13 章：序列打包与块对角掩码
 │   ├── train/
 │   │   ├── loop.py            # Trainer
 │   │   ├── optim.py           # AdamW / Muon
 │   │   ├── schedule.py        # Warmup / Cosine / WSD
+│   │   ├── parallel.py        # 第 12 章：显存/通信账本与并行原语
+│   │   ├── long_context.py    # 第 13 章：长度课程与有效上下文
 │   │   └── checkpoint.py
 │   ├── posttrain/
 │   │   ├── sft.py             # 第 14 章
@@ -57,12 +60,20 @@ tinylm/
 │   │   └── distill.py         # 第 19 章
 │   ├── inference/
 │   │   ├── sample.py          # 第 20 章：解码策略
-│   │   ├── cache.py           # 第 21 章：KV Cache
+│   │   ├── kv_cache.py        # 第 21 章：KV Cache 与增量解码
+│   │   ├── flash.py           # 第 21 章：分块注意力与在线 Softmax
+│   │   ├── paged.py           # 第 21 章：分页 KV Cache 与碎片账本
 │   │   ├── speculative.py     # 第 22 章
 │   │   ├── quant.py           # 第 23 章
 │   │   └── search.py          # 第 24 章：测试时搜索
+│   ├── multimodal.py          # 第 25 章：视觉塔、连接器与图文拼接
 │   ├── agent/
 │   │   └── loop.py            # 第 26 章：最小工具调用循环
+│   ├── eval/
+│   │   ├── needle.py          # 第 13 章：长上下文检索探针
+│   │   └── metrics.py         # 第 27 章：评测指标与统计
+│   ├── interpret/             # 第 28 章：只读分析与临时 hook
+│   │   └── core.py
 │   └── utils/
 │       ├── shapes.py          # 形状断言
 │       └── seed.py            # 可复现性
@@ -79,7 +90,9 @@ tinylm/
     ├── test_shapes.py
     ├── test_gradcheck.py
     ├── test_attention_equivalence.py
-    └── test_cache_equivalence.py
+    ├── test_cache_equivalence.py
+    ├── test_eval.py             # 第 27 章：指标与统计
+    └── test_interpret.py        # 第 28 章：探针、消融、修补与 SAE
 ```
 
 ## F.2 接口契约
@@ -147,10 +160,14 @@ class ModelConfig:
     parallel_block: bool = False           # 第 5 章：注意力与前馈共享同一归一化，并行相加
     dropout: float = 0.0
     moe: MoEConfig | None = None
+    block_type: Literal["attention", "linear_attention", "ssm", "hybrid"] = "attention"  # 第 8 章
+    ssm_d_state: int = 16                  # 第 8 章：选择性 SSM 的状态维度
+    ssm_expand: int = 2                    # 第 8 章：线性注意力的内部宽度倍数
+    hybrid_attn_every: int = 4             # 第 8 章：混合架构每隔多少层插入注意力
 ```
 
 {% hint style="warning" %}
-`ModelConfig` 的默认值固定为**第 3 章的基线**（LayerNorm + MLP + 可学习绝对位置 + 偏置项）。第 5 章之后的"现代架构"通过 `configs/*.yaml` 切换，不修改 dataclass 默认值。这样第 3 章的实验永远可复现。
+`ModelConfig` 的默认值固定为**第 3 章的基线**（LayerNorm + MLP + 可学习绝对位置 + 偏置项）。第 5 章之后的“现代架构”通过 `configs/*.yaml` 切换，不修改 dataclass 默认值。这样第 3 章的实验永远可复现。
 
 `pos_encoding` 的 `"sine"` 与 `"alibi"` 是第 4 章为受控对照实验加入的选项，生产配置通常只使用 `"learned"` 或 `"rope"`。新增选项不改变 `TinyLM.forward` 的签名。
 
@@ -159,6 +176,8 @@ class ModelConfig:
 `attention` 与 `n_kv_heads` 在第 6 章启用：`n_kv_heads=None` 时 MHA 取 `n_heads`、MQA 取 1，GQA 必须显式给出且整除 `n_heads`。`d_c` 与 `d_head_rope` 只对 MLA 生效；MLA 下 `n_kv_heads` 被忽略，因为所有头共享同一份潜向量。默认 `attention="mha"` 保证第 3–5 章的行为逐位不变。
 
 `moe` 在第 7 章启用，默认 `None` 保持稠密前馈；`capacity_factor=None` 表示不设固定容量、不丢弃，`aux_loss_coef=0` 表示不计算辅助损失。`MoEConfig` 只增加可选字段，`TinyLM.forward` 与 `CausalLMOutput` 的签名不变。
+
+`block_type`、`ssm_d_state`、`ssm_expand`、`hybrid_attn_every` 在第 8 章启用，默认 `"attention"` 保证第 3–7 章的行为逐位不变；混合架构按 `hybrid_attn_every` 规律插入注意力层。
 {% endhint %}
 
 ### F.2.3 模型前向
@@ -226,10 +245,10 @@ def generate(
 对绑定词表、GQA、SwiGLU 的模型，参数量近似为：
 
 $$
-N \approx n_l \left( d_{model}^2 + 2 d_{model} d_{kv} + 2 d_{model} d_h + 3 d_{model} d_{ff} \right) + n_{vocab} d_{model}
+N \approx n_l \left( 2 d_{model}^2 + 2 d_{model} d_{kv} + 3 d_{model} d_{ff} \right) + n_{vocab} d_{model}
 $$
 
-其中 $$d_{kv} = d_{model} n_{kv} / n_h$$。若 `tie_embeddings=True`，末项只计一次。
+其中 $$d_{kv} = d_{model} n_{kv} / n_h$$；$$2d_{model}^2$$ 是查询与输出投影，$$2d_{model}d_{kv}$$ 是键与值投影。上式忽略每层两个归一化与最终归一化（各约 $$d_{model}$$ 量级），并假设 `tie_embeddings=True`，末项只计一次。
 
 ### F.3.2 三档配置
 
@@ -237,10 +256,12 @@ $$
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `tiny_cpu` | CPU 跑通全流程 | 128 | 4 | 4 | 4 | 512 | 256 | 8192 | ≈2M |
 | `tiny_24g` | 单卡主实验 | 768 | 12 | 12 | 4 | 2048 | 1024 | 32000 | ≈100M |
-| `scaling/s` | 缩放曲线 | 256 | 6 | 4 | 2 | 688 | 512 | 8192 | ≈7M |
-| `scaling/m` | 缩放曲线 | 384 | 8 | 6 | 2 | 1024 | 512 | 8192 | ≈17M |
-| `scaling/l` | 缩放曲线 | 512 | 10 | 8 | 2 | 1376 | 512 | 8192 | ≈36M |
-| `scaling/xl` | 缩放曲线 | 640 | 12 | 10 | 2 | 1712 | 512 | 8192 | ≈64M |
+| `scaling/s` | 缩放曲线 | 256 | 6 | 4 | 2 | 688 | 512 | 8192 | ≈6.5M |
+| `scaling/m` | 缩放曲线 | 384 | 8 | 6 | 2 | 1024 | 512 | 8192 | ≈16M |
+| `scaling/l` | 缩放曲线 | 512 | 10 | 8 | 2 | 1376 | 512 | 8192 | ≈32M |
+| `scaling/xl` | 缩放曲线 | 640 | 12 | 10 | 2 | 1712 | 512 | 8192 | ≈56M |
+
+表中参数量按 F.3.1 的绑定词表口径估算；若 `tie_embeddings=False`（`ModelConfig` 的默认值），嵌入与输出各计一份，末项翻倍，`tiny_24g` 约为 125M。
 
 {% hint style="info" %}
 缩放实验的四个点采用近似等比的宽度增长，便于在对数坐标上拟合幂律。实际运行中如果显存紧张，可以先把 `scaling/xl` 的 `n_layers` 降到 8，再在附录中说明。
@@ -254,7 +275,7 @@ $$
 C \approx 6 N D
 $$
 
-在 `tiny_24g`（$$N \approx 10^8$$）上训练 10 亿 Token，需要约 $$6 \times 10^{17}$$ FLOPs。按消费级显卡有效算力 30–60 TFLOP/s 估算，纯计算时间约 **3–6 小时**；加上数据加载与评测，实际预留一个通宵更稳妥。这是**估算**，不是实测值，具体取决于显卡型号与实现效率。
+在 `tiny_24g`（绑定词表时 $$N \approx 10^8$$，非绑定时约 $$1.25\times10^8$$）上训练 10 亿 Token，需要约 $$6\times10^{17}$$ 至 $$7.5\times10^{17}$$ FLOPs。按消费级显卡有效算力 30–60 TFLOP/s 估算，纯计算时间约 **3.5–7 小时**；加上数据加载与评测，实际预留一个通宵更稳妥。这是**估算**，不是实测值，具体取决于显卡型号与实现效率。
 
 `tiny_cpu` 的模型只有约 200 万参数，在几百万 Token 上训练一轮通常在**几分钟到半小时**量级，适合验证代码正确性而非追求效果。
 
@@ -280,17 +301,17 @@ $$
 | 章节 | 新增/修改 | 新增配置项 | 验收测试 |
 | --- | --- | --- | --- |
 | 2 | `tokenizer/bpe.py` | — | 往返编解码；未知字节不崩溃 |
-| 3 | `model/{norm,attention,ffn,block,model}.py` | 基线 `ModelConfig` | 输出形状；因果性；梯度可回传 |
-| 4 | `model/position.py` | `pos_encoding`、`rope_theta`、`rope_scaling` | 相对位移性质；保范数；外推曲线 |
+| 3 | `config.py`、`norm.py`、`attention.py`、`ffn.py`、`block.py`、`model.py` | 基线 `ModelConfig` | 输出形状；因果性；梯度可回传 |
+| 4 | `position.py` | `pos_encoding`、`rope_theta`、`rope_scaling` | 相对位移性质；保范数；外推曲线 |
 | 5 | `norm.py` 增 RMSNorm；`ffn.py` 增 SwiGLU | `norm`、`ffn`、`bias`、`tie_embeddings` | 同参数量下与基线对照 |
 | 6 | `attention.py` 增 MQA/GQA/MLA；`attention_params()`、`kv_cache_bytes()` | `attention`、`n_kv_heads`、`d_c`、`d_head_rope` | KV 显存公式核对；变体等价性（$$n_{kv}=n_h$$ 时退化为 MHA）；权重吸收恒等式 |
-| 7 | `model/moe.py` | `moe` | 负载均衡；容量溢出行为 |
-| 8 | `model/ssm.py`：`LinearAttention`、`SelectiveSSM`、`SSMBlock`、`make_block()`、`layer_kinds()`；`block.py` 增加块类型分派 | `block_type`、`ssm_d_state`、`ssm_expand`、`hybrid_attn_every` | 线性注意力等于显式二次型；并行扫描等于串行递推；四种块参数公式与 `sum(p.numel())` 一致；默认配置与第 7 章逐位一致 |
-| 9 | `train/loop.py`；`scaling/*.yaml` | `TrainConfig` | 损失单调下降；幂律拟合 |
-| 10 | `data/mixture.py` | `DataConfig` | 去重率；配比采样比例 |
+| 7 | `moe.py` | `moe` | 负载均衡；容量溢出行为 |
+| 8 | `ssm.py`：`LinearAttention`、`SelectiveSSM`、`SSMBlock`、`make_block()`、`layer_kinds()`；`block.py` 增加块类型分派 | `block_type`、`ssm_d_state`、`ssm_expand`、`hybrid_attn_every` | 线性注意力等于显式二次型；并行扫描等于串行递推；四种块参数公式与 `sum(p.numel())` 一致；默认配置与第 7 章逐位一致 |
+| 9 | `scaling.py`；`train/loop.py`；`scaling/*.yaml` | `TrainConfig` | 损失单调下降；幂律拟合 |
+| 10 | `data/filter.py`、`data/mixture.py` | `DataConfig` | 去重率；配比采样比例 |
 | 11 | `train/optim.py`、`schedule.py` | `OptimConfig` | 优化器单步与闭式解一致 |
-| 12 | `data/collate.py`；多卡脚本 | `ParallelConfig` | 显存账本与实测误差小于 10% |
-| 13 | RoPE 缩放预设；`eval/needle.py` | `rope_scaling` | 长度外推不失真 |
+| 12 | `train/parallel.py`；多卡脚本 | `ParallelConfig` | 显存账本与实测误差小于 10% |
+| 13 | `data/collate.py`、`train/long_context.py`、`eval/needle.py`；RoPE 缩放预设 | `rope_scaling` | 长度外推不失真；打包后 Token 利用率与块对角掩码正确 |
 | 14 | `posttrain/sft.py`、`tokenizer/chat.py` | `SFTConfig` | 损失掩码只覆盖回答部分 |
 | 15 | `posttrain/lora.py` | `LoraConfig` | 合并前后输出一致 |
 | 16 | `posttrain/rm.py`、`ppo.py` | `RLConfig` | Bradley-Terry 损失单测 |
@@ -298,11 +319,15 @@ $$
 | 18 | `posttrain/grpo.py` | `GRPOConfig` | 组内优势均值为零；KL 方向正确 |
 | 19 | `posttrain/distill.py` | `DistillConfig` | 蒸馏损失随温度变化符合预期 |
 | 20 | `inference/sample.py` | `SamplingConfig` | 贪心等于 `argmax` |
-| 21 | `inference/cache.py` | `use_cache`、`past_kv` | 有/无缓存 logits 最大误差小于 $$10^{-4}$$ |
+| 21 | `inference/kv_cache.py`、`inference/flash.py`、`inference/paged.py` | `use_cache`、`past_kv` | 有/无缓存 logits 最大误差小于 $$10^{-4}$$；分块注意力等于朴素注意力；分页碎片账本可对账 |
 | 22 | `inference/speculative.py` | `SpecConfig` | 拒绝采样下分布与目标一致 |
 | 23 | `inference/quant.py` | `QuantConfig` | 反量化误差在理论界内 |
 | 24 | `inference/search.py` | `SearchConfig` | 预算耗尽时正确收束 |
+| 25 | `multimodal.py` | `VisionConfig` | 图像 Token 生效；占位符数与视觉 Token 数一致 |
 | 26 | `agent/loop.py` | `AgentConfig` | 工具调用循环可终止 |
+| 27 | `eval/metrics.py`、`tests/test_eval.py` | — | 置信区间与配对检验；pass@k 公式与抽样一致 |
+| 28 | `interpret/core.py`、`tests/test_interpret.py` | — | 探针、消融、修补与 SAE 只读分析；退出后 hook 完全恢复 |
+| 29 | `examples/ch29_frontier.py`（独立示例） | — | 持续学习、合成数据自举与稀疏奖励三组实验；不进入 `tinylm/` 包 |
 
 ## F.5 复现步骤
 

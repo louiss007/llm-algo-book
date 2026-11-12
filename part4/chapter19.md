@@ -161,7 +161,7 @@ $$
 
 结构化剪枝的重要性评分通常来自三方面：权重的范数、该头/神经元在校准集上的激活统计、以及删除后损失的一阶近似。逐层独立评分会忽略层间补偿，因此更稳的做法是全局预算加迭代剪枝：每轮删除一小部分最不重要的结构，恢复若干步，再重新评分。一次剪到目标稀疏率再恢复，往往不如分四到八轮逐步剪。恢复阶段的学习率要低于原训练，否则被剪掉的结构会以另一种方式“长回来”，掩码也就失去意义。
 
-### 19.2.6 参数量与压缩比
+### 19.2.6 参数量与参数压缩比
 
 对标准 Transformer，参数量约为
 
@@ -170,14 +170,14 @@ N\approx Vd+ L\left(4d^2+2d\,d_{\rm ff}\right)
 \qquad \text{(19.10)}
 $$
 
-其中 $$V$$ 是词表大小、$$d$$ 是隐藏维度、$$L$$ 是层数、$$d_{\rm ff}$$ 是前馈宽度（忽略归一化与偏置）。压缩比定义为
+其中 $$V$$ 是词表大小、$$d$$ 是隐藏维度、$$L$$ 是层数、$$d_{\rm ff}$$ 是前馈宽度（忽略归一化与偏置）。参数压缩比定义为
 
 $$
 r=\frac{N_t}{N_s}
 \qquad \text{(19.11)}
 $$
 
-但参数压缩比不等于速度提升。解码阶段是显存带宽受限的：每生成一个 Token 都要把权重读一遍，实际延迟更接近“权重字节数 ÷ 带宽”，而不是 FLOPs 之比。结构化剪枝、量化、减少层数能直接减少字节数；非结构化稀疏若没有专用内核，可能只省存储、不省时间。评估压缩方案时，必须同时报告参数量、显存占用、吞吐与延迟，不能只报一个压缩比。
+但参数压缩比不等于速度提升。解码阶段是显存带宽受限的：每生成一个 Token 都要把权重读一遍，实际延迟更接近“权重字节数 ÷ 带宽”，而不是 FLOPs 之比。结构化剪枝、量化、减少层数能直接减少字节数；非结构化稀疏若没有专用内核，可能只省存储、不省时间。评估压缩方案时，必须同时报告参数量、显存占用、吞吐与延迟，不能只报一个参数压缩比。
 
 ## 19.3 方案对比
 
@@ -210,7 +210,7 @@ $$
 - `magnitude_prune_` 与 `apply_masks_`：实现 (19.9)，并在恢复阶段保持掩码；
 - `parameter_count`、`compression_ratio`、`global_sparsity`：实现 (19.11) 与压缩诊断。
 
-实验任务是两位数字的模 10 加法：提示为 `[BOS, Q, digit(a), digit(b), SEP]`，回答是 `(a+b) mod 10` 对应的数字，共 100 种组合。教师是 2 层、`d_model=64`、4 头、`d_ff=256` 的 TinyLM，共 133,440 个参数；学生是 2 层、`d_model=32`、4 头、`d_ff=128`，共 33,952 个参数，压缩比 3.93。学生只拿到 40 条带标签的提示（按 `i % 5 < 2` 抽取，覆盖全部十位数字），序列级蒸馏与 logit 蒸馏则可以使用全部 100 条**无标签**提示，从教师那里获得监督。这样设计是为了同时观察“数据覆盖”和“标签类型”两个因素，而不是把差距全部归因于软标签。
+实验任务是两位数字的模 10 加法：提示为 `[BOS, Q, digit(a), digit(b), SEP]`，回答是 `(a+b) mod 10` 对应的数字，共 100 种组合。教师是 2 层、`d_model=64`、4 头、`d_ff=256` 的 TinyLM，共 133,440 个参数；学生是 2 层、`d_model=32`、4 头、`d_ff=128`，共 33,952 个参数，参数压缩比 3.93。学生只拿到 40 条带标签的提示（按 `i % 5 < 2` 抽取，覆盖全部十位数字），序列级蒸馏与 logit 蒸馏则可以使用全部 100 条**无标签**提示，从教师那里获得监督。这样设计是为了同时观察“数据覆盖”和“标签类型”两个因素，而不是把差距全部归因于软标签。
 
 ### 19.4.2 完整代码
 
@@ -222,7 +222,6 @@ from dataclasses import dataclass
 
 import torch
 import torch.nn.functional as F
-
 
 @dataclass(frozen=True)
 class DistillConfig:
@@ -243,13 +242,11 @@ class DistillConfig:
         assert self.max_new >= 1
         assert self.max_grad_norm > 0.0
 
-
 def softmax_with_temperature(logits, temperature):
     """(19.1)：温度缩放后的教师/学生分布。"""
     if temperature <= 0.0:
         raise ValueError("temperature 必须为正")
     return torch.softmax(logits / temperature, dim=-1)
-
 
 def distill_loss(student_logits, teacher_logits, labels=None,
                  cfg=DistillConfig()):
@@ -279,7 +276,6 @@ def distill_loss(student_logits, teacher_logits, labels=None,
     }
     return loss, diagnostics
 
-
 def sft_labels(seqs, prompt_len, ignore_index=-100):
     """(19.7)：把完整序列转成下一 Token 标签，只监督提示之后的位置。
 
@@ -289,7 +285,6 @@ def sft_labels(seqs, prompt_len, ignore_index=-100):
     labels = torch.full_like(seqs, ignore_index)
     labels[:, prompt_len - 1:-1] = seqs[:, prompt_len:]
     return labels
-
 
 @torch.no_grad()
 def generate_greedy(model, prompts, cfg=DistillConfig()):
@@ -308,13 +303,11 @@ def generate_greedy(model, prompts, cfg=DistillConfig()):
             break
     return seqs, seqs != cfg.pad_id
 
-
 def teacher_targets(teacher, prompts):
     """教师提示末位的 logits，作为 (19.3) 的软目标。"""
     with torch.no_grad():
         teacher.eval()
         return teacher(prompts).logits[:, -1]
-
 
 def magnitude_prune_(model, fraction, skip=("tok_emb", "lm_head")):
     """(19.9)：全局幅度剪枝，原地把最小的 ``fraction`` 比例权重置零。
@@ -338,13 +331,11 @@ def magnitude_prune_(model, fraction, skip=("tok_emb", "lm_head")):
             masks.append((p, mask))
     return float(threshold), int(values.numel()), masks
 
-
 def apply_masks_(masks):
     """恢复阶段重新施加剪枝掩码，防止被置零的权重重新长出来。"""
     with torch.no_grad():
         for p, mask in masks:
             p.mul_(mask)
-
 
 def global_sparsity(model, skip=("tok_emb", "lm_head")):
     """(19.9)：可剪参数中零元素的比例。"""
@@ -356,11 +347,9 @@ def global_sparsity(model, skip=("tok_emb", "lm_head")):
     total = sum(int(p.numel()) for p in params)
     return zeros / total
 
-
 def parameter_count(model):
     """(19.11)：模型参数量。"""
     return sum(p.numel() for p in model.parameters())
-
 
 def compression_ratio(teacher, student):
     """(19.11)：教师参数量除以学生参数量。"""
@@ -388,14 +377,11 @@ HELD_OUT = [p for i, p in enumerate(ALL_PROMPTS) if i % 5 >= 2]
 SEEDS = (0, 1, 2)
 PRUNE_FRACTION = 0.8
 
-
 def prompt(a, b):
     return [BOS, Q, DIGIT0 + a, DIGIT0 + b, SEP]
 
-
 def answer(a, b):
     return DIGIT0 + ((a + b) % 10)
-
 
 def make_model(seed, d_model, n_layers, n_heads, d_ff):
     torch.manual_seed(seed)
@@ -404,7 +390,6 @@ def make_model(seed, d_model, n_layers, n_heads, d_ff):
                       pos_encoding="rope", norm="rmsnorm", ffn="swiglu",
                       bias=False)
     return TinyLM(cfg), cfg
-
 
 def labels_for_answer(prompts, answers):
     ids = torch.tensor([prompt(a, b) + [y, EOS]
@@ -415,7 +400,6 @@ def labels_for_answer(prompts, answers):
     labels[:, PROMPT_LEN] = EOS             # 预测 EOS
     return ids, labels
 
-
 @torch.no_grad()
 def accuracy(model, prompts):
     model.eval()
@@ -423,7 +407,6 @@ def accuracy(model, prompts):
     pred = model(ids).logits[:, -1].argmax(-1)
     goals = torch.tensor([answer(a, b) for a, b in prompts])
     return float((pred == goals).float().mean())
-
 
 def train_teacher(seed, steps=600, batch=64, lr=2e-3):
     model, _ = make_model(seed, 64, 2, 4, 256)
@@ -441,7 +424,6 @@ def train_teacher(seed, steps=600, batch=64, lr=2e-3):
         out.loss.backward()
         opt.step()
     return model
-
 
 def train_student(kind, teacher, seed, steps=800, batch=64, lr=1e-3):
     model, _ = make_model(seed, 32, 2, 4, 128)
@@ -480,7 +462,6 @@ def train_student(kind, teacher, seed, steps=800, batch=64, lr=1e-3):
         opt.step()
     return model
 
-
 def recover(teacher, model, masks, seed, steps=200, batch=64, lr=5e-4):
     gen = torch.Generator().manual_seed(3000 + seed)
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
@@ -500,14 +481,12 @@ def recover(teacher, model, masks, seed, steps=200, batch=64, lr=5e-4):
         D.apply_masks_(masks)
     return model
 
-
 @torch.no_grad()
 def mean_entropy(teacher, temperature=1.0):
     ids = torch.tensor([prompt(a, b) for a, b in ALL_PROMPTS])
     logits = D.teacher_targets(teacher, ids) / temperature
     probs = torch.softmax(logits, dim=-1)
     return float(-(probs * probs.clamp_min(1e-12).log()).sum(-1).mean())
-
 
 def main():
     t0 = time.time()
@@ -545,7 +524,6 @@ def main():
         print(f"{name:<10}{sum(all_acc)/len(all_acc):>7.2f}"
               f"{sum(held_acc)/len(held_acc):>7.2f}")
     print(f"total {time.time() - t0:.1f}s")
-
 
 if __name__ == "__main__":
     main()
@@ -591,13 +569,13 @@ total 102.4s
 
 第三，剪枝实验把 logit 蒸馏学生的最小的 80% 权重置零。剪枝后正确率从接近 1.00 掉到 0.19、0.43、0.32，平均 0.31；用教师的软标签恢复 200 步，并每步重新施加掩码，正确率回到 0.91、1.00、1.00，平均 0.97，稀疏率保持 0.80。恢复有效，一部分原因是这个任务高度冗余：10 类输出的加法规则只需要少量有效连接；另一部分原因是蒸馏提供了比硬标签更平滑的恢复信号。换到更大的模型或更难的任务，80% 稀疏通常不会这么容易恢复。
 
-第四，压缩比是 3.93，但实验没有报告速度提升。原因是这里的剪枝是非结构化的：参数张量形状不变，PyTorch 的稠密矩阵乘法仍然按全部元素计算，零只节省了存储，不节省时间。真正要在部署中拿到延迟收益，需要结构化剪枝（删头、删神经元）或支持稀疏格式的内核；第 23 章的量化则从另一个方向减少权重字节数。把“参数少了”直接说成“推理快了”，是压缩章节最常见的错误。
+第四，参数压缩比是 3.93，但实验没有报告速度提升。原因是这里的剪枝是非结构化的：参数张量形状不变，PyTorch 的稠密矩阵乘法仍然按全部元素计算，零只节省了存储，不节省时间。真正要在部署中拿到延迟收益，需要结构化剪枝（删头、删神经元）或支持稀疏格式的内核；第 23 章的量化则从另一个方向减少权重字节数。把“参数少了”直接说成“推理快了”，是压缩章节最常见的错误。
 
 第五，三个学生共用相同的结构、批大小、步数与学习率，只有监督信号不同，这样比较才干净。Logit-KD 在种子 0 上只有 0.97，而序列级蒸馏是 1.00，说明软标签训练的优化速度略慢：KL 的梯度尺度比交叉熵小，达到同样精度需要更多步或更大的学习率。这不是“软标签更差”，而是“同样的优化预算下，两种损失的收敛速度不同”。报告蒸馏结果时，应把监督信号与优化预算分开看，否则很容易把学习率没调好误判成方法无效。
 
 ### 19.4.5 测试与复现
 
-`tests/test_distill.py` 共 21 项测试，覆盖：温度 Softmax 归一化与熵单调性、温度非法值、学生与教师相同时 KL 为零、`alpha=1` 退化为交叉熵、`alpha=0` 退化为 $$\tau^2$$ 缩放 KL、logits 整体平移不变性、梯度方向、标签对齐、贪心生成形状、教师 logits 不建图、幅度剪枝的稀疏率与嵌入保护、掩码在稠密更新后仍生效、剪枝比例校验、参数量与压缩比、形状不匹配报错、配置校验。全部通过约 1.0 s。
+`tests/test_distill.py` 共 21 项测试，覆盖：温度 Softmax 归一化与熵单调性、温度非法值、学生与教师相同时 KL 为零、`alpha=1` 退化为交叉熵、`alpha=0` 退化为 $$\tau^2$$ 缩放 KL、logits 整体平移不变性、梯度方向、标签对齐、贪心生成形状、教师 logits 不建图、幅度剪枝的稀疏率与嵌入保护、掩码在稠密更新后仍生效、剪枝比例校验、参数量与参数压缩比、形状不匹配报错、配置校验。全部通过约 1.0 s。
 
 复现步骤：
 
@@ -650,11 +628,15 @@ SparseGPT（Frantar 与 Alistarh，2023）证明，百亿参数级的语言模�
 
 ## 19.6 论文导读
 
-- **Hinton, Vinyals, Dean（2015）**，*Distilling the Knowledge in a Neural Network*，arXiv:1503.02531。蒸馏的开篇之作。重点读第 2 节温度 Softmax 与软目标，第 3 节在 MNIST 上的“暗知识”实验；注意它原本针对的是模型集成压缩，不是 LLM。
-- **Sanh 等（2019）**，*DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter*，arXiv:1910.01108。读第 3 节的三项损失与第 4 节消融；它是“输出蒸馏 + 隐藏层对齐”的经典组合。
-- **Agarwal 等（2024）**，*On-Policy Distillation of Language Models: Learning from Self-Generated Mistakes*，arXiv:2306.13649。读第 3 节 GKD 目标与第 4 节的教师/学生数据插值；重点理解它如何用 JSD 统一前向与反向 KL。
-- **DeepSeek-AI（2025）**，*DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning*，arXiv:2501.12948。读第 4 节蒸馏实验与表 5 附近的学生规模对比；注意它是序列级蒸馏，不是 logit 蒸馏。
-- **Frantar, Alistarh（2023）**，*SparseGPT: Massive Language Models Can Be Accurately Pruned in One-Shot*，arXiv:2301.11093。读第 3 节逐层重建与第 4 节的稀疏率/困惑度曲线；重点看它如何处理校准数据与剩余权重更新。
+**1. Hinton, Vinyals, Dean（2015）**，*Distilling the Knowledge in a Neural Network*，arXiv:1503.02531。蒸馏的开篇之作。重点读第 2 节温度 Softmax 与软目标，第 3 节在 MNIST 上的“暗知识”实验；注意它原本针对的是模型集成压缩，不是 LLM。
+
+**2. Sanh 等（2019）**，*DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter*，arXiv:1910.01108。读第 3 节的三项损失与第 4 节消融；它是“输出蒸馏 + 隐藏层对齐”的经典组合。
+
+**3. Agarwal 等（2024）**，*On-Policy Distillation of Language Models: Learning from Self-Generated Mistakes*，arXiv:2306.13649。读第 3 节 GKD 目标与第 4 节的教师/学生数据插值；重点理解它如何用 JSD 统一前向与反向 KL。
+
+**4. DeepSeek-AI（2025）**，*DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning*，arXiv:2501.12948。读第 4 节蒸馏实验与表 5 附近的学生规模对比；注意它是序列级蒸馏，不是 logit 蒸馏。
+
+**5. Frantar, Alistarh（2023）**，*SparseGPT: Massive Language Models Can Be Accurately Pruned in One-Shot*，arXiv:2301.11093。读第 3 节逐层重建与第 4 节的稀疏率/困惑度曲线；重点看它如何处理校准数据与剩余权重更新。
 
 ## 19.7 常见误区
 
@@ -677,7 +659,7 @@ SparseGPT（Frantar 与 Alistarh，2023）证明，百亿参数级的语言模�
 - 当教师比学生强不了多少、部署瓶颈不在模型本身时，压缩可能不划算。
 
 {% hint style="success" %}
-**本章的取舍**：知识蒸馏与模型压缩的核心取舍是**能力与成本**。教师提供了函数形状，学生用更少的参数去拟合；拟合得越紧，压缩比越高，但学生越依赖教师的覆盖范围与数据质量。Logit 蒸馏信息密度最高，却要求教师可访问且愿意暴露 logits；序列级蒸馏最通用，却把不确定性压成硬标签，并把长回答的曝光偏差留给学生；在策略蒸馏最能纠正分布偏移，却要付出 rollout 与逐 Token 打分的成本。
+**本章的取舍**：知识蒸馏与模型压缩的核心取舍是**能力与成本**。教师提供了函数形状，学生用更少的参数去拟合；拟合得越紧，参数压缩比越高，但学生越依赖教师的覆盖范围与数据质量。Logit 蒸馏信息密度最高，却要求教师可访问且愿意暴露 logits；序列级蒸馏最通用，却把不确定性压成硬标签，并把长回答的曝光偏差留给学生；在策略蒸馏最能纠正分布偏移，却要付出 rollout 与逐 Token 打分的成本。
 
 剪枝与量化的取舍不同：剪枝改变**连接结构**，量化改变**数值精度**。非结构化剪枝省存储不省时间，结构化剪枝能加速但更容易掉精度，量化在内存受限的解码阶段收益直接但受内核与异常值影响（第 23 章）。实际系统常常组合使用：先蒸馏得到小模型，再结构化剪枝，最后量化；每一步都用蒸馏或原任务数据恢复，并分别报告参数量、显存、吞吐与任务指标。
 
@@ -689,7 +671,9 @@ SparseGPT（Frantar 与 Alistarh，2023）证明，百亿参数级的语言模�
 
 ## 19.9 习题
 
-**推导题**：从 (19.3) 出发，推导 (19.5)，并利用 (19.2) 证明高温极限下梯度近似为 $$(z_s-z_t)/V$$。解释为什么需要 $$\tau^2$$ 缩放，以及如果不缩放会发生什么。
+### 习题 1（推导）
+
+从 (19.3) 出发，推导 (19.5)，并利用 (19.2) 证明高温极限下梯度近似为 $$(z_s-z_t)/V$$。解释为什么需要 $$\tau^2$$ 缩放，以及如果不缩放会发生什么。
 
 <details><summary>展开参考答案</summary>
 
@@ -727,6 +711,10 @@ $$
 
 </details>
 
-**编程题**：在 `distill_loss` 中加入 Top-k 蒸馏：只保留教师概率最大的 $$k$$ 个类别，重新归一化后计算 KL，其余类别的教师概率置零。在两位加法实验上比较 $$k=1,3,10,16$$ 的学生正确率、训练时间与教师熵；解释 $$k=1$$ 与序列级蒸馏的关系，以及 $$k$$ 增大到什么程度后收益饱和。
+### 习题 2（编程）
 
-**开放题**：假设你要把一个小型推理模型蒸馏到教师参数量的十分之一，教师只能通过 API 返回文本，且目标部署环境的回答长度上限是 1024 Token。请设计一套蒸馏方案，至少覆盖：数据如何筛选与去重、是否需要生成多条候选、如何控制思维链长度、如何评估分布外能力、以及如何判断“学生已经饱和、继续蒸馏无收益”。讨论你的方案在教师错误、长尾任务与评测污染三个方面的风险。
+在 `distill_loss` 中加入 Top-k 蒸馏：只保留教师概率最大的 $$k$$ 个类别，重新归一化后计算 KL，其余类别的教师概率置零。在两位加法实验上比较 $$k=1,3,10,16$$ 的学生正确率、训练时间与教师熵；解释 $$k=1$$ 与序列级蒸馏的关系，以及 $$k$$ 增大到什么程度后收益饱和。
+
+### 习题 3（开放思考）
+
+假设你要把一个小型推理模型蒸馏到教师参数量的十分之一，教师只能通过 API 返回文本，且目标部署环境的回答长度上限是 1024 Token。请设计一套蒸馏方案，至少覆盖：数据如何筛选与去重、是否需要生成多条候选、如何控制思维链长度、如何评估分布外能力、以及如何判断“学生已经饱和、继续蒸馏无收益”。讨论你的方案在教师错误、长尾任务与评测污染三个方面的风险。

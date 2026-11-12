@@ -6,11 +6,7 @@
 
 ## 难度标签
 
-⭐⭐⭐ 进阶
-
-- 数学：Bradley–Terry 模型、KL 正则、对数似然与梯度推导；
-- 代码：PyTorch，理解第 14 章 SFT 与第 16 章 RLHF 的损失与采样流程；
-- 数据：成对偏好数据的构造、偏置与评测。
+⭐⭐⭐ 进阶 ｜ 数学要求：Bradley–Terry 模型、KL 正则、对数似然与梯度推导 ｜ 代码要求：PyTorch，理解第 14 章 SFT 与第 16 章 RLHF 的损失与采样流程 ｜ 数据要求：成对偏好数据的构造、偏置与评测
 
 ## 学习目标
 
@@ -236,7 +232,7 @@ DPO 的损失是成对 log-sigmoid，训练动态比 SFT 的交叉熵更敏感�
 | PPO/RLHF | 是 | 是 | 是 | 策略+参考+奖励+价值 | 奖励作弊、训练不稳 | 算力充足、需要在线探索 |
 | DPO | 否 | 是 | 否 | 策略+参考各两次 | 偏好标签偏置、分布外 | 有成对数据、算力有限 |
 | Best-of-N | 是 | 否 | 推理时 | 策略+奖励 | 推理成本随 N 增长 | 只需推理时提分 |
-| 拒绝采样微调 | 是 | 否 | 离线采样 | 策略+奖励 | 多样性塌缩 | 有可验证或可靠奖励 |
+| 拒绝采样微调 | 是 | 否 | 离线采样 | 策略+奖励 | 多样性坍缩 | 有可验证或可靠奖励 |
 | 迭代 DPO | 否 | 是 | 是（重新标注） | 策略+参考各两次 | 标注成本、标签漂移 | 有持续人工/AI 反馈 |
 
 DPO 的“每步前向”看起来少，但它对每个偏好对要做四次前向：策略在赢家、输家上各一次，参考模型在赢家、输家上各一次。参考模型的前向可以预计算并缓存，因为参考模型冻结、数据固定；这是 DPO 工程实现里最值得做的一项优化。PPO 的每步前向更多，但它的样本可以复用多个 epoch，二者不能只按单步成本比较。
@@ -275,7 +271,6 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 
-
 @dataclass(frozen=True)
 class DPOConfig:
     """DPO 训练脚本参数，不进入 ``ModelConfig``。"""
@@ -298,7 +293,6 @@ class DPOConfig:
         assert 0.0 <= self.label_smoothing < 0.5
         assert self.max_grad_norm > 0.0
 
-
 def completion_logprobs(model, input_ids, attention_mask, completion_mask,
                         length_normalize=False):
     """返回每条样本完成部分的对数概率，形状 ``(B,)``。
@@ -318,18 +312,15 @@ def completion_logprobs(model, input_ids, attention_mask, completion_mask,
         total = total / valid.sum(-1).clamp_min(1).to(total.dtype)
     return total
 
-
 def log_ratio_margin(policy_chosen, policy_rejected, ref_chosen, ref_rejected):
     """(17.3) 括号内不含 β 的项：赢家与输家的对数比之差。"""
     win = policy_chosen - ref_chosen
     lose = policy_rejected - ref_rejected
     return win - lose
 
-
 def implicit_reward(logp, ref_logp, beta):
     """(17.2)：隐式奖励，策略与参考模型的对数比乘以 β。"""
     return beta * (logp - ref_logp)
-
 
 def dpo_loss(policy_chosen, policy_rejected, ref_chosen, ref_rejected,
              beta=0.1, label_smoothing=0.0, loss_type="dpo"):
@@ -345,7 +336,6 @@ def dpo_loss(policy_chosen, policy_rejected, ref_chosen, ref_rejected,
         return -(F.logsigmoid(margin) * (1.0 - eps)
                  + F.logsigmoid(-margin) * eps).mean()
     return -F.logsigmoid(margin).mean()
-
 
 def preference_accuracy(chosen_margin):
     """隐式奖励把赢家排在输家之前的比例；平局按失败计。"""
@@ -378,7 +368,6 @@ PROMPT_LEN = 4
 SEEDS = (0, 1, 2)
 TEMPLATE = ChatTemplate()
 
-
 def make_model(seed):
     torch.manual_seed(seed)
     cfg = ModelConfig(vocab_size=VOCAB, d_model=32, n_layers=2, n_heads=2,
@@ -386,10 +375,8 @@ def make_model(seed):
                       norm="rmsnorm", ffn="swiglu", bias=False)
     return TinyLM(cfg), cfg
 
-
 def prompt_ids(topic):
     return [BOS, USER, int(topic), ASSISTANT]
-
 
 def make_response(gen, topic, p_target=0.55, p_decoy=0.10, lo=3, hi=5):
     """行为策略：55% 目标词、10% 形近干扰词、其余从响应词表均匀采样。"""
@@ -405,10 +392,8 @@ def make_response(gen, topic, p_target=0.55, p_decoy=0.10, lo=3, hi=5):
             out.append(RESP_IDS[int(torch.randint(0, len(RESP_IDS), (1,), generator=gen))])
     return out
 
-
 def make_example(topic, ys):
     return TEMPLATE.render([("user", [int(topic)]), ("assistant", ys)])
-
 
 def make_sft_data(seed, size):
     gen = torch.Generator().manual_seed(seed)
@@ -417,7 +402,6 @@ def make_sft_data(seed, size):
         topic = TOPICS[int(torch.randint(0, len(TOPICS), (1,), generator=gen))]
         data.append(make_example(topic, make_response(gen, topic)))
     return data
-
 
 def train_sft(model, data, seed, steps=400, lr=3e-3, batch_size=32):
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad],
@@ -434,7 +418,6 @@ def train_sft(model, data, seed, steps=400, lr=3e-3, batch_size=32):
         opt.step()
     return model
 
-
 def biased_reward(topic, ys, noise=0.0, rng=None):
     """标注者的真实偏好：目标词 + 形近词 + 长度，后两项是偏置。"""
     correct = sum(y == TARGET[topic] for y in ys) / len(ys)
@@ -443,13 +426,11 @@ def biased_reward(topic, ys, noise=0.0, rng=None):
     noise = rng.gauss(0.0, noise) if (noise and rng) else 0.0
     return correct + 0.30 * decoy + length_bonus + noise
 
-
 def debiased_reward(topic, ys, noise=0.0, rng=None):
     """去掉长度与形近词偏置，只看目标词比例。"""
     correct = sum(y == TARGET[topic] for y in ys) / len(ys)
     noise = rng.gauss(0.0, noise) if (noise and rng) else 0.0
     return correct + noise
-
 
 def make_pairs(seed, size, reward_fn, noise=0.03):
     gen = torch.Generator().manual_seed(seed + 77)
@@ -469,7 +450,6 @@ def make_pairs(seed, size, reward_fn, noise=0.03):
                       "lose": make_example(topic, lose)["input_ids"]})
     return pairs
 
-
 def pad_batch(rows, pad=PAD, prompt_len=PROMPT_LEN):
     length = max(r.numel() for r in rows)
     ids = torch.full((len(rows), length), pad, dtype=torch.long)
@@ -481,12 +461,10 @@ def pad_batch(rows, pad=PAD, prompt_len=PROMPT_LEN):
     completion = mask & (positions >= prompt_len)
     return ids, mask, completion
 
-
 def pair_tensors(batch):
     win_ids, win_mask, win_comp = pad_batch([b["win"] for b in batch])
     lose_ids, lose_mask, lose_comp = pad_batch([b["lose"] for b in batch])
     return win_ids, win_mask, win_comp, lose_ids, lose_mask, lose_comp
-
 
 @torch.no_grad()
 def pair_stats(policy, ref, pairs, beta):
@@ -497,7 +475,6 @@ def pair_stats(policy, ref, pairs, beta):
     rr = D.completion_logprobs(ref, lose_ids, lose_mask, lose_comp)
     margin = beta * D.log_ratio_margin(pc, pr, rc, rr)
     return float(D.preference_accuracy(margin)), float(margin.mean())
-
 
 def train_dpo(sft_state, cfg, pairs, dcfg, seed, steps=300, log_every=0):
     policy = TinyLM(cfg)
@@ -538,7 +515,6 @@ def train_dpo(sft_state, cfg, pairs, dcfg, seed, steps=300, log_every=0):
                 history.append((done, float(loss.detach())))
     return policy, ref, history
 
-
 @torch.no_grad()
 def sample_for_topics(policy, topics, cfg, generator, batch=256):
     policy.eval()
@@ -548,7 +524,6 @@ def sample_for_topics(policy, topics, cfg, generator, batch=256):
         prompts = torch.tensor([prompt_ids(t) for t in chunk], dtype=torch.long)
         rows.append(P.sample_responses(policy, prompts, cfg, generator))
     return torch.cat(rows)
-
 
 @torch.no_grad()
 def evaluate(policy, ref, seed, n=256):
@@ -572,11 +547,9 @@ def evaluate(policy, ref, seed, n=256):
     return {"true": true.mean().item(), "fake": fake.mean().item(),
             "len": length.mean().item(), "kl": float(kl)}
 
-
 def fmt(values):
     t = torch.tensor(values, dtype=torch.float64)
     return f"{t.mean():.3f}±{t.std(unbiased=False):.3f}"
-
 
 def main():
     t0 = time.time()
@@ -650,7 +623,6 @@ def main():
           f"间隔 {fmt([m for _, m in deb_rows])}")
     print(f"\n总耗时 {time.time() - t0:.1f} s")
 
-
 if __name__ == "__main__":
     main()
 ```
@@ -667,23 +639,19 @@ import torch
 from ch08 import ModelConfig, TinyLM
 from tinylm.posttrain import dpo as D
 
-
 def tiny_cfg():
     return ModelConfig(vocab_size=16, d_model=32, n_layers=2, n_heads=2,
                        d_ff=128, max_seq_len=32, pos_encoding="rope",
                        norm="rmsnorm", ffn="swiglu", bias=False)
 
-
 def model(seed=0):
     torch.manual_seed(seed)
     return TinyLM(tiny_cfg())
-
 
 def test_dpo_loss_zero_margin_is_log_two():
     z = torch.zeros(4)
     assert torch.allclose(D.dpo_loss(z, z, z, z, beta=0.1),
                           torch.tensor(math.log(2.0)), atol=1e-6)
-
 
 def test_dpo_loss_decreases_with_margin():
     margins = torch.tensor([0.0, 0.5, 1.0, 2.0])
@@ -693,7 +661,6 @@ def test_dpo_loss_decreases_with_margin():
               for i in range(4)]
     assert losses[0] > losses[1] > losses[2] > losses[3]
 
-
 def test_dpo_loss_ignores_common_shift():
     pc, pr = torch.tensor([0.3, -1.0]), torch.tensor([0.1, 0.5])
     rc, rr = torch.tensor([0.0, 0.0]), torch.tensor([0.0, 0.0])
@@ -701,14 +668,12 @@ def test_dpo_loss_ignores_common_shift():
     b = D.dpo_loss(pc + 3.0, pr + 3.0, rc, rr)
     assert torch.allclose(a, b)
 
-
 def test_label_smoothing_increases_loss_for_confident_pair():
     pc, pr, rc, rr = (torch.tensor([2.0]), torch.tensor([0.0]),
                       torch.tensor([0.0]), torch.tensor([0.0]))
     hard = D.dpo_loss(pc, pr, rc, rr, beta=1.0)
     smooth = D.dpo_loss(pc, pr, rc, rr, beta=1.0, label_smoothing=0.1)
     assert smooth > hard
-
 
 def test_ipo_has_zero_at_target_margin():
     beta = 0.5
@@ -718,13 +683,11 @@ def test_ipo_has_zero_at_target_margin():
     assert torch.allclose(D.dpo_loss(pc, zeros, zeros, zeros, beta=beta,
                                      loss_type="ipo"), torch.tensor(0.0))
 
-
 def test_implicit_reward_scale():
     logp = torch.tensor([0.2, -0.4])
     ref = torch.tensor([0.1, 0.0])
     reward = D.implicit_reward(logp, ref, beta=0.5)
     assert torch.allclose(reward, torch.tensor([0.05, -0.2]))
-
 
 def test_dpo_gradient_pushes_chosen_up_and_rejected_down():
     pc = torch.tensor([0.5], requires_grad=True)
@@ -734,7 +697,6 @@ def test_dpo_gradient_pushes_chosen_up_and_rejected_down():
     loss.backward()
     assert pc.grad < 0 and pr.grad > 0
     assert torch.allclose(pc.grad, -pr.grad)
-
 
 def test_completion_logprobs_matches_manual():
     m = model()
@@ -748,7 +710,6 @@ def test_completion_logprobs_matches_manual():
         manual = sum(logp[0, t, ids[0, t + 1]] for t in (1, 2, 3))
     assert torch.allclose(got[0], manual)
 
-
 def test_completion_logprobs_excludes_prompt_and_padding():
     m = model()
     ids = torch.tensor([[1, 2, 3, 4, 5]])
@@ -761,7 +722,6 @@ def test_completion_logprobs_excludes_prompt_and_padding():
     padded = D.completion_logprobs(m, padded_ids, padded_attn, padded_completion)
     assert torch.allclose(base, padded)
 
-
 def test_length_normalize_divides_by_completion_length():
     m = model()
     ids = torch.tensor([[1, 2, 3, 4, 5]])
@@ -771,11 +731,9 @@ def test_length_normalize_divides_by_completion_length():
     mean = D.completion_logprobs(m, ids, attn, completion, length_normalize=True)
     assert torch.allclose(mean, total / 3.0)
 
-
 def test_preference_accuracy_ties_fail():
     margin = torch.tensor([1.0, -1.0, 0.0, 2.0])
     assert float(D.preference_accuracy(margin)) == 0.5
-
 
 def test_dpo_config_validation():
     with pytest.raises(AssertionError):
@@ -881,15 +839,15 @@ DPO 在工业界的流行，主要因为它把“对齐”从强化学习工程�
 
 ## 17.7 论文导读
 
-1. **Rafailov, Sharma, Mitchell, Ermon, Manning, Finn. Direct Preference Optimization: Your Language Model is Secretly a Reward Model. 2023. arXiv:2305.18290.** 读第 3 节看从 RLHF 目标到 DPO 损失的完整推导，第 4 节看与 PPO 的实验对照，第 5 节看理论分析。本章 (17.1)–(17.5) 主要依据这篇。
+**1. Rafailov, Sharma, Mitchell, Ermon, Manning, Finn. Direct Preference Optimization: Your Language Model is Secretly a Reward Model. 2023. arXiv:2305.18290.** 读第 3 节看从 RLHF 目标到 DPO 损失的完整推导，第 4 节看与 PPO 的实验对照，第 5 节看理论分析。本章 (17.1)–(17.5) 主要依据这篇。
 
-2. **Azar, Rowland, Piot, Guo, Calandriello, Valko, Munos. A General Theoretical Paradigm to Understand Learning from Human Preferences. 2023. arXiv:2310.12036.** 读第 3–4 节看 IPO 的目标间隔与 Ψ-PO 框架。它解释了为什么 DPO 在确定性偏好下会过度拉大间隔。
+**2. Azar, Rowland, Piot, Guo, Calandriello, Valko, Munos. A General Theoretical Paradigm to Understand Learning from Human Preferences. 2023. arXiv:2310.12036.** 读第 3–4 节看 IPO 的目标间隔与 Ψ-PO 框架。它解释了为什么 DPO 在确定性偏好下会过度拉大间隔。
 
-3. **Ethayarajh, Xu, Muennighoff, Jurafsky, Kiela. KTO: Model Alignment as Prospect Theoretic Optimization. 2024. arXiv:2402.01306.** 读第 2–3 节看二元反馈下的价值函数，第 4 节看与 DPO 的数据效率对照。适合只有“好/不好”标签、没有成对数据的场景。
+**3. Ethayarajh, Xu, Muennighoff, Jurafsky, Kiela. KTO: Model Alignment as Prospect Theoretic Optimization. 2024. arXiv:2402.01306.** 读第 2–3 节看二元反馈下的价值函数，第 4 节看与 DPO 的数据效率对照。适合只有“好/不好”标签、没有成对数据的场景。
 
-4. **Meng, Xia, Chen. SimPO: Simple Preference Optimization with a Reference-Free Reward. 2024. arXiv:2405.14734.** 读第 3 节看长度归一化与目标间隔的设计，第 4 节看无参考模型的实验。它把本章 (17.6) 的方向推到了极致。
+**4. Meng, Xia, Chen. SimPO: Simple Preference Optimization with a Reference-Free Reward. 2024. arXiv:2405.14734.** 读第 3 节看长度归一化与目标间隔的设计，第 4 节看无参考模型的实验。它把本章 (17.6) 的方向推到了极致。
 
-5. **Hong, Lee, Thorne. ORPO: Monolithic Preference Optimization without Reference Model. 2024. arXiv:2403.07691.** 读第 3 节看 odds ratio 如何并入 SFT 损失，第 4 节看单阶段训练的结果。它代表“把对齐压进 SFT”的路线。
+**5. Hong, Lee, Thorne. ORPO: Monolithic Preference Optimization without Reference Model. 2024. arXiv:2403.07691.** 读第 3 节看 odds ratio 如何并入 SFT 损失，第 4 节看单阶段训练的结果。它代表“把对齐压进 SFT”的路线。
 
 延伸：Tunstall 等（2023，arXiv:2310.16944）的 Zephyr 报告给出了 DPO 的完整开源配方；Ivison 等（2023，arXiv:2310.12379）的 Tulu 2 讨论了数据混合与 DPO 的交互。读这两篇时，把超参数表与本章 17.5 的实验设计并排看，会更容易判断哪些结论能迁移到自己的数据。特别要核对三件事：参考模型是否就是产生偏好数据时的 SFT 模型；DPO 数据与 SFT 数据之间是否存在重叠；报告的长度是“输入加输出”还是只算输出。这三点不统一，表格里的数字就不能横向比较。
 
@@ -928,7 +886,9 @@ DPO 在工业界的流行，主要因为它把“对齐”从强化学习工程�
 
 ## 17.10 习题
 
-**推导题**：从第 16 章式 (16.4) 出发，推导 (17.1)，并说明配分函数为什么在同一提示的成对比较中抵消，使 (17.3) 不必计算它。若两条回答来自不同提示，这个抵消还成立吗？
+### 习题 1（推导）
+
+从第 16 章式 (16.4) 出发，推导 (17.1)，并说明配分函数为什么在同一提示的成对比较中抵消，使 (17.3) 不必计算它。若两条回答来自不同提示，这个抵消还成立吗？
 
 <details>
 <summary>参考答案</summary>
@@ -961,6 +921,10 @@ $$
 
 </details>
 
-**编程题**：在 `dpo_loss` 中加入长度归一化选项（按回答 Token 数平均对数概率），在玩具实验上比较归一化前后的平均长度与 KL。归一化是否消除了长度偏置？如果没有，为什么？
+### 习题 2（编程）
 
-**开放题**：设计一套诊断 DPO 标签偏置的实验。要求至少包含：长度匹配的偏好对、与任务目标无关的反事实维度、留出任务指标，以及在偏好准确率上升时识别“任务质量下降”的判据。讨论你的方案在真实人工标注数据上可能遇到的困难。
+在 `dpo_loss` 中加入长度归一化选项（按回答 Token 数平均对数概率），在玩具实验上比较归一化前后的平均长度与 KL。归一化是否消除了长度偏置？如果没有，为什么？
+
+### 习题 3（开放思考）
+
+设计一套诊断 DPO 标签偏置的实验。要求至少包含：长度匹配的偏好对、与任务目标无关的反事实维度、留出任务指标，以及在偏好准确率上升时识别“任务质量下降”的判据。讨论你的方案在真实人工标注数据上可能遇到的困难。

@@ -250,7 +250,6 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 
-
 @dataclass(frozen=True)
 class SamplingConfig:
     """生成脚本参数，不进入 ``ModelConfig``。"""
@@ -269,7 +268,6 @@ class SamplingConfig:
         assert 0.0 <= self.min_p <= 1.0
         assert self.repetition_penalty > 0.0
 
-
 def apply_repetition_penalty(logits, token_ids, penalty, pad_id=None):
     """(20.11)：对已出现 Token 的 logit 做分段缩放。"""
     if penalty == 1.0:
@@ -284,14 +282,12 @@ def apply_repetition_penalty(logits, token_ids, penalty, pad_id=None):
                                    values * penalty)
     return out
 
-
 def top_k_mask(logits, k):
     """(20.7)：保留 logit 最大的 k 个 Token。"""
     k = min(int(k), logits.size(-1))
     indices = logits.topk(k, dim=-1).indices
     mask = torch.zeros_like(logits, dtype=torch.bool)
     return mask.scatter_(-1, indices, True)
-
 
 def top_p_mask(logits, p):
     """(20.8)：保留累积概率首次达到 p 的最小前缀。"""
@@ -305,13 +301,11 @@ def top_p_mask(logits, p):
     mask = torch.zeros_like(logits, dtype=torch.bool)
     return mask.scatter_(-1, sorted_idx, keep_sorted)
 
-
 def min_p_mask(logits, min_p):
     """(20.9)：保留概率不低于最大概率 min_p 倍的 Token。"""
     probs = torch.softmax(logits, dim=-1)
     threshold = min_p * probs.max(dim=-1, keepdim=True).values
     return probs >= threshold
-
 
 def decode_mask(logits, cfg):
     """依次叠加 top-k、top-p、min-p 的保留集合。"""
@@ -323,7 +317,6 @@ def decode_mask(logits, cfg):
     if cfg.min_p > 0.0:
         mask &= min_p_mask(logits, cfg.min_p)           # (20.9)
     return mask
-
 
 def filtered_probs(logits, cfg, token_ids=None, pad_id=None):
     """(20.6)–(20.10)：返回截断并重新归一化后的分布。"""
@@ -337,14 +330,12 @@ def filtered_probs(logits, cfg, token_ids=None, pad_id=None):
     probs = torch.softmax(adjusted, dim=-1)             # (20.10)
     return probs, mask
 
-
 def _make_generator(seed, device):
     if seed is None:
         return None
     generator = torch.Generator(device=device)
     generator.manual_seed(int(seed))
     return generator
-
 
 @torch.no_grad()
 def sample_decode(model, input_ids, max_new_tokens, cfg=SamplingConfig(),
@@ -367,7 +358,6 @@ def sample_decode(model, input_ids, max_new_tokens, cfg=SamplingConfig(),
                 break
     return seqs, seqs != pad_id
 
-
 @torch.no_grad()
 def greedy_decode(model, input_ids, max_new_tokens, eos_token_id=None,
                   pad_id=0):
@@ -385,7 +375,6 @@ def greedy_decode(model, input_ids, max_new_tokens, eos_token_id=None,
             if bool(done.all()):
                 break
     return seqs, seqs != pad_id
-
 
 @torch.no_grad()
 def beam_search(model, prompt, beam_width=4, max_new_tokens=32,
@@ -429,7 +418,6 @@ def beam_search(model, prompt, beam_width=4, max_new_tokens=32,
 
     return max(completed, key=rank)[1]
 
-
 @torch.no_grad()
 def sequence_logprob(model, seqs, prompt_len, pad_id=None):
     """(20.3)：给定序列在模型下的对数似然，跳过提示与 padding。"""
@@ -443,7 +431,6 @@ def sequence_logprob(model, seqs, prompt_len, pad_id=None):
         valid &= targets != pad_id
     return (token_logp * valid).sum(dim=-1)
 
-
 def pass_at_k(n, c, k):
     """(20.13)：从 n 条样本中取 k 条，至少一条正确的无偏估计。"""
     if not 1 <= k <= n:
@@ -453,7 +440,6 @@ def pass_at_k(n, c, k):
     if n - c < k:
         return 1.0
     return 1.0 - math.comb(n - c, k) / math.comb(n, k)
-
 
 @torch.no_grad()
 def generate(model, input_ids, *, max_new_tokens=64, sampling=None,
@@ -495,7 +481,6 @@ TRANSITIONS = {
 SEEDS = (0, 1, 2)
 N_SAMPLES = 128
 
-
 def make_sequence(rng):
     seq = [BOS]
     current = BOS
@@ -510,7 +495,6 @@ def make_sequence(rng):
         seq.append(EOS)
     return seq
 
-
 def make_batch(seqs, max_len=None):
     max_len = max_len or max(len(s) for s in seqs)
     ids = torch.full((len(seqs), max_len), PAD, dtype=torch.long)
@@ -521,7 +505,6 @@ def make_batch(seqs, max_len=None):
         labels[i, :len(seq) - 1] = torch.tensor(seq[1:])
         mask[i, :len(seq)] = True
     return ids, labels, mask
-
 
 def train_model(seed, steps=700, batch=64, lr=3e-3):
     torch.manual_seed(seed)
@@ -544,13 +527,11 @@ def train_model(seed, steps=700, batch=64, lr=3e-3):
         opt.step()
     return model
 
-
 def truncate(seq):
     ids = seq.tolist()
     if EOS in ids[1:]:
         return ids[:ids.index(EOS, 1) + 1]
     return ids
-
 
 def metrics(seqs, prompt_len=1):
     cut = [truncate(seq) for seq in seqs]
@@ -566,14 +547,12 @@ def metrics(seqs, prompt_len=1):
     unique = len({tuple(s) for s in cut}) / len(cut)
     return eos, sum(lengths) / len(lengths), distinct2, unique
 
-
 def report(name, seqs, model, prompt_len=1):
     eos, length, distinct2, unique = metrics(seqs)
     logp = S.sequence_logprob(model, seqs, prompt_len, PAD).mean().item()
     print(f"  {name:<16} eos {eos:.2f} len {length:5.2f} "
           f"distinct2 {distinct2:.2f} unique {unique:.2f} logp {logp:6.2f}")
     return eos, length, distinct2, unique, logp
-
 
 def main():
     t0 = time.time()
@@ -634,7 +613,6 @@ def main():
         print(f"{name:<17}{eos:6.2f}{length:7.2f}{dist2:7.2f}{uniq:7.2f}"
               f"{logp:7.2f}{p1:8.2f}{p8:8.2f}")
     print(f"total {time.time() - t0:.1f}s")
-
 
 if __name__ == "__main__":
     main()
@@ -739,11 +717,15 @@ Meta 的 Llama 3 系列模型卡在通用对话场景建议 `temperature=0.6`、
 
 ## 20.6 论文导读
 
-- **Fan, Lewis, Dauphin（2018）**，*Hierarchical Neural Story Generation*，arXiv:1805.04833。Top-k 采样的早期代表。读第 3 节的采样方法与第 4 节的故事生成实验，重点看它如何用截断解决“纯采样跑题”和“束搜索无聊”的两难。
-- **Holtzman 等（2019）**，*The Curious Case of Neural Text Degeneration*，arXiv:1904.09751。本章的核心参考。读第 3 节对束搜索退化的分析、第 4 节的 Top-p（nucleus）采样，以及第 5 节的人类评测；注意它讨论的是“似然最大化”与“典型文本”的目标错位。
-- **Chen 等（2021）**，*Evaluating Large Language Models Trained on Code*，arXiv:2107.03374。pass@k 的出处。读第 2.3 节的无偏估计与附录 A 的实现细节，重点理解为什么用组合数而不是 plug-in 估计，以及 $$n=200$$ 的采样预算。
-- **Meister 等（2022）**，*Locally Typical Sampling*，arXiv:2202.00666。读第 3 节的“局部典型性”定义与第 4 节的实验；它用信息论中的典型集替代高概率前缀，是 Top-p 之外的另一条思路。
-- **Nguyen 等（2024）**，*Turning Up the Heat: Min-p Sampling for Creative and Coherent LLM Outputs*，arXiv:2407.01082。读算法定义与高温实验；重点看它如何用“相对最大概率”的阈值替代 Top-p 的绝对累积质量，以及作者报告的局限性。
+**1. Fan, Lewis, Dauphin（2018）**，*Hierarchical Neural Story Generation*，arXiv:1805.04833。Top-k 采样的早期代表。读第 3 节的采样方法与第 4 节的故事生成实验，重点看它如何用截断解决“纯采样跑题”和“束搜索无聊”的两难。
+
+**2. Holtzman 等（2019）**，*The Curious Case of Neural Text Degeneration*，arXiv:1904.09751。本章的核心参考。读第 3 节对束搜索退化的分析、第 4 节的 Top-p（nucleus）采样，以及第 5 节的人类评测；注意它讨论的是“似然最大化”与“典型文本”的目标错位。
+
+**3. Chen 等（2021）**，*Evaluating Large Language Models Trained on Code*，arXiv:2107.03374。pass@k 的出处。读第 2.3 节的无偏估计与附录 A 的实现细节，重点理解为什么用组合数而不是 plug-in 估计，以及 $$n=200$$ 的采样预算。
+
+**4. Meister 等（2022）**，*Locally Typical Sampling*，arXiv:2202.00666。读第 3 节的“局部典型性”定义与第 4 节的实验；它用信息论中的典型集替代高概率前缀，是 Top-p 之外的另一条思路。
+
+**5. Nguyen 等（2024）**，*Turning Up the Heat: Min-p Sampling for Creative and Coherent LLM Outputs*，arXiv:2407.01082。读算法定义与高温实验；重点看它如何用“相对最大概率”的阈值替代 Top-p 的绝对累积质量，以及作者报告的局限性。
 
 ## 20.7 常见误区
 
@@ -780,7 +762,9 @@ Meta 的 Llama 3 系列模型卡在通用对话场景建议 `temperature=0.6`、
 
 ## 20.9 习题
 
-**推导题.** 设对同一道题采样 $$n$$ 条回答，其中 $$c$$ 条正确，且每条回答独立的成功概率为 $$p_{\rm succ}$$，即 $$c\sim\mathrm{Binomial}(n,p_{\rm succ})$$。证明 (20.13) 的估计量满足 (20.14)，即
+### 习题 1（推导）
+
+设对同一道题采样 $$n$$ 条回答，其中 $$c$$ 条正确，且每条回答独立的成功概率为 $$p_{\rm succ}$$，即 $$c\sim\mathrm{Binomial}(n,p_{\rm succ})$$。证明 (20.13) 的估计量满足 (20.14)，即
 
 $$
 \mathbb{E}\Big[1-\frac{\binom{n-c}{k}}{\binom{n}{k}}\Big]=1-(1-p_{\rm succ})^k
@@ -809,6 +793,10 @@ $$
 
 </details>
 
-**编程题.** 实现“局部典型采样”（locally typical sampling）：对每个位置的分布计算熵 $$H=-\sum_v p_v\log p_v$$，按 $$|-\log p_v-H|$$ 从小到大排序，保留累积概率首次达到给定阈值（例如 0.95）的最小前缀，再重新归一化采样。在本章的玩具模型上比较它与 Min-p 的结束率、唯一序列比例与 pass@8，并解释差异。
+### 习题 2（编程）
 
-**开放题.** 为以下三个产品各选一套解码配置，并说明你会用什么指标验证： (1) 代码补全插件；(2) 创意写作助手；(3) 从用户自然语言生成 JSON 的接口。对每个产品，至少讨论温度、Top-p/Min-p、重复惩罚、约束解码与 pass@k 的作用，以及你会放弃什么。
+实现“局部典型采样”（locally typical sampling）：对每个位置的分布计算熵 $$H=-\sum_v p_v\log p_v$$，按 $$|-\log p_v-H|$$ 从小到大排序，保留累积概率首次达到给定阈值（例如 0.95）的最小前缀，再重新归一化采样。在本章的玩具模型上比较它与 Min-p 的结束率、唯一序列比例与 pass@8，并解释差异。
+
+### 习题 3（开放思考）
+
+为以下三个产品各选一套解码配置，并说明你会用什么指标验证： (1) 代码补全插件；(2) 创意写作助手；(3) 从用户自然语言生成 JSON 的接口。对每个产品，至少讨论温度、Top-p/Min-p、重复惩罚、约束解码与 pass@k 的作用，以及你会放弃什么。

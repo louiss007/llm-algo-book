@@ -6,11 +6,7 @@
 
 ## 难度标签
 
-⭐⭐⭐⭐ 研究向
-
-- 数学：策略梯度、基线、重要性采样、PPO 裁剪、KL 估计与有限样本偏差；
-- 代码：PyTorch，理解第 16 章 PPO 的 rollout 与裁剪目标、第 17 章 DPO 的离线偏好训练；
-- 系统：大规模 rollout 的吞吐、显存与推理引擎接口。
+⭐⭐⭐⭐ 研究向 ｜ 数学要求：策略梯度、基线、重要性采样、PPO 裁剪、KL 估计与有限样本偏差 ｜ 代码要求：PyTorch，理解第 16 章 PPO 的 rollout 与裁剪目标、第 17 章 DPO 的离线偏好训练 ｜ 系统要求：大规模 rollout 的吞吐、显存与推理引擎接口
 
 ## 学习目标
 
@@ -331,7 +327,6 @@ import torch.nn.functional as F
 
 from tinylm.posttrain import ppo as P
 
-
 @dataclass(frozen=True)
 class GRPOConfig:
     """GRPO 训练脚本参数，不进入 ``ModelConfig``。"""
@@ -364,7 +359,6 @@ class GRPOConfig:
         assert self.temperature > 0.0
         assert self.max_grad_norm > 0.0
 
-
 def group_advantages(rewards, group_size, normalize_std=True,
                      leave_one_out=False, eps=1e-4):
     """(18.4)–(18.6)：组内均值基线，可选除以组内标准差。
@@ -390,12 +384,10 @@ def group_advantages(rewards, group_size, normalize_std=True,
         centered = centered / (scale + eps)
     return centered.view(-1)
 
-
 def zero_variance_groups(rewards, group_size, eps=1e-6):
     """(18.12)：返回 ``(B,)`` 布尔张量，标记全对或全错的组。"""
     groups = rewards.view(-1, group_size)
     return groups.std(dim=1, unbiased=False) < eps
-
 
 def mixed_group_probability(p, group_size):
     """(18.12)：组内既有正确又有错误回答的概率。
@@ -404,7 +396,6 @@ def mixed_group_probability(p, group_size):
     两者都给出零优势。只有混合组提供策略梯度。
     """
     return 1.0 - p ** group_size - (1.0 - p) ** group_size
-
 
 @torch.no_grad()
 def sample_groups(policy, prompts, cfg, generator):
@@ -426,7 +417,6 @@ def sample_groups(policy, prompts, cfg, generator):
             break
     return seqs, seqs != cfg.pad_id
 
-
 def tempered_logprobs(model, seqs, attn, temperature=1.0):
     """(18.7)：与采样温度一致的逐 Token 对数概率，形状 ``(B, T)``。"""
     logits = model(seqs, attention_mask=attn).logits[:, :-1] / temperature
@@ -435,7 +425,6 @@ def tempered_logprobs(model, seqs, attn, temperature=1.0):
     out = logp.gather(-1, target[..., None]).squeeze(-1)
     out = torch.where(attn[:, 1:], out, torch.zeros_like(out))
     return F.pad(out, (1, 0))
-
 
 def grpo_loss(logp, old_logp, adv, mask, ref_logp=None, beta=0.0,
               clip_low=0.2, clip_high=0.2, token_level=True):
@@ -475,7 +464,6 @@ def grpo_loss(logp, old_logp, adv, mask, ref_logp=None, beta=0.0,
         diagnostics["kl"] = float(kl.detach())
     return loss, diagnostics
 
-
 def answer_positions(seqs, prompt_len, pad_id=0, eos_id=4):
     """返回每条响应中最后一个非 padding、非 EOS 的 Token 位置。"""
     positions = torch.arange(seqs.size(1), device=seqs.device)[None, :]
@@ -484,7 +472,6 @@ def answer_positions(seqs, prompt_len, pad_id=0, eos_id=4):
     reverse = valid.long().flip(-1).argmax(dim=-1)
     idx = seqs.size(1) - 1 - reverse
     return torch.where(has, idx, torch.full_like(idx, -1))
-
 
 def verifiable_reward(seqs, prompt_len, targets, mode="final",
                       pad_id=0, eos_id=4):
@@ -518,14 +505,11 @@ PROMPT_LEN = 4
 N_PROMPTS = 10
 SEEDS = (0, 1, 2)
 
-
 def prompt(a):
     return [BOS, Q, DIGIT0 + a, SEP]
 
-
 def answer(a):
     return DIGIT0 + ((a + 3) % 10)
-
 
 def sft_example(a, gen, p_correct=0.3):
     """弱监督数据：只有 30% 的答案正确，其余从数字词表随机抽取。"""
@@ -537,7 +521,6 @@ def sft_example(a, gen, p_correct=0.3):
     labels[-2] = EOS          # 第 5 个位置（答案）预测 EOS
     return {"input_ids": torch.tensor(ids), "labels": torch.tensor(labels),
             "attention_mask": torch.ones(len(ids), dtype=torch.bool)}
-
 
 def collate(examples):
     n = max(e["input_ids"].numel() for e in examples)
@@ -551,14 +534,12 @@ def collate(examples):
         mask[i, :k] = True
     return ids, labels, mask
 
-
 def make_model(seed):
     torch.manual_seed(seed)
     cfg = ModelConfig(vocab_size=16, d_model=32, n_layers=2, n_heads=4,
                       d_ff=128, max_seq_len=32, pos_encoding="rope",
                       norm="rmsnorm", ffn="swiglu", bias=False)
     return TinyLM(cfg), cfg
-
 
 def train_sft(model, seed, steps=50, p_correct=0.3):
     gen = torch.Generator().manual_seed(1000 + seed)
@@ -572,7 +553,6 @@ def train_sft(model, seed, steps=50, p_correct=0.3):
         opt.zero_grad()
         out.loss.backward()
         opt.step()
-
 
 @torch.no_grad()
 def greedy_accuracy(model, prompts=None):
@@ -590,7 +570,6 @@ def greedy_accuracy(model, prompts=None):
     goals = torch.tensor([answer(x) for x in a])
     return float(G.verifiable_reward(seqs, PROMPT_LEN, goals).mean())
 
-
 @torch.no_grad()
 def sampled_accuracy(model, seed, group_size=8):
     """用固定评测种子采 ``group_size`` 条，返回 pass@1 与 pass@G。"""
@@ -602,7 +581,6 @@ def sampled_accuracy(model, seed, group_size=8):
     rew = G.verifiable_reward(seqs, PROMPT_LEN, goals.repeat_interleave(group_size))
     rew = rew.view(N_PROMPTS, group_size)
     return float(rew.mean()), float(rew.any(1).float().mean())
-
 
 def train_grpo(sft_state, cfg, gcfg, seed, rounds=300, batch=16):
     policy = TinyLM(cfg)
@@ -645,13 +623,11 @@ def train_grpo(sft_state, cfg, gcfg, seed, rounds=300, batch=16):
                 opt.step()
     return policy, sum(rew_hist) / len(rew_hist), sum(zero_hist) / len(zero_hist)
 
-
 VARIANTS = (
     ("G=1", dict(group_size=1)),
     ("G=4", dict(group_size=4)),
     ("G=8", dict(group_size=8)),
 )
-
 
 def main():
     t0 = time.time()
@@ -688,7 +664,6 @@ def main():
         print(f"{name:<11}{sum(g3)/len(g3):>7.2f}"
               f"{sum(p1)/len(p1):>8.2f}{sum(p8)/len(p8):>8.2f}")
     print(f"total {time.time()-t0:.1f}s")
-
 
 if __name__ == "__main__":
     main()
@@ -793,16 +768,15 @@ Kimi k1.5 把 RL 的训练上下文扩展到 128k，使用部分 rollout（parti
 
 ## 18.7 论文导读
 
-1. **Shao et al., 2024. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models.** arXiv:2402.03300。读第 4 节，重点是 GRPO 的目标函数、组内优势与“去掉价值网络”的动机；第 5 节的数学实验结果可以对照本章的玩具实验。
+**1. Shao et al., 2024. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models.** arXiv:2402.03300。读第 4 节，重点是 GRPO 的目标函数、组内优势与“去掉价值网络”的动机；第 5 节的数学实验结果可以对照本章的玩具实验。
 
-2. **DeepSeek-AI, 2025. DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning.** arXiv:2501.12948。读第 2.2–2.3 节与图 2–3：R1-Zero 的纯 RL 流程、AIME 曲线、回答长度增长与“顿悟时刻”；第 2.4 节的多阶段流程解释了为什么最终系统仍然需要 SFT。
+**2. DeepSeek-AI, 2025. DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning.** arXiv:2501.12948。读第 2.2–2.3 节与图 2–3：R1-Zero 的纯 RL 流程、AIME 曲线、回答长度增长与“顿悟时刻”；第 2.4 节的多阶段流程解释了为什么最终系统仍然需要 SFT。
 
-3. **Yu et al., 2025. DAPO: An Open-Source LLM Reinforcement Learning System at Scale.** arXiv:2503.14476。读第 3 节的四项技术（clip-higher、动态采样、Token 级损失、超长奖励塑形）与第 4 节的消融；注意它如何把本章的 (18.11) 与 (18.12) 变成工程约束。
+**3. Yu et al., 2025. DAPO: An Open-Source LLM Reinforcement Learning System at Scale.** arXiv:2503.14476。读第 3 节的四项技术（clip-higher、动态采样、Token 级损失、超长奖励塑形）与第 4 节的消融；注意它如何把本章的 (18.11) 与 (18.12) 变成工程约束。
 
-4. **Liu et al., 2025. Understanding R1-Zero-Like Training: A Critical Perspective.** arXiv:2503.20783（Dr. GRPO）。读第 3 节对长度归一化与标准差归一化的偏差分析；这篇论文适合与本章 18.3.5 对照阅读，理解“看似中性的归一化”如何改变优化目标。
+**4. Liu et al., 2025. Understanding R1-Zero-Like Training: A Critical Perspective.** arXiv:2503.20783（Dr. GRPO）。读第 3 节对长度归一化与标准差归一化的偏差分析；这篇论文适合与本章 18.3.5 对照阅读，理解“看似中性的归一化”如何改变优化目标。
 
-5. **Zheng et al., 2025. Group Sequence Policy Optimization.** arXiv:2507.18071（GSPO）。读第 2–3 节的序列级重要性比与裁剪；它解决的是长思维链下 Token 级比率的方差问题，适合与 DAPO 的 Token 级方案对比。
-
+**5. Zheng et al., 2025. Group Sequence Policy Optimization.** arXiv:2507.18071（GSPO）。读第 2–3 节的序列级重要性比与裁剪；它解决的是长思维链下 Token 级比率的方差问题，适合与 DAPO 的 Token 级方案对比。
 
 ## 18.8 常见误区
 
@@ -841,7 +815,9 @@ RLVR 用“规则验证”换掉了“人类偏好”。它放弃了奖励的通
 
 ## 18.10 习题
 
-**推导题**：设组内奖励独立同分布、均值为 $$\mu$$。证明包含自身的组均值基线满足 (18.5)，并证明留一法基线 (18.6) 无偏。进一步证明：若所有奖励相同，则 (18.4) 的优势为零；并利用 (18.12) 说明 $$G=1$$ 时混合组概率为零。
+### 习题 1（推导）
+
+设组内奖励独立同分布、均值为 $$\mu$$。证明包含自身的组均值基线满足 (18.5)，并证明留一法基线 (18.6) 无偏。进一步证明：若所有奖励相同，则 (18.4) 的优势为零；并利用 (18.12) 说明 $$G=1$$ 时混合组概率为零。
 
 <details>
 <summary>参考答案</summary>
@@ -885,6 +861,10 @@ $$
 
 </details>
 
-**编程题**：在 `examples/ch18_grpo.py` 中加入动态采样：过滤 `zero_variance_groups` 标记的组，并重新采样提示直到凑满批大小；比较开启前后每个梯度步的有效样本数、零方差组比例与最终贪心正确率。注意“过滤后丢弃”与“过滤后补采”是两种不同实现，前者会减少更新次数，后者才保持批大小不变。
+### 习题 2（编程）
 
-**开放题**：设计一个实验区分“RLVR 教会了模型新推理”与“RLVR 只是重加权了基座模型已有的能力”。要求至少包含：基座模型与 RL 模型在 pass@1 与 pass@k（$$k$$ 取 1、8、64）上的对照；对回答长度与格式的匹配控制；一个与训练分布不同的留出任务；以及对验证器覆盖范围的讨论。说明你的实验在什么结果下支持“新能力”，在什么结果下支持“重加权”。
+在 `examples/ch18_grpo.py` 中加入动态采样：过滤 `zero_variance_groups` 标记的组，并重新采样提示直到凑满批大小；比较开启前后每个梯度步的有效样本数、零方差组比例与最终贪心正确率。注意“过滤后丢弃”与“过滤后补采”是两种不同实现，前者会减少更新次数，后者才保持批大小不变。
+
+### 习题 3（开放思考）
+
+设计一个实验区分“RLVR 教会了模型新推理”与“RLVR 只是重加权了基座模型已有的能力”。要求至少包含：基座模型与 RL 模型在 pass@1 与 pass@k（$$k$$ 取 1、8、64）上的对照；对回答长度与格式的匹配控制；一个与训练分布不同的留出任务；以及对验证器覆盖范围的讨论。说明你的实验在什么结果下支持“新能力”，在什么结果下支持“重加权”。

@@ -668,17 +668,246 @@
 - `speculative_decode` 每轮重算目标前向，未复用 KV Cache；这样代码最短、验证最直接，但不能作为吞吐基准。
 - 实验固定随机源；无损性误差与接受率、接受数模拟与理论值、回滚误差 `2.98e-08` 均写入正文，玩具结论明确标注不可外推。
 
-## 下一章待实现
+## 第 23 章变更
 
-第 23 章《量化》在第 21、22 章之上展开。待定内容：
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/inference/quant.py` | 章节内嵌实现 | `QuantConfig`（冻结 dataclass，校验比特数、粒度与组大小）；`QuantizedTensor`；`qrange`、`quant_params`、`quantize`/`dequantize`、`fake_quant`；`sqnr_db`、`theoretical_sqnr`、`quantization_error`；`storage_bits`、`compression_ratio`；`pack_int4`/`unpack_int4`；`quantized_linear`；`gptq_quantize`；`smooth_scale`/`smooth_quant`；`kv_quantize`、`attention_sqnr` |
+| `tests/test_quant.py` | 章节内嵌实现 | 16 个用例：配置校验、整数范围、舍入上界、非对称端点、粒度单调、任意形状与填充、假量化往返、每比特约 6 dB、INT4 打包、存储公式、量化线性层、GPTQ 优于 RTN、SmoothQuant 降误差、KV 逐通道优于逐 Token、零张量安全、布局保持 |
+| `examples/ch23_quant.py` | 章节内嵌实现 | 粒度与比特扫描、INT4 打包账本、GPTQ 对比 RTN、SmoothQuant 的 $$\alpha$$ 扫描、KV 粒度对比、TinyLM 权重仅量化、7B 带宽账本 |
 
-- 对称/非对称量化、逐张量/逐通道/逐组粒度的定点表示与反量化，以及零点、缩放因子的选择；
-- 训练后量化（PTQ）与量化感知训练（QAT），权重、激活与 KV Cache 量化的误差来源；
-- 低比特格式（INT8/INT4、FP8、NF4）与第 15 章 QLoRA 的 NF4 实现衔接，避免重复造轮子；
-- 量化对第 21 章带宽下界与第 22 章草稿/目标分布对齐的影响：草稿模型量化会降低接受率，目标模型量化会改变验证分布；
-- 困惑度、任务准确率与端到端延迟的联合评测，不能只报压缩率或只报困惑度。
+配置与状态：
 
-第 23 章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名；量化逻辑放在新模块或新配置开关中；KV Cache 量化必须与第 21 章的 `KVCache` 数据布局兼容，并与第 22 章的接受率测量共用固定采样配置。具体模块名与文件名在开工前按 CLAUDE.md、SUMMARY.md 与附录 F 确认。
+| 字段/属性 | 默认值 | 第 23 章行为 |
+| --- | --- | --- |
+| `QuantConfig.bits` | `8` | 允许 2–8；对称量化 `qmax=2^(b-1)-1`，非对称用满 `2^b` |
+| `QuantConfig.granularity` | `"channel"` | `tensor`/`channel`/`group`；任意形状按最后两维整理成“行 × 组” |
+| `QuantConfig.group_size` | `64` | 仅 `granularity="group"` 时生效，要求 ≥ 2；不能被整除时先右侧补零再截掉 |
+| `QuantConfig.symmetric` | `True` | 对称时零点为 0、码点存 `int8`；非对称存 `uint8` 与零点 |
+| `QuantConfig.eps` | `1e-8` | 全零组的下限，保证缩放因子非零 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 量化只操作张量；`QuantConfig` 不进入 `ModelConfig`；示例在模型外对权重做 `fake_quant` |
+
+实现要点：
+
+- `_group_view`/`_ungroup` 把任意形状的最后两维临时整理成 `(行, 组, 组内元素)`；逐张量与逐通道分别视为单组与“组大小等于输入维度”的逐组，反量化按同一元信息还原。
+- 对称量化 `zero` 恒为零张量，反量化仍需减去它，以保持与 `quantize` 返回的三元组接口一致；非对称零点在 `qmin..qmax` 内取整。
+- `pack_int4` 把 `[-8,7]` 两两塞进 `uint8`，奇数长度补一个零码点；`unpack_int4` 按 `numel` 截断，并做二补码还原。
+- `gptq_quantize` 只支持逐通道对称量化；对 Hessian 的零对角做 dead-column 处理，加阻尼后 Cholesky 求逆，再逐列量化并按 `Hinv` 补偿剩余列；输入维度为 4096 时直接求逆不可行，工业实现需分块。
+- `kv_quantize(per_channel=True)` 先转置最后两维，使“按通道”变成“按行”，量化后再转置回来；示例中 K 用逐通道、V 用逐 Token。
+- `attention_sqnr` 用同一组 Q 比较 FP16 与量化后的注意力输出，直接测量误差进入 Softmax 后的影响。
+- 实验固定随机源；除 TinyLM 训练耗时（示例中约 8.7 s）与 pytest 计时外，数字逐字可复现；带宽账本为理想下界，正文已标注不可当作实测加速比。
+
+## 第 24 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/inference/search.py` | 章节内嵌实现 | `SearchConfig`（冻结 dataclass，校验样本数、Token 上限、温度、投票方式、最小样本数、停止阈值与 PUCT 系数）；`SearchResult`；`coverage_probability`、`pass_at_k`、`majority_accuracy`、`majority_vote`、`best_of_n`、`selection_accuracy`、`should_stop`、`self_consistency`、`token_cost`、`puct_score`；`TreeNode`、`tree_search` |
+| `tests/test_search.py` | 章节内嵌实现 | 18 个用例：配置校验、覆盖率边界与蒙特卡洛、pass@k 端点、投票单调方向、平局、加权投票、Best-of-N 平局、选择率端点、提前停止、预算耗尽、PUCT 公式、预算为 0、陷阱树、终止节点 |
+| `examples/ch24_search.py` | 章节内嵌实现 | 覆盖率、投票、验证器选择、陷阱树、TinyLM 链式算术、提前停止六组实验 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 24 章行为 |
+| --- | --- | --- |
+| `SearchConfig.max_samples` | `16` | 单次请求最多采样条数；预算耗尽时收束 |
+| `SearchConfig.max_tokens` | `512` | 每条样本的输出上限，用于成本记账 |
+| `SearchConfig.temperature` | `1.0` | 采样温度；示例固定为 1.0 |
+| `SearchConfig.vote` | `"majority"` | `majority` 等权投票；`weighted` 使用 `sample_fn` 返回的权重 |
+| `SearchConfig.min_samples` | `2` | 提前停止前必须达到的样本下限 |
+| `SearchConfig.stop_margin` | `0.0` | 0 表示不提前停止；否则要求最高分与次高分之差 ≥ 阈值 |
+| `SearchConfig.c_puct` | `1.0` | PUCT 探索系数；示例陷阱树用 2.0 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 搜索逻辑全部在模型外；`SearchConfig` 不进入 `ModelConfig` |
+
+实现要点：
+
+- `margin` 用分数差而不是票数差，因为加权投票时“票数”不再等价于“分数”；平分时 `majority_vote` 取最早出现的答案，保证确定性。
+- `majority_vote` 的 `counts` 保留原始出现次数，`scores` 保留加权和；两者都写入 `SearchResult`，便于示例与测试分别检查。
+- `self_consistency` 每采一条就重新计票，因此提前停止只看当前结果；预算耗尽时返回最后一次计票，不额外采样。
+- `selection_accuracy` 用成对判别近似：给定 $$k$$ 条正确候选，最高分正确的概率取 $$kq/(kq+(N-k)(1-q))$$；$$q=1$$ 退化为覆盖率，$$q=0.5$$ 退化为单次成功率。正文明确标注这是近似，不是精确的排序模型。
+- `tree_search` 在展开内部节点后按先验下探一个子节点；预算只计 `value_fn` 调用，展开本身不计。最佳状态在所有被评估的节点上跟踪，而不是只看根的子节点。
+- 树搜索没有复用 KV Cache；`state` 是不透明对象，示例用字符串。真实实现需要树形注意力掩码、按分支保留的 KV 块与第 22 章的回滚工具，本节只验证搜索策略本身。
+- 实验固定随机源；除 TinyLM 训练耗时（示例约 5–12 s，随机器负载变化）与 pytest 计时外，输出逐字可复现。
+
+## 第 25 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/multimodal.py` | 章节内嵌实现 | `VisionConfig`（冻结 dataclass，校验分辨率整除切块、维度整除头数、池化与投影类型）；`image_token_count`、`attention_multiplier`；`PatchEmbed`、`VisionEncoder`；`TokenResampler`、`Projector`；`MultimodalTinyLM`；`contrastive_loss`、`vq_quantize`、`vq_loss` |
+| `tests/test_multimodal.py` | 章节内嵌实现 | 12 个用例：Token 计数与合并、注意力倍数、卷积切块等于线性分块、池化形状、三种投影、占位符数量校验、梯度路径、冻结视觉塔、答案位损失、对比损失排序、VQ 最近邻与损失 |
+| `examples/ch25_multimodal.py` | 章节内嵌实现 | Token 预算表、InfoNCE 数值、VQ 码本扫描、12×12 合成视觉问答的五组配置与去图像对照 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 25 章行为 |
+| --- | --- | --- |
+| `VisionConfig.image_size` | `12` | 合成图边长；必须被 `patch_size` 整除 |
+| `VisionConfig.patch_size` | `3` | 切块边长；示例另跑 2、6 |
+| `VisionConfig.in_channels` | `3` | RGB 通道数 |
+| `VisionConfig.d_vision` | `32` | 视觉塔隐藏维度 |
+| `VisionConfig.n_layers` | `2` | 视觉塔 Pre-LN 块数 |
+| `VisionConfig.n_heads` | `4` | 视觉塔注意力头数；必须整除 `d_vision` |
+| `VisionConfig.mlp_ratio` | `2.0` | 视觉塔 FFN 宽度倍率 |
+| `VisionConfig.pool` | `"tokens"` | `tokens` 保留块序列；`cls` 只取 CLS |
+| `VisionConfig.projector` | `"mlp"` | `linear` / `mlp` / `resampler` |
+| `VisionConfig.n_queries` | `8` | 重采样器的可学习查询数，对应 (25.7) 的 $$M$$ |
+| `MultimodalTinyLM.image_token_id` | 构造参数 | 文本序列中的图像占位符 ID，示例为 2 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 视觉分支全部在 `MultimodalTinyLM` 与 `VisionConfig`；`VisionConfig` 不进入 `ModelConfig` |
+
+实现要点：
+
+- `MultimodalTinyLM` 用一次性的 `tok_emb.register_forward_hook` 把占位符位置的嵌入替换为投影后的视觉特征，再调用原 `TinyLM.forward`；这是教学环境的兼容方案，正文明确说明生产实现应在嵌入层内完成拼接，避免依赖 hook 的注册顺序。
+- 占位符数量必须逐行等于视觉 Token 数，否则抛 `ValueError`；不做静默截断或广播，防止图文错位被训练损失掩盖。
+- `Projector` 在 `z.dim()==2` 时补一个 Token 维，使 `pool="cls"` 的 `(B, d_v)` 与 `pool="tokens"` 的 `(B, N_p, d_v)` 共用同一接口。
+- `image_token_count` 同时负责 (25.1) 的切块计数与 (25.7) 的合并压缩；`merge` 必须整除块数，示例用 `merge=2` 演示 4 倍压缩。
+- `attention_multiplier` 只记注意力打分与前后的二次项，不含 FFN 与投影；正文用它给预填充算力下界，不当作端到端加速比。
+- `contrastive_loss` 返回对称 InfoNCE 的平均；温度必须为正，示例用 `τ=0.07` 与 `τ=1.0` 对照随机配对与对齐配对。
+- `vq_quantize` 用展开的平方距离公式，不依赖 `cdist`；`vq_loss` 对码本项与承诺项分别 detach，系数为 `beta`。
+- 冻结视觉塔通过 `requires_grad_(False)` 实现；示例中冻结的是随机初始化塔，正文已注明不得外推为“预训练视觉塔冻结”的结论。
+- 训练与推理全部 CPU 单线程可跑；示例固定数据种子与模型种子，除训练耗时外输出逐字可复现。
+
+## 第 26 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/agent/loop.py` | 章节内嵌实现 | `AgentConfig`（步数/上下文/重复/观测长度/错误即停）、`ToolSpec`、`ToolCall`、`FinalAction`、`AgentStep`、`AgentResult`；`validate_arguments`、`ToolRegistry`、`extract_json_object`、`parse_action`、`estimate_tokens`、`run_agent`；`trajectory_cost`、`result_cost`、`retry_success`、`task_success`、`value_of_information` |
+| `tests/test_agent.py` | 章节内嵌实现 | 15 个用例：配置校验、带推理的 JSON 解析、歧义/畸形动作拒绝、未知工具、参数缺失/多余/类型错误、工具异常转观测、正常作答、步数上限、重复拦截、错误即停、上下文上限、观测截断、重试与任务公式端点、成本复算、VoI 与 Token 估算 |
+| `examples/ch26_agent.py` | 章节内嵌实现 | 两步工具调用、重复拦截、参数校验、最小权限与过度授权的注入对照、2 万次蒙特卡洛核对 (26.8)/(26.9)、深度—成本表、VoI 对照 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 26 章行为 |
+| --- | --- | --- |
+| `AgentConfig.max_steps` | `6` | 循环步数上限；达到后以 `max_steps` 停止 |
+| `AgentConfig.max_context_tokens` | `4096` | 每步开始前检查；超限以 `context_limit` 停止，且不产生该步动作 |
+| `AgentConfig.max_repeat` | `2` | 同一 `(工具名, 参数 JSON)` 的最大执行次数，超出返回错误观测 |
+| `AgentConfig.max_observation_chars` | `512` | 观测 JSON 超过该长度时返回 `truncated` 预览 |
+| `AgentConfig.stop_on_tool_error` | `False` | 为 `True` 时，解析错误或工具错误立即以 `tool_error` 停止 |
+| `ToolSpec.parameters` | 无默认 | 参数名到 `str/int/float/bool` 的映射；执行前校验缺参、多参与类型 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 智能体模块不依赖模型；策略以 `Callable[[str], str]` 注入 |
+
+实现要点：
+
+- 循环只依赖 Python 标准库，单进程、无网络可跑；`policy` 与 `ToolRegistry` 完全解耦，脚本策略只验证控制流，不代表模型能力。
+- 动作协议为“推理文本 + 单个 JSON 对象”：`{"tool": ..., "args": {...}}` 或 `{"answer": ...}`；`extract_json_object` 用 `JSONDecoder.raw_decode` 从第一个合法 `{` 开始解析，允许前后有自然语言。
+- 解析失败、未知工具、参数非法与工具异常都转成 `{"ok": false, ...}` 观测回填，主循环不因单个工具崩溃；`stop_on_tool_error` 决定是否立刻终止。
+- 重复调用检测以 `(name, sort_keys 后的 args JSON)` 为键；超过 `max_repeat` 时拒绝执行，但仍把错误观测写回上下文，让策略有机会换动作。
+- 上下文按 (26.5) 追加 `action` 与 `observation`；每步记录 `context_tokens` 与 `action_tokens`，`result_cost` 用 (26.7) 复算，默认 `c_in=1.0, c_out=4.0`。
+- `estimate_tokens` 按 UTF-8 字节数除以 4 估算，只用于相对账本；接入真实模型时应替换为模型分词器。
+- `ToolRegistry.execute` 先校验参数再调用函数，避免非法参数触发副作用；工具返回值统一包成 `{"ok": true, "result": ...}` 并按字符数截断。
+- 接 TinyLM 的方式是把 `model.generate` 与解码包成 `policy(context)`，不需要改 `TinyLM.forward`；系统提示应包含 `registry.describe()`、动作格式、数据/指令边界与最大生成长度。
+- 示例中的 `delete_file` 是演示桩，不触碰文件系统；`safe_calc` 用 AST 白名单实现，不调用 `eval`。
+- 最小权限演示：不注册 `delete_file` 时，注入触发的删除调用得到 `unknown tool`；注册后才执行演示桩。这是权限边界，不是模型层面的注入防御。
+
+## 第 27 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/eval/metrics.py` | 章节内嵌实现 | `accuracy`、`macro_f1`、`pass_at_k`、`binomial_se`、`wilson_interval`、`paired_bootstrap_diff`、`mcnemar_test`、`expected_calibration_error`、`ngrams`、`contamination_rate`、`bradley_terry_prob`、`elo_update`、`cohen_kappa`、`cost_aware_utility` |
+| `tests/test_eval.py` | 章节内嵌实现 | 12 个用例：准确率、macro-F1、pass@k、标准误、Wilson 区间、配对 bootstrap、McNemar、ECE、n-gram 污染、BT/Elo、kappa、成本效用及边界错误 |
+| `examples/ch27_eval.py` | 章节内嵌实现 | 1000 题确定性配对比较、pass@k 公式与 2 万次模拟对照、n-gram 污染、裁判位置偏差、ECE、kappa、macro-F1 与成本效用 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 27 章行为 |
+| --- | --- | --- |
+| 评测样本输入 | 逐样本序列 | 所有指标接收等长的预测/标签或逐次结果；空输入与长度不一致直接报错 |
+| `paired_bootstrap_diff.n_boot` | `4000` | 重采样次数；示例 4000 次，测试可调小 |
+| `paired_bootstrap_diff.level` | `0.95` | 百分位区间水平 |
+| `paired_bootstrap_diff.seed` | `0` | 固定种子，保证区间可复现 |
+| `expected_calibration_error.n_bins` | `10` | 置信度分箱数；等宽分箱 |
+| `contamination_rate.n` | `13` | n-gram 长度；示例对照 5 与 13 |
+| `elo_update.k` | `32.0` | 单场 Elo 更新幅度 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 评测模块不依赖模型，只接收结果 |
+
+实现要点：
+
+- 纯标准库；不依赖 NumPy，单进程 CPU 可跑，适合作为评测脚本的最小内核。
+- `accuracy` 与 `macro_f1` 统一检查空输入与长度不一致；宏平均对类别等权，微平均留给上层按需实现。
+- `pass_at_k` 用组合数实现无放回精确估计 (27.3)，不做 `1-(1-p)^k` 近似；`k`、`c` 越界报错。
+- `wilson_interval` 把上下界截断到 `[0,1]`；`binomial_se` 在 `p=0` 或 `1` 时返回 0。
+- `paired_bootstrap_diff` 对逐样本差值重采样，保留配对结构；返回值依次为观测差、下界、上界。
+- `mcnemar_test` 用精确二项尾概率并截断到 1；只适用于二分类的配对结果。
+- `expected_calibration_error` 采用等宽分箱；置信度必须落在 `[0,1]`，空桶不参与加权。
+- `contamination_rate` 先把训练文档的 n-gram 并入集合，再统计评测文档命中比例；Token 序列必须可哈希。
+- `bradley_terry_prob` 使用 Elo 尺度（400 分母），与 `elo_update` 保持一致；分数不是绝对能力。
+- `cohen_kappa` 在机会一致率为 1 时返回 1；空输入报错。
+- 示例中的配对数据是构造的确定性样本，不代表真实模型；位置偏差与 pass@k 是模拟，正文已注明。
+
+## 第 28 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `tinylm/interpret/core.py` | 章节内嵌实现 | `logit_margin`、`linear_probe_accuracy`、`probe_selectivity`、`attention_maps`、`ablate_heads`、`activation_at`、`patched_output`、`recovery`、`SparseAutoencoder`、`train_sae`、`sae_metrics`、`feature_purity`、`project_out`、`ablated_direction` |
+| `tests/test_interpret.py` | 章节内嵌实现 | 15 个用例：logit margin、线性探针、选择性、注意力归一化与因果性、MLA 拒绝、hook 恢复、激活形状、恢复率端点、SAE 形状/范数/训练、特征纯度、方向投影与方向消融 |
+| `examples/ch28_interpret.py` | 章节内嵌实现 | 复制首 Token 任务、层 1 线性探针与打乱标签对照、位置交换因果测试、注意力图、单头/组消融、激活修补位点扫描、SAE 的 λ 网格与特征投影 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 28 章行为 |
+| --- | --- | --- |
+| 解释模块位置 | `tinylm/interpret/` | 只读分析与临时 hook；不改变前向默认路径 |
+| `linear_probe_accuracy.steps` | `300` | 线性探针训练步数；测试可调小 |
+| `linear_probe_accuracy.lr` | `1e-2` | 探针学习率 |
+| `SparseAutoencoder.dict_size` | `128` | 字典大小 $$K$$；示例用 128 |
+| `train_sae.l1` | `0.02` | 稀疏系数 $$\lambda$$；示例扫描 0/0.005/0.02/0.05 |
+| `train_sae.steps` | `1200` | SAE 训练步数 |
+| `attention_maps.layer` | 无 | 指定层；要求模块具备 `q_proj`、`k_proj`、`n_heads`、`n_kv_heads`、`d_head`，MLA 直接抛 `NotImplementedError` |
+| `ablate_heads(heads)` | 无 | 上下文管理器；退出时恢复原 forward，异常路径也不得残留 hook |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 解释工具不改变签名与默认输出 |
+
+实现要点：
+
+- 纯 PyTorch 与标准库；单进程 CPU 可跑，不依赖 Transformers、SAE 库或可视化库。
+- `logit_margin` 取目标 Token 与干扰 Token 的对数概率之差 (28.5)；目标与干扰相同时返回 0。
+- `linear_probe_accuracy` 用随机置换切分训练/测试，避免按类别切分造成测试集缺类；训练目标含权重衰减 (28.1)。
+- `probe_selectivity` 只做差值 (28.2)；显著性判断留给调用方，示例用打乱标签作为对照。
+- `attention_maps` 显式检查所需属性后再取用，MLA 的 `LatentAttention` 没有 `k_proj`，必须得到 `NotImplementedError` 而不是 `AttributeError`。
+- `ablate_heads`、`patched_output`、`ablated_direction` 均以 `contextmanager` 实现，在 `finally` 中恢复 hook 或激活。
+- `recovery` 严格按 (28.6)；`S_clean == S_corrupt` 时报错，避免除零。
+- `SparseAutoencoder` 训练后把解码器列归一化为单位长度；`train_sae` 返回的模型可直接用于 `sae_metrics` 与 `feature_purity`。
+- `sae_metrics` 返回重构 MSE、平均 L0 (28.8) 与死特征数；`feature_purity` 按每个样本的最大激活特征归属类别，再取多数类比例 (28.9)。
+- `project_out` 去掉指定方向上的分量；`ablated_direction` 只改指定位置的激活，用于特征级因果检查。
+- 示例中的复制任务、探针、注意力、消融、修补与 SAE 数字全部固定种子；负结果（特征投影几乎不改变准确率）必须保留。
+
+## 第 29 章变更
+
+| 文件 | 类型 | 说明 |
+| --- | --- | --- |
+| `examples/ch29_frontier.py` | 独立示例 | 不进入 `tinylm/` 包；`continual_run`（顺序/EWC/回放）、`collapse_trace`（纯合成与 10% 真实锚定）、`sparse_rl`（终端奖励/逐步验证器/势函数塑形）三组数值实验 |
+
+配置与状态：
+
+| 字段/属性 | 默认值 | 第 29 章行为 |
+| --- | --- | --- |
+| `TinyLM` 包 | 不变 | 本章不新增模块，也不修改任何已有模块 |
+| `TinyLM.forward` / `CausalLMOutput` / `ModelConfig` | 不变 | 签名与默认输出保持冻结 |
+| `continual_run.steps` | `500` | 每个任务的训练步数；示例固定 500 |
+| `continual_run.lam` | `1e4` | EWC 系数 $$\lambda$$ |
+| `train.rho` | `0.5` | 回放比例 $$\rho$$ |
+| `collapse_trace.N` | `100` | 每代样本数；方差收缩比为 $$(N-1)/N$$ |
+| `collapse_trace.alpha` | `0.0` | 真实数据比例；示例对照 0.0 与 0.1 |
+| `sparse_rl.steps` | `8` | 链长 $$K$$；每步独立伯努利 |
+| `sparse_rl.mode` | `"terminal"` | `terminal` / `step` / `potential` 三种奖励信号 |
+
+实现要点：
+
+- 纯 PyTorch 与标准库；单进程 CPU 约 8 秒，不依赖 Transformers 或任何 RL 库。
+- 持续学习用 2→64→64→1 的 Tanh MLP，任务标识作为第二维输入；先 A（$$\sin$$）后 B（$$\cos$$），比较顺序训练、EWC 与回放 (29.5)–(29.6)。
+- `fisher_diag` 按样本累加梯度平方再除以样本数，得到 Fisher 对角近似；`train` 中的惩罚项按 $$0.5\lambda\sum_iF_i(\theta_i-\theta_i^*)^2$$ 实现 (29.5)。
+- 回放按概率 $$\rho$$ 从旧任务缓冲采样，损失为混合形式 (29.6)；本实验直接复用 A 的全量数据，未实现缓冲淘汰。
+- 合成数据实验递归做最大似然：先采样、再估计均值与方差、再用估计分布采样下一代；`var` 用除以 $$N$$ 的样本方差，递推为 (29.8)；`alpha>0` 时混入标准正态真实样本，对应 (29.9)。
+- 稀疏奖励实验用独立伯努利策略，`terminal` 只给末端奖励 (29.1)–(29.2)；`step` 给每步 1 分；`potential` 以累计正确步数为势函数 $$\Phi$$，按 (29.4) 构造差分奖励，$$\gamma=1$$。
+- 报告解析成功率与 2 万次采样的经验成功率；两者一起给，避免把策略参数乘积误当成真实环境成功率。
+- 示例中的 MLP、一维高斯与 8 步链都是机制演示，不得外推为真实 LLM 的遗忘率、数据退化速度或 RL 样本效率；正文已写明玩具规模与边界。
+
+## 全书完成后的状态
+
+第 29 章是全书最后一章，没有第 30 章，也没有后续接口任务。全书 TinyLM 的冻结接口仍以 `appendix/f-tinylm.md` 为准：
+
+- `ModelConfig`、`CausalLMOutput` 与 `TinyLM.forward` 自第 2 章冻结以来未破坏签名；后续章节只通过可选字段与配置分派扩展能力。
+- 第 29 章不新增 TinyLM 模块，示例代码为独立脚本，可脱离 `tinylm/` 包单独运行。
+- 全书所有实验均可由固定种子复现；第 29 章的三组实验与正文输出逐字一致。
+- 若未来需要把前沿方向做成可运行模块，应另立新章节或附录，遵循同样的接口冻结与固定种子约束；时效性结论必须重新核对论文与发布材料。
 
 ## 验收门槛
 
@@ -909,3 +1138,76 @@
 - `ch22_speculative.py` 除耗时外必须逐字可复现；无损性误差、接受率、加速比账本、接受数模拟、回滚误差与 MTP 损失必须与正文一致；
 - 报告必须同时给出经验分布误差、接受率与理论值、加速比与最优 $$\gamma$$；不得只报加速比或只报一个负载的接受率；
 - 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`SpecConfig` 只作推理参数；玩具马尔可夫链与小模型的结论不得外推为真实模型的加速比。
+- `SearchConfig` 必须拒绝 `max_samples < 1`、`max_tokens < 1`、`temperature <= 0`、非法 `vote`、`min_samples < 2`、`stop_margin < 0`、`c_puct <= 0`；
+- `coverage_probability(p,1)==p`、`coverage_probability(p,n)` 对 $$n$$ 单调不减，且在 `p=0`/`p=1` 时分别为 0/1；
+- `pass_at_k(n,c,k)` 在 `k=1` 时等于 `c/n`，在 `n-c<k` 时等于 1，在 `c=0` 时等于 0；`k>n` 必须报错；
+- `majority_accuracy(p,n)` 在 `p=0.5` 时恒为 0.5；`p>0.5` 时随 $$n$$ 增大，`p<0.5` 时随 $$n$$ 减小；$$n$$ 必须为奇数；
+- `majority_vote` 平分时取最早出现的答案；加权投票的 `scores` 等于权重和，`counts` 等于出现次数；
+- `selection_accuracy(p,n,1)==coverage_probability(p,n)`、`selection_accuracy(p,n,0.5)==p`（误差小于 `1e-9`）；`q` 越界必须报错；
+- `self_consistency` 在预算耗尽时返回 `n_samples==max_samples`；满足停止条件时 `stopped_early==True` 且 `n_samples<=max_samples`；
+- `token_cost(cfg, prompt_tokens)` 必须等于 `max_samples*(prompt_tokens+max_tokens)`；
+- `puct_score` 与 (24.7) 逐位一致；`TreeNode.q` 在零访问时返回 0，否则等于价值平均；
+- `tree_search` 在 `budget=0` 时 `evaluations==0` 且不崩溃；在陷阱树上预算 12 必须找到价值 1.0 的节点；
+- `ch24_search.py` 除 TinyLM 训练耗时外必须逐字可复现；覆盖率、投票、验证器、陷阱树、链式算术与提前停止的数字必须与正文一致；
+- 报告必须同时给出覆盖率、选择率与预算（样本数/Token）；不得只报 pass@k 或只报最终准确率；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`SearchConfig` 只作推理参数；玩具结论不得外推为真实模型的温度、采样预算或验证器精度。
+- `VisionConfig` 必须拒绝 `image_size` 不被 `patch_size` 整除、`d_vision` 不被 `n_heads` 整除、非法 `pool`、非法 `projector`，以及 `resampler` 下 `n_queries < 1`；
+- `image_token_count(12,3)==16`、`image_token_count(12,3,2)==4`、`image_token_count(336,14)==576`、`image_token_count(448,14,2)==256`；合并数不整除块数必须报错；
+- `attention_multiplier(0,T)==1`、`attention_multiplier(N,T)==(1+N/T)^2`；文本长度为 0 必须报错；
+- `PatchEmbed` 的输出必须等于 `unfold` 后按 `patch_size` 展平再加权的线性投影（误差小于 `1e-6`）；
+- `VisionEncoder` 在 `pool="tokens"` 时返回 `(B,N_p,d_v)`，在 `pool="cls"` 时返回 `(B,d_v)`；
+- `Projector` 的 `linear`/`mlp` 保持 Token 数不变，`resampler` 把 Token 数压到 `n_queries`；
+- `MultimodalTinyLM.forward` 在给定 `pixel_values` 时必须改变 logits；每行占位符数与视觉 Token 数不等时必须抛 `ValueError`；
+- 反向传播必须到达 `projector` 与视觉塔；视觉塔参数 `requires_grad_(False)` 时其梯度必须为 `None`，而投影层仍有梯度；
+- 只给最后一个位置标签时，`out.loss` 必须等于该位置 logits 的交叉熵（误差小于 `1e-6`）；
+- `contrastive_loss` 必须对称，对齐配对的损失小于错位配对，非正温度必须报错；
+- `vq_quantize` 的索引必须是平方欧氏距离的 argmin，`vq_loss(zq,zq)==0`，维度不匹配必须报错；
+- `ch25_multimodal.py` 除训练耗时外必须逐字可复现；Token 预算、InfoNCE、VQ 与五组视觉问答的数字必须与正文一致；
+- 报告必须同时给出图像 Token 数、注意力倍数、参数量与至少 3 个种子的均值/标准差；不得只报最终准确率；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`VisionConfig` 不进入 `ModelConfig`；12×12 合成任务与随机初始化视觉塔的结论不得外推为真实多模态模型的分辨率、投影层或冻结策略。
+- `AgentConfig` 必须拒绝 `max_steps<1`、`max_context_tokens<1`、`max_repeat<1`、`max_observation_chars<1`；
+- `ToolSpec` 必须拒绝非法工具名、不可调用函数与非 `str/int/float/bool` 的参数类型；
+- `parse_action` 必须接受“推理 + 单个 JSON 对象”，拒绝无 JSON、同时含 `answer` 与 `tool`、`tool` 非字符串、`args` 非对象；
+- `ToolRegistry.execute` 必须把未知工具、缺参、多参、类型错误与工具异常都转成 `{"ok": false, ...}`，且非法参数不得调用底层函数；
+- 同一 `(工具名, 参数 JSON)` 超过 `max_repeat` 时必须返回 `repeated call rejected`；`max_steps`、`max_context_tokens` 与 `stop_on_tool_error` 必须分别以 `max_steps`、`context_limit`、`tool_error` 停止；
+- 观测超过 `max_observation_chars` 时必须返回 `truncated` 预览，且原始内容不得整段进入上下文；
+- `trajectory_cost` 必须等于 `c_in * ΣL_t + c_out * Σ|a_t|`；`result_cost` 必须与逐步记录一致；长度不等必须报错；
+- `retry_success(p,b)` 必须等于 `1-(1-p)^b`，`task_success(p,b,K)` 必须等于其 `K` 次幂；`p` 越界与 `b<1`/`K<1` 必须报错；
+- `value_of_information` 必须等于 `(u_after-u_before)/cost`，`cost<=0` 必须报错；
+- `ch26_agent.py` 必须逐字可复现（蒙特卡洛固定种子）；重试/任务成功率、深度—成本表、VoI 与注入对照的数字必须与正文一致；
+- 报告必须同时给出步数、上下文 Token、轨迹成本与停止原因；不得只报最终答案或成功率；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；`AgentConfig` 只作循环参数，策略通过 `Callable[[str], str]` 注入；脚本策略与 2 万次玩具模拟的结论不得外推为真实模型的任务成功率。
+- `accuracy` 与 `macro_f1` 必须拒绝空输入与长度不一致；macro-F1 在各类全对时为 1，在少数类全错时下降；
+- `pass_at_k` 必须满足 `c=0 → 0`、`n-c<k → 1`，并与组合数定义逐位一致；`k` 越界必须报错；
+- `binomial_se(p,n)` 必须等于 `sqrt(p(1-p)/n)`；`p∉[0,1]` 或 `n<1` 必须报错；
+- `wilson_interval` 必须包含点估计，且在 0/10 与 10/10 时贴住 `[0,1]` 边界；越界计数必须报错；
+- `paired_bootstrap_diff` 必须对逐样本差值重采样；全正差时区间退化为常数，长度不一致必须报错；
+- `mcnemar_test(b,c)` 在 `b=c` 时为 1，在 `b=0,c=10` 时等于精确二项尾概率；负计数必须报错；
+- `expected_calibration_error` 在完美校准时为 0，置信度越界必须报错；分箱数必须为正；
+- `contamination_rate` 必须统计“至少命中一个 n-gram”的评测文档比例；空评测集必须报错；`n` 必须为正；
+- `bradley_terry_prob` 在等分时为 0.5、分差 100 时约 0.640；`elo_update` 在等分对局时各变动 `K/2`；
+- `cohen_kappa` 在完全一致时为 1、在 80% 一致与 50% 机会一致时为 0.6；空输入必须报错；
+- `cost_aware_utility` 必须等于 `score - λ·cost`；负成本或负 λ 必须报错；
+- `ch27_eval.py` 必须逐字可复现（bootstrap 与模拟固定种子）；配对差、pass@k、污染、位置偏差、ECE、kappa 与效用的数字必须与正文一致；
+- 报告必须同时给出样本量、区间或 p 值、评测协议与污染检查；不得只报一个裸分；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；评测函数只接收逐样本结果；构造的确定性数据与模拟结论不得外推为真实基准分数。
+- `logit_margin` 必须等于目标与干扰 Token 的对数概率之差，形状为 `(B,)`；目标与干扰相同时必须为 0；
+- `linear_probe_accuracy` 在可分数据上接近 1，在打乱标签上接近 `1/C`；训练/测试必须随机切分，不得按类别切分；
+- `probe_selectivity` 必须等于探针准确率减对照准确率；输入越界必须报错；
+- `attention_maps` 每头权重最后一维和为 1、上三角为 0；缺少 `q_proj`/`k_proj`/`n_heads`/`n_kv_heads`/`d_head` 时必须抛 `NotImplementedError`（覆盖 MLA）；
+- `ablate_heads`、`patched_output`、`ablated_direction` 退出上下文后必须逐位恢复原输出；异常路径也不得留下 hook；
+- `recovery` 在 `S_patch=S_clean` 时为 1、在 `S_patch=S_corrupt` 时为 0；`S_clean==S_corrupt` 必须报错；
+- `SparseAutoencoder` 前向形状为 `(N,K)`，训练后解码器列范数接近 1；`train_sae` 增大 `l1` 时平均 L0 必须下降；
+- `sae_metrics` 必须同时返回 MSE、平均 L0 与死特征数；`feature_purity` 必须按每个样本的最大激活特征归属类别并取多数类比例；
+- `project_out` 后方向上的投影为零（误差小于 `1e-6`）；`ablated_direction` 必须只改指定位置的激活；
+- `ch28_interpret.py` 除训练耗时外必须逐字可复现；探针、注意力、消融、修补与 SAE 的数字必须与正文一致；
+- 报告必须同时给出干预位点、损坏方式、评价指标、样本量与对照；不得只报注意力图或单个恢复率；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；解释工具只读或临时 hook；复制任务与 2 层玩具模型的结论不得外推为真实 LLM 的回路结构。
+- `continual_run` 必须固定任务顺序（先 A 后 B）与每任务数据量；报告任务 A 的前/后 MSE、任务 B 的 MSE 与遗忘量；3 个种子必须给均值与标准差；
+- EWC 惩罚必须为 `0.5 * lam * Σ F_i (θ_i-θ_i*)^2` (29.5)，`fisher_diag` 必须按样本累加梯度平方后再除以样本数；
+- 回放必须按 `rho` 概率混入旧任务样本，损失为 `(1-rho)L_B + rho L_A` (29.6)；报告 `rho` 与存储假设；
+- `collapse_trace` 的方差递推必须满足 `sigma_{t+1}^2 = ((N-1)/N) sigma_t^2` (29.8)；`alpha>0` 时必须收敛到 `sigma_real^2` (29.9)；报告必须说明是“方差均值的开方”，不是“标准差的均值”；
+- `sparse_rl` 的终端奖励必须只在全部步骤成功时给 1 (29.1)–(29.2)；`potential` 模式的塑形奖励必须能写成 `gamma*Phi(s_{t+1})-Phi(s_t)` (29.4)，`gamma=1` 时与“每步 1 分”只差一个与动作无关的常数；
+- 报告必须同时给出解析成功率 `prod p_t` 与经验成功率，并注明采样次数；不得只报策略参数的乘积；
+- `ch29_frontier.py` 必须逐字可复现（固定种子），三组实验的输出必须与正文 `text` 块一致；
+- 本章不得修改 `TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有字段；示例为独立脚本，不进入 `tinylm/` 包；玩具任务的结论不得外推为真实 LLM 的遗忘率、数据退化速度或 RL 样本效率。

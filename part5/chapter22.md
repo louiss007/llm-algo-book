@@ -199,7 +199,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 @dataclass(frozen=True)
 class SpecConfig:
     """投机解码参数，不进入 ``ModelConfig``。"""
@@ -210,18 +209,15 @@ class SpecConfig:
     def __post_init__(self):
         assert self.num_draft >= 1
 
-
 def acceptance_rate(p, q):
     """(22.5)：α=Σ min(p,q)=1-TV(p,q)，批内逐行计算。"""
     return torch.minimum(p, q).sum(dim=-1)
-
 
 def residual_probs(p, q):
     """(22.2)：r(x) ∝ max(0, p(x)-q(x))；p=q 时退回 p 以保持定义。"""
     r = (p - q).clamp_min(0.0)
     mass = r.sum(dim=-1, keepdim=True)
     return torch.where(mass > 0, r / mass.clamp_min(1e-12), p)
-
 
 def rejection_sample(q, p, generator=None):
     """(22.1)–(22.3)：从草稿分布 q 提议，按 p 修正；返回 (token, accepted)。"""
@@ -235,7 +231,6 @@ def rejection_sample(q, p, generator=None):
     fallback = torch.multinomial(residual, 1, generator=generator)
     token = torch.where(accepted, x, fallback)
     return token.squeeze(1), accepted.squeeze(1)
-
 
 def speculative_sample(q_seq, p_seq, generator=None):
     """(22.1)–(22.3)：一次验证 γ 个草稿 Token，返回接受的草稿、前缀与修正 Token。
@@ -265,25 +260,21 @@ def speculative_sample(q_seq, p_seq, generator=None):
     correction = torch.multinomial(out_probs, 1, generator=generator)
     return drafts.squeeze(-1), n_accept, correction.squeeze(1)
 
-
 def expected_output_tokens(alpha, gamma):
     """(22.7)：一次目标模型验证平均产出的 Token 数。"""
     if alpha >= 1.0:
         return float(gamma + 1)
     return (1.0 - alpha ** (gamma + 1)) / (1.0 - alpha)
 
-
 def speculative_speedup(alpha, gamma, cost_ratio):
     """(22.8)：收益 = 期望产出 Token / (1 + γ·草稿相对开销)。"""
     return expected_output_tokens(alpha, gamma) / (1.0 + cost_ratio * gamma)
-
 
 def truncate_cache(cache, length):
     """(22.13)：拒绝后把 KV Cache 回滚到已接受前缀。"""
     assert 0 <= length <= cache.length
     cache.length = int(length)
     return cache
-
 
 class MTPHead(nn.Module):
     """(22.11)：共享主干隐状态上的多步预测头（简化版 MTP）。"""
@@ -297,7 +288,6 @@ class MTPHead(nn.Module):
 
     def forward(self, hidden):
         return [head(hidden) for head in self.heads]
-
 
 def mtp_loss(logits_list, targets, weights=None, ignore_index=-100):
     """(22.11)–(22.12)：第 i 个头预测 t+i，按步加权。"""
@@ -318,7 +308,6 @@ def mtp_loss(logits_list, targets, weights=None, ignore_index=-100):
                               device=losses.device)[:losses.numel()]
     return (losses * weights).sum() / weights.sum()
 
-
 def tree_attention_mask(parents):
     """(22.10)：树状草稿的祖先可见掩码，True 表示可以注意。"""
     n = len(parents)
@@ -330,14 +319,12 @@ def tree_attention_mask(parents):
             cur = parents[cur]
     return mask
 
-
 def _generator(seed, device):
     if seed is None:
         return None
     gen = torch.Generator(device=device)
     gen.manual_seed(int(seed))
     return gen
-
 
 @torch.no_grad()
 def speculative_decode(target_fn, draft_fn, prefix, max_new_tokens,
@@ -393,7 +380,6 @@ from tinylm.inference.speculative import (MTPHead, SpecConfig,
                                           speculative_speedup,
                                           tree_attention_mask, truncate_cache)
 
-
 def lossless_check():
     p = torch.tensor([0.05, 0.10, 0.15, 0.20, 0.50])
     q = torch.tensor([0.40, 0.25, 0.15, 0.10, 0.10])
@@ -409,7 +395,6 @@ def lossless_check():
               f"{(empirical[i] - p[i]).abs():>10.3f}")
     print(f"  实测接受率       {accepted.float().mean():.4f}")
     print(f"  理论 α=Σmin(p,q) {acceptance_rate(p[None], q[None]).item():.4f}")
-
 
 def acceptance_ledger():
     p = torch.tensor([0.05, 0.10, 0.15, 0.20, 0.50])
@@ -428,7 +413,6 @@ def acceptance_ledger():
         print(f"{gamma:>4d}{expected_output_tokens(0.8, gamma):>12.3f}"
               f"{speculative_speedup(0.8, gamma, 0.1):>10.3f}")
 
-
 def acceptance_simulation():
     p = torch.tensor([0.05, 0.10, 0.15, 0.20, 0.50])
     q = torch.tensor([0.40, 0.25, 0.15, 0.10, 0.10])
@@ -444,7 +428,6 @@ def acceptance_simulation():
     print(f"  实测平均接受草稿数 {empirical:.4f}")
     print(f"  理论 α(1-α^γ)/(1-α) {theory:.4f}")
     print(f"  每轮平均输出 Token   {1 + empirical:.4f}")
-
 
 def rollback_check():
     torch.manual_seed(0)
@@ -473,7 +456,6 @@ def rollback_check():
     print(f"  回滚后长度        {cache.length}")
     print(f"  与重算最大误差    {(got - want).abs().max().item():.2e}")
 
-
 def mtp_check():
     torch.manual_seed(0)
     head = MTPHead(d_model=16, vocab_size=11, num_steps=3)
@@ -486,13 +468,11 @@ def mtp_check():
     print(f"  三步平均损失      {loss.item():.4f}")
     print(f"  仅第一步损失      {mtp_loss(logits, targets, [1.0, 0.0, 0.0]).item():.4f}")
 
-
 def tree_check():
     mask = tree_attention_mask([-1, 0, 0, 1, 2])
     print("\n树状草稿的祖先掩码（1 表示可见）")
     for row in mask:
         print("  " + " ".join("1" if x else "0" for x in row))
-
 
 def markov_demo():
     target = torch.tensor([[0.7, 0.1, 0.1, 0.1],
@@ -507,7 +487,6 @@ def markov_demo():
     print("\n玩具马尔可夫模型")
     print(f"  平均每步接受率    {alpha.mean().item():.3f}")
     print(f"  γ=4 的期望 Token  {expected_output_tokens(alpha.mean().item(), 4):.3f}")
-
 
 if __name__ == "__main__":
     lossless_check()
@@ -606,11 +585,15 @@ KV Cache 回滚（接受 2/4 个草稿 Token）
 
 ## 22.6 论文导读
 
-1. **Leviathan, Kalman, Matias (2022). _Fast Inference from Transformers via Speculative Decoding_. arXiv:2211.17192.** 读第 3 节看接受–拒绝规则与无损性证明，第 4 节看 T5-XXL 的实测加速比与草稿长度消融。
-2. **Chen, Borgeaud, Irving, Lespiau, Sifre, Jumper (2023). _Accelerating Large Language Model Decoding with Speculative Sampling_. arXiv:2302.01318.** 读第 2–3 节，重点看它如何用拒绝采样保持目标分布，以及分布式环境下的草稿–验证流水。
-3. **Cai, Li, Geng, Peng, Lee, Chen, Dao (2024). _Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads_. arXiv:2401.10774.** 读第 3 节看多头与树状候选的构造，第 4 节看训练目标与接受率；注意 2.2–3.6 倍依赖模型与负载。
-4. **Li, Wei, Zhang, Zhang (2024). _EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty_. arXiv:2401.15077.** 读第 3–4 节，看特征级自回归草稿与树验证；对照 Medusa 理解“在 Token 层猜”和“在特征层猜”的差别。
-5. **DeepSeek-AI (2024). _DeepSeek-V3 Technical Report_. arXiv:2412.19437.** 读第 2.2 节 MTP 结构与损失，第 5 节训练配置；注意 MTP 首先是训练目标，推理加速是它的附带收益。
+**1. Leviathan, Kalman, Matias (2022). _Fast Inference from Transformers via Speculative Decoding_. arXiv:2211.17192.** 读第 3 节看接受–拒绝规则与无损性证明，第 4 节看 T5-XXL 的实测加速比与草稿长度消融。
+
+**2. Chen, Borgeaud, Irving, Lespiau, Sifre, Jumper (2023). _Accelerating Large Language Model Decoding with Speculative Sampling_. arXiv:2302.01318.** 读第 2–3 节，重点看它如何用拒绝采样保持目标分布，以及分布式环境下的草稿–验证流水。
+
+**3. Cai, Li, Geng, Peng, Lee, Chen, Dao (2024). _Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads_. arXiv:2401.10774.** 读第 3 节看多头与树状候选的构造，第 4 节看训练目标与接受率；注意 2.2–3.6 倍依赖模型与负载。
+
+**4. Li, Wei, Zhang, Zhang (2024). _EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty_. arXiv:2401.15077.** 读第 3–4 节，看特征级自回归草稿与树验证；对照 Medusa 理解“在 Token 层猜”和“在特征层猜”的差别。
+
+**5. DeepSeek-AI (2024). _DeepSeek-V3 Technical Report_. arXiv:2412.19437.** 读第 2.2 节 MTP 结构与损失，第 5 节训练配置；注意 MTP 首先是训练目标，推理加速是它的附带收益。
 
 这五篇可以按“算法证明 → 草稿结构 → 训练目标”串起来读。前两篇回答“为什么无损、加速比怎么算”；中间两篇回答“草稿从哪里来、树怎么验证”；最后一篇回答“能不能把草稿写进预训练”。读的时候始终抓住两个量：接受率与草稿成本。论文里的倍数都是这两个量在特定模型、硬件与数据分布下的乘积，换环境必须复测。
 
@@ -651,7 +634,9 @@ KV Cache 回滚（接受 2/4 个草稿 Token）
 
 ## 22.9 习题
 
-**推导题.** 证明序列级投机解码的输出分布等于目标模型的自回归分布。进一步，设每个位置的条件接受率为 $$\alpha_i$$，草稿长度为 $$\gamma$$，草稿相对开销为 $$c$$，写出期望产出 Token 数与加速比；代入 $$\alpha_i=0.9,0.8,0.7,0.6$$、$$\gamma=4$$、$$c=0.1$$，求加速比，并与常数 $$\alpha=0.75$$ 的近似比较。
+### 习题 1（推导）
+
+证明序列级投机解码的输出分布等于目标模型的自回归分布。进一步，设每个位置的条件接受率为 $$\alpha_i$$，草稿长度为 $$\gamma$$，草稿相对开销为 $$c$$，写出期望产出 Token 数与加速比；代入 $$\alpha_i=0.9,0.8,0.7,0.6$$、$$\gamma=4$$、$$c=0.1$$，求加速比，并与常数 $$\alpha=0.75$$ 的近似比较。
 
 <details><summary>展开参考答案</summary>
 
@@ -673,6 +658,10 @@ $$
 
 </details>
 
-**编程题.** 在 `speculative_sample` 的基础上实现树状验证：给定一棵候选树（每个节点存父节点与 Token），用 `tree_attention_mask` 构造掩码，让目标模型一次给所有节点打分；沿每条根到叶路径做接受–拒绝，选最长接受路径。比较链式与树式在相同草稿预算下的期望产出 Token 数，并讨论树的宽度、深度与显存占用的关系。
+### 习题 2（编程）
 
-**开放题.** 你要在一张 24 GB 显卡上为 7B 目标模型配置投机解码，候选草稿包括 0.5B 同系列模型、1B 同系列模型与目标模型自带的 MTP 头。给定输入 2K、输出 256 Token、TTFT ≤ 1 s、TPOT ≤ 50 ms，请给出草稿选择、$$\gamma$$、KV 精度与是否启用树式验证的方案；用 (22.8) 估算加速比，并说明当业务从代码补全切到开放聊天时，哪个参数最先需要调整、为什么。
+在 `speculative_sample` 的基础上实现树状验证：给定一棵候选树（每个节点存父节点与 Token），用 `tree_attention_mask` 构造掩码，让目标模型一次给所有节点打分；沿每条根到叶路径做接受–拒绝，选最长接受路径。比较链式与树式在相同草稿预算下的期望产出 Token 数，并讨论树的宽度、深度与显存占用的关系。
+
+### 习题 3（开放思考）
+
+你要在一张 24 GB 显卡上为 7B 目标模型配置投机解码，候选草稿包括 0.5B 同系列模型、1B 同系列模型与目标模型自带的 MTP 头。给定输入 2K、输出 256 Token、TTFT ≤ 1 s、TPOT ≤ 50 ms，请给出草稿选择、$$\gamma$$、KV 精度与是否启用树式验证的方案；用 (22.8) 估算加速比，并说明当业务从代码补全切到开放聊天时，哪个参数最先需要调整、为什么。

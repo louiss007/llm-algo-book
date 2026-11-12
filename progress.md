@@ -18,14 +18,21 @@
 | 第 12 章 | 完成 | 11122 | 已在本机运行 | 显存/通信账本、ZeRO 四阶段、TP/PP/EP、损失缩放；4 种训练模式 3 种子等价；16 项测试 |
 | 第 13 章 | 完成 | 8146 | 已在本机运行 | 长上下文算力/显存账本、长度课程与混合长度、位置外推、打包等价性、NIAH 评测；11 项测试 |
 | 第 14 章 | 完成 | 8481 | 已在本机运行 | 对话模板与损失掩码、Token/序列平均、监督比例、随机/系统噪声、打包等价、拒绝采样；14 项测试 |
-| 第 15 章 | 完成 | 7799 | 已在本机运行 | LoRA 低秩更新/合并、秩与目标模块消融、QLoRA 的 NF4/双重量化、参数与激活账本；5 种子对照，10 项测试 |
-| 第 16 章 | 完成 | 11090 | 已在本机运行 | Bradley–Terry 奖励模型、KL 正则闭式解、PPO 裁剪/GAE/价值网络、k1/k3 KL；3 种子对照与奖励作弊探针，13 项测试 |
-| 第 17 章 | 完成 | 10412 | 已在本机运行 | 隐式奖励与 DPO 损失/梯度、长度归一化、IPO/KTO/SimPO/ORPO；偏置/去偏偏好数据 3 种子对照，12 项测试 |
-| 第 18 章 | 完成 | 10880 | 已在本机运行 | RLVR 与 GRPO、组内优势/裁剪/KL、零方差组；模运算任务 3 种子 G 消融，17 项测试 |
-| 第 19 章 | 完成 | 7896 | 已在本机运行 | 温度软标签与 Logit 蒸馏、序列级/on-policy 蒸馏、幅度剪枝与恢复；模 10 加法 3 种子、40 标注/100 提示对照，21 项测试 |
-| 第 20 章 | 完成 | 7511 | 已在本机运行 | 贪心、束搜索、温度、Top-k/Top-p/Min-p、重复惩罚、约束解码与 pass@k；合成马尔可夫链 3 种子 7 策略对照，17 项测试 |
-| 第 21 章 | 完成 | 10437 | 已在本机运行 | KV Cache 账本、roofline、FlashAttention 在线 Softmax、PagedAttention、连续批/分块预填充/PD 分离；缓存等价性与碎片/延迟账本，20 项测试 |
-| 第 22 章 | 完成 | 7731 | 已在本机运行 | 拒绝采样无损性、接受率与加速比账本、树状草稿、Medusa/EAGLE、MTP、KV 回滚；20 万次分布核对与 10 万轮接受数模拟，14 项测试 |
+| 第 15 章 | 完成 | 7804 | 已在本机运行 | LoRA 低秩更新/合并、秩与目标模块消融、QLoRA 的 NF4/双重量化、参数与激活账本；5 种子对照，10 项测试 |
+| 第 16 章 | 完成 | 11095 | 已在本机运行 | Bradley–Terry 奖励模型、KL 正则闭式解、PPO 裁剪/GAE/价值网络、k1/k3 KL；3 种子对照与奖励作弊探针，13 项测试 |
+| 第 17 章 | 完成 | 10423 | 已在本机运行 | 隐式奖励与 DPO 损失/梯度、长度归一化、IPO/KTO/SimPO/ORPO；偏置/去偏偏好数据 3 种子对照，12 项测试 |
+| 第 18 章 | 完成 | 10891 | 已在本机运行 | RLVR 与 GRPO、组内优势/裁剪/KL、零方差组；模运算任务 3 种子 G 消融，17 项测试 |
+| 第 19 章 | 完成 | 7915 | 已在本机运行 | 温度软标签与 Logit 蒸馏、序列级/on-policy 蒸馏、幅度剪枝与恢复；模 10 加法 3 种子、40 标注/100 提示对照，21 项测试 |
+| 第 20 章 | 完成 | 7516 | 已在本机运行 | 贪心、束搜索、温度、Top-k/Top-p/Min-p、重复惩罚、约束解码与 pass@k；合成马尔可夫链 3 种子 7 策略对照，17 项测试 |
+| 第 21 章 | 完成 | 10442 | 已在本机运行 | KV Cache 账本、roofline、FlashAttention 在线 Softmax、PagedAttention、连续批/分块预填充/PD 分离；缓存等价性与碎片/延迟账本，20 项测试 |
+| 第 22 章 | 完成 | 7736 | 已在本机运行 | 拒绝采样无损性、接受率与加速比账本、树状草稿、Medusa/EAGLE、MTP、KV 回滚；20 万次分布核对与 10 万轮接受数模拟，14 项测试 |
+| 第 23 章 | 完成 | 10283 | 已在本机运行 | 对称/非对称与三种粒度、SQNR、GPTQ/AWQ/SmoothQuant、KV 量化、INT4 打包、FP8/NF4/FP4；7B 带宽账本与 TinyLM 端到端权重仅量化，16 项测试 |
+| 第 24 章 | 完成 | 8565 | 已在本机运行 | 覆盖率/pass@k、自洽性与加权投票、Best-of-N 与验证器、PUCT 树搜索、预算与提前停止；陷阱树、TinyLM 链式算术与停止阈值对照，18 项测试 |
+| 第 25 章 | 完成 | 7701 | 已在本机运行 | LLaVA 式图文拼接、ViT 与三种投影、InfoNCE、VQ；合成视觉问答 3 种子、Token 预算与注意力账本，12 项测试 |
+| 第 26 章 | 完成 | 7876 | 已在本机运行 | POMDP 智能体、工具模式与 JSON 动作协议、上下文二次成本、重试与任务成功率、信息价值；最小权限拦截提示注入，2 万次蒙特卡洛核对公式，15 项测试 |
+| 第 27 章 | 完成 | 7671 | 已在本机运行 | 准确率/F1/pass@k、Wilson 区间、配对 bootstrap、McNemar、ECE、n-gram 污染、Elo/BT、kappa、成本效用；确定性配对比较与 2 万次 pass@k 模拟，12 项测试 |
+| 第 28 章 | 完成 | 7200 | 已在本机运行 | 线性探针与选择性对照、注意力/消融冗余、激活修补位点、SAE 重构—稀疏与特征纯度；复制任务端到端与 15 项测试 |
+| 第 29 章 | 完成 | 7717 | 已在本机运行 | 长程稀疏奖励与势函数塑形、EWC/回放/参数隔离、合成数据方差递推与真实数据锚定、架构账本、涌现与损失—能力分离；3 组独立数值实验 |
 
 ## 第 1 章交接
 
@@ -66,7 +73,7 @@
 - **第 4 章**：位置编码决定模型能否区分顺序，直接影响 (1.1) 中条件分布的质量。
 - **第 9 章**：缩放定律研究的是 (1.3) 的损失如何随参数量与数据量下降。
 - **第 14、18 章**：(1.16)–(1.21) 的训练目标会在 SFT、RLHF、RLVR 中具体化。
-- **第 20 章**：教师强制与暴露偏差会在解码策略中展开。
+- **第 20 章**：教师强制与曝光偏差会在解码策略中展开。
 - **第 22 章**：(1.20) 的 MTP 头可复用为投机解码的草稿。
 - **第 24 章**：推理时扩展计算，本质是在 (1.1) 的采样过程中投入更多算力。
 
@@ -96,13 +103,13 @@
 | (2.3) | $$\mathrm{Dec}(\mathrm{Enc}(s))=s$$ | 无损可逆条件 |
 | (2.4) | $$r=B_{\text{byte}}/T$$ | 压缩比，字节/Token |
 | (2.5) | $$f_t(a,b)=\sum_i\mathbf{1}[q_i^{(t)}=a,q_{i+1}^{(t)}=b]$$ | BPE 相邻对频次 |
-| (2.6) | $$|\mathcal{V}|=|\mathcal{A}|+M+S$$ | 词表规模关系 |
+| (2.6) | $$\lvert\mathcal{V}\rvert=\lvert\mathcal{A}\rvert+M+S$$ | 词表规模关系 |
 | (2.7) | $$T_M=T_0-\sum_{t=1}^{M}n_t,\ n_t\le f_t(a_t,b_t)$$ | BPE 贪心长度缩减 |
 | (2.8) | $$\mathrm{score}(a,b)=f(ab)/(f(a)f(b))$$ | WordPiece 合并得分 |
 | (2.9) | $$\mathrm{score}(a,b)=\frac{1}{N_{\text{pair}}}e^{\mathrm{PMI}(a,b)}$$ | 得分与 PMI 的关系 |
 | (2.10) | $$P(u)=\prod_{i=1}^{K}p(u_i)$$ | Unigram 切分概率 |
 | (2.11) | $$\mathrm{best}[i]=\max_{j<i}(\mathrm{best}[j]+\log p(s_{j:i}))$$ | Viterbi 编码 |
-| (2.12) | $$1\le|\mathrm{Enc}(c)|\le n_{\text{byte}}(c)$$ | 字符的 Token 数界 |
+| (2.12) | $$1\le\lvert\mathrm{Enc}(c)\rvert\le n_{\text{byte}}(c)$$ | 字符的 Token 数界 |
 | (2.13) | $$N(n_{vocab})=N_0+2n_{vocab}d_{model}$$ | 参数量与词表大小 |
 | (2.14) | $$C(n_{vocab})\approx6N(n_{vocab})B_{\text{byte}}/r(n_{vocab})$$ | 计算量与词表大小 |
 | (2.15) | $$\mathrm{fertility}=T/n_{\text{word}}$$ | 生育率 |
@@ -643,8 +650,8 @@
 | (11.11) | $$\eta=\eta_0 B/B_0$$ | 线性缩放（$$B\ll B_{\mathrm{crit}}$$） |
 | (11.12) | $$\eta=\eta_0\sqrt{B/B_0}$$ | 平方根缩放（$$B\gg B_{\mathrm{crit}}$$） |
 | (11.13) | $$z_t=(L_t-\mu_t)/\sigma_t$$ | 损失尖峰 z 分数 |
-| (11.14) | $$\mathbf{g}\leftarrow\mathbf{g}\min(1,\tau_{\mathrm{clip}}/\|\mathbf{g}\|_2)$$ | 全局梯度裁剪 |
-| (11.15) | $$r_t=\|\theta_t-\theta_{t-1}\|_2/\|\theta_{t-1}\|_2$$ | 更新与权重比例 |
+| (11.14) | $$\mathbf{g}\leftarrow\mathbf{g}\min(1,\tau_{\mathrm{clip}}/\lVert\mathbf{g}\rVert_2)$$ | 全局梯度裁剪 |
+| (11.15) | $$r_t=\lVert\theta_t-\theta_{t-1}\rVert_2/\lVert\theta_{t-1}\rVert_2$$ | 更新与权重比例 |
 | (11.16) | $$s_{t,u}=\tilde{\mathbf{q}}_t^\top\tilde{\mathbf{k}}_u/\sqrt{d_h}$$ | QK-norm 后的打分 |
 | (11.17) | $$\mathcal{L}_z=\beta_z(\log Z)^2$$ | z-loss |
 | (11.18) | $$\mathrm{Var}(W_{ij})=2/(n_{\mathrm{in}}+n_{\mathrm{out}}),\ W_{\mathrm{res}}\leftarrow W_{\mathrm{res}}/\sqrt{2n_l}$$ | 初始化与残差缩放 |
@@ -858,7 +865,7 @@
 | (15.1) | $$h=W_0x+\frac{\alpha}{r}BAx$$ | LoRA 前向，$$A\in\mathbb{R}^{r\times d_{in}}$$、$$B\in\mathbb{R}^{d_{out}\times r}$$ |
 | (15.2) | $$W=W_0+\frac{\alpha}{r}BA$$ | 合并后的等价权重 |
 | (15.3) | $$P_{\mathrm{LoRA}}=r(d_{in}+d_{out})$$ | 单模块适配器参数量 |
-| (15.4) | $$\min_{\mathrm{rank}(\hat W)\le r}\|W-\hat W\|_F^2=\sum_{i=r+1}^{\min(d_{out},d_{in})}\sigma_i^2$$ | Eckart–Young 低秩近似误差 |
+| (15.4) | $$\min_{\mathrm{rank}(\hat W)\le r}\lVert W-\hat W\rVert_F^2=\sum_{i=r+1}^{\min(d_{out},d_{in})}\sigma_i^2$$ | Eckart–Young 低秩近似误差 |
 | (15.5) | $$M_{\mathrm{state}}=16P_{\mathrm{train}}+4P_{\mathrm{frozen}}$$ | fp32 AdamW 静态状态字节数 |
 | (15.6) | $$\text{bits/param}=4+\frac{8}{b}+\frac{32}{256b}$$ | NF4 + 双重量化的每参数比特数 |
 | (15.7) | $$P_{\mathrm{adapter}}=2dm+m+d,\ P_{\mathrm{prefix}}=2L\ell d,\ P_{\mathrm{prompt}}=\ell d$$ | Adapter/Prefix/Prompt 参数量 |
@@ -913,7 +920,7 @@
 | --- | --- | --- |
 | (16.1) | $$P(y_w\succ y_l\mid x)=\sigma(r(x,y_w)-r(x,y_l))$$ | Bradley–Terry 偏好概率 |
 | (16.2) | $$\mathcal{L}_{\rm RM}(\phi)=-\mathbb{E}[\log\sigma(r_\phi(x,y_w)-r_\phi(x,y_l))]$$ | 奖励模型负对数似然 |
-| (16.3) | $$\max_{\pi_\theta}\mathbb{E}_{x}\big[\mathbb{E}_{y\sim\pi_\theta}r_\phi-\beta\,\mathrm{KL}(\pi_\theta\|\pi_{\rm ref})\big]$$ | KL 正则 RLHF 目标 |
+| (16.3) | $$\max_{\pi_\theta}\mathbb{E}_{x}\big[\mathbb{E}_{y\sim\pi_\theta}r_\phi-\beta\,\mathrm{KL}(\pi_\theta\parallel\pi_{\rm ref})\big]$$ | KL 正则 RLHF 目标 |
 | (16.4) | $$\pi^\star(y\mid x)=\frac{1}{Z(x)}\pi_{\rm ref}(y\mid x)\exp\!\big(r_\phi(x,y)/\beta\big)$$ | 闭式最优策略 |
 | (16.5) | $$r_t=-\beta(\log\pi_\theta(a_t\mid s_t)-\log\pi_{\rm ref}(a_t\mid s_t))$$ | 逐 Token KL 塑形奖励 |
 | (16.6) | $$\rho_t=\pi_\theta(a_t\mid s_t)/\pi_{\theta_{\rm old}}(a_t\mid s_t)$$ | PPO 重要性比 |
@@ -1083,13 +1090,13 @@
 | --- | --- | --- |
 | (19.1) | $$p_i^{\tau}=\frac{\exp(z_i/\tau)}{\sum_j\exp(z_j/\tau)}$$ | 温度软标签 |
 | (19.2) | $$p_i^{\tau}\approx \frac1V+\frac{z_i-\bar z}{V\tau}$$ | 高温一阶展开 |
-| (19.3) | $$\mathcal L_{\rm KD}=\tau^2\,\mathrm{KL}\left(p_t^{\tau}\,\|\,p_s^{\tau}\right)$$ | Logit 蒸馏损失 |
+| (19.3) | $$\mathcal L_{\rm KD}=\tau^2\,\mathrm{KL}\left(p_t^{\tau}\,\parallel\,p_s^{\tau}\right)$$ | Logit 蒸馏损失 |
 | (19.4) | $$\mathcal L=\alpha\,\mathcal L_{\rm CE}+(1-\alpha)\,\mathcal L_{\rm KD}$$ | 硬标签与软标签组合 |
 | (19.5) | $$\frac{\partial \mathcal L_{\rm KD}}{\partial z_{s,i}}=\tau\left(p_{s,i}^{\tau}-p_{t,i}^{\tau}\right)$$ | 蒸馏对学生 logits 的梯度 |
 | (19.6) | $$\frac{\partial \mathcal L_{\rm KD}}{\partial z_{s,i}}\approx\frac{z_{s,i}-z_{t,i}}{V}$$ | 高温梯度极限，近似匹配 logit 差 |
 | (19.7) | $$\mathcal L_{\rm seq}=-\sum_t\log\pi_s(y_t\mid x,y_{<t}),\ y\sim\pi_t$$ | 序列级蒸馏 |
-| (19.8) | $$\mathcal L_{\rm on}=\mathbb E_x\mathbb E_{y\sim\pi_s}\sum_t\mathrm{KL}\left(\pi_t\,\|\,\pi_s\right)$$ | 在策略蒸馏 |
-| (19.9) | $$\min_{m\in\{0,1\}^d}\mathcal L(\theta\odot m)\ \text{s.t.}\ \|m\|_0\le k$$ | 剪枝的基数约束目标 |
+| (19.8) | $$\mathcal L_{\rm on}=\mathbb E_x\mathbb E_{y\sim\pi_s}\sum_t\mathrm{KL}\left(\pi_t\,\parallel\,\pi_s\right)$$ | 在策略蒸馏 |
+| (19.9) | $$\min_{m\in\{0,1\}^d}\mathcal L(\theta\odot m)\ \text{s.t.}\ \lVert m\rVert_0\le k$$ | 剪枝的基数约束目标 |
 | (19.10) | $$N\approx Vd+L\left(4d^2+2d\,d_{\rm ff}\right)$$ | Transformer 参数量估计 |
 | (19.11) | $$r=N_t/N_s$$ | 参数压缩比 |
 
@@ -1318,3 +1325,511 @@
 - [x] 实验诚实报告：明确标注 5 词表、2 层小模型与玩具马尔可夫链的加速比不能外推；接受率随负载漂移、长上下文降低收益等负结果均保留。
 - [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名未改；`SpecConfig` 只作推理参数，不进入 `ModelConfig`；所有新逻辑在 `tinylm/inference/speculative.py`。
 
+
+## 第 23 章交接
+
+### 本章摘要
+
+本章回答“为什么权重能压到 4 比特而激活不行”，并把量化的误差、存储与延迟收益拆开记账。直觉部分先建立“有限格子”模型：缩放因子决定格距、零点决定偏移，误差分舍入与截断两类；然后用 4 比特步长的具体数字说明离群值如何撑粗整组格子，并解释残差流与 RMSNorm 为何在深层制造系统性离群通道。数学部分给出仿射量化 (23.1)–(23.5)、舍入上界 (23.6)、均匀噪声方差 (23.7)、SQNR 定义 (23.8) 与满量程正弦波的 (23.9)；再给出含元数据的平均比特 (23.10) 与压缩比 (23.11)。权重量化从逐层重建目标 (23.12) 出发，推导 GPTQ 的逐列 Hessian 补偿 (23.13)，并对比 AWQ 的激活感知缩放 (23.14) 与 SmoothQuant 的离群值搬移 (23.15)。激活部分讨论逐 Token 动态定标 (23.16)、最小均方误差定标 (23.17) 与直通估计器 (23.18)。KV 部分把第 21 章的容量公式换成量化字节数 (23.19)，说明键按通道、值按 Token 的粒度差异。格式部分给出 FP8 的数值表示 (23.20)、NF4 码本与 MXFP4 块浮点。性能部分给出权重与 KV 同时量化后的理想加速比 (23.21) 与最大并发 (23.22)，并用 7B 账本说明长上下文与大批量会把瓶颈搬到 KV。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (23.1) | $$q_{\min}=-(2^{b_q-1}-1),\ q_{\max}=2^{b_q-1}-1$$ | 对称量化整数范围 |
+| (23.2) | $$x_{\mathrm{int}}=\mathrm{clamp}(\mathrm{round}(x/s+z),q_{\min},q_{\max})$$ | 量化 |
+| (23.3) | $$\hat{x}=s(x_{\mathrm{int}}-z)$$ | 反量化 |
+| (23.4) | $$s=\max\lvert x\rvert/q_{\max},\ z=0$$ | 对称定标 |
+| (23.5) | $$s=(x_{\max}-x_{\min})/(q_{\max}-q_{\min}),\ z=\mathrm{round}(q_{\min}-x_{\min}/s)$$ | 非对称定标 |
+| (23.6) | $$\lvert x-\hat{x}\rvert\le s/2$$ | 舍入误差上界 |
+| (23.7) | $$\mathbb{E}[(x-\hat{x})^2]=s^2/12$$ | 均匀量化噪声方差 |
+| (23.8) | $$\mathrm{SQNR}=10\log_{10}\frac{\mathbb{E}[x^2]}{\mathbb{E}[(x-\hat{x})^2]}$$ | 信噪比定义 |
+| (23.9) | $$\mathrm{SQNR}=6.02b_q+1.76\ \text{dB}$$ | 满量程正弦波上界 |
+| (23.10) | $$b_{\mathrm{eff}}=b_q+\frac{16+8\cdot\mathbf{1}[\text{非对称}]}{\min(G,d_{\mathrm{in}})}$$ | 平均比特/权重 |
+| (23.11) | $$\rho=16/b_{\mathrm{eff}}$$ | 相对 FP16 压缩比 |
+| (23.12) | $$\mathcal{L}=\lVert\mathbf{W}\mathbf{X}^\top-\widehat{\mathbf{W}}\mathbf{X}^\top\rVert_F^2=\mathrm{tr}((\mathbf{W}-\widehat{\mathbf{W}})\mathbf{H}(\mathbf{W}-\widehat{\mathbf{W}})^\top)$$ | 逐层重建目标 |
+| (23.13) | $$\mathbf{W}_{:,i+1:}\leftarrow\mathbf{W}_{:,i+1:}-\frac{\mathbf{w}_i-\hat{\mathbf{w}}_i}{[\mathbf{H}^{-1}]_{ii}}[\mathbf{H}^{-1}]_{i,i+1:}$$ | GPTQ 误差补偿 |
+| (23.14) | $$s_j=\left(\frac1n\sum_t\lvert X_{t,j}\rvert\right)^{\alpha},\ \mathbf{W}\leftarrow\mathbf{W}\,\mathrm{diag}(\mathbf{s})$$ | AWQ 激活感知缩放 |
+| (23.15) | $$s_j=\frac{\max_t\lvert X_{t,j}\rvert^{\alpha}}{\max_i\lvert W_{i,j}\rvert^{1-\alpha}}$$ | SmoothQuant 通道搬移 |
+| (23.16) | $$s_t=\max_j\lvert X_{t,j}\rvert/q_{\max}$$ | 逐 Token 动态定标 |
+| (23.17) | $$s^\star=\arg\min_s\mathbb{E}[(x-\mathrm{clamp}(\mathrm{round}(x/s)s))^2]$$ | 最小 MSE 定标 |
+| (23.18) | $$\partial\mathcal{L}/\partial x\approx\partial\mathcal{L}/\partial\hat{x}$$ | 直通估计器 |
+| (23.19) | $$M_{\mathrm{kv}}=2n_lBTn_{kv}d_hb_{\mathrm{kv}}$$ | 量化后 KV 显存 |
+| (23.20) | $$x=(-1)^{\sigma}2^{e-\mathrm{bias}}(1+m/2^{M_{\mathrm{fp}}})$$ | FP8 数值表示 |
+| (23.21) | $$S=\frac{2N+2M_{\mathrm{kv}}}{b_wN+b_{\mathrm{kv}}M_{\mathrm{kv}}}$$ | 理想解码加速比 |
+| (23.22) | $$B_{\max}=\left\lfloor\frac{M_{\mathrm{total}}-Nb_w-M_{\mathrm{act}}}{2n_lTn_{kv}d_hb_{\mathrm{kv}}}\right\rfloor$$ | 量化后最大并发 |
+
+### 实验与关键数字
+
+- 设计：粒度与比特扫描用合成权重（行尺度差 + 行内离群值）；GPTQ 用 1024 条相关输入校准 64×128 线性层；SmoothQuant 用 4 个 30 倍离群通道的 2048×128 激活；KV 用 2×4×64×16 张量、前两个键通道放大 20 倍；TinyLM 为 `d_model=64`、2 层、4 查询头、2 KV 头、词表 128，训练 400 步；带宽账本按 7B 参数、4K 上下文、H100 3.35 TB/s 的理想下界。
+- 粒度（4 比特，64×128）：逐张量 8.92 dB，逐通道 11.45 dB，逐组 128 同逐通道，逐组 64 13.84 dB，逐组 32 16.73 dB；平均比特 4.125/4.250/4.500。
+- 比特扫描（逐组 64，256×1024）：2 比特 2.88 dB（7.11×），3 比特 12.00 dB（4.92×），4 比特 19.35 dB（3.76×），6 比特 32.30 dB（2.56×），8 比特 44.53 dB（1.94×）。
+- INT4 打包：4096×4096 权重 FP16 32.0 MiB、INT4 码点 8.0 MiB，含缩放因子 4.250 比特/权重，压缩 3.76×。
+- GPTQ：RTN 输出 MSE 0.012894、18.67 dB；GPTQ 0.001805、27.21 dB，误差约降至 1/7，信噪比高 8.5 dB。
+- SmoothQuant：不平滑 0.004089/34.29 dB；$$\alpha=0.3/0.5/0.7$$ 为 41.62/43.76/41.82 dB，$$\alpha=0.5$$ 时 MSE 0.000385。
+- KV：INT8 逐 Token 28.00 dB、逐通道 34.74 dB；INT4 逐 Token 11.55 dB、逐通道 16.42 dB。
+- TinyLM：FP16 验证损失 6.2076；W8 逐通道 6.2082（+0.0007）；W4 逐通道 6.2096（+0.0021）；W4 逐组 32 6.2180（+0.0105）；W2 逐通道 6.3988（+0.1913，困惑度 1.211×）。
+- 7B 账本（批 1）：FP16 14.01 GB、239.1 Token/s；INT8 7.01 GB、478.1 Token/s；INT4 3.50 GB、956.2 Token/s。批 32：FP16 30.66 GB、109.3 Token/s；W4 20.55 GB、163.0 Token/s；W4+KV4 7.66 GB、437.1 Token/s。
+- 测试：16 项全部通过（约 0.7 s），覆盖配置校验、整数范围、舍入上界、非对称端点、粒度单调性、任意形状与填充、假量化往返、每比特约 6 dB、INT4 打包、存储公式、量化线性层、GPTQ 优于 RTN、SmoothQuant 降误差、KV 逐通道优于逐 Token、零张量安全与布局保持。
+
+### 留给后续章节的伏笔
+
+- **第 24 章（测试时计算）**：Best-of-N、自洽性与树搜索都要多次采样或多次打分；量化会同时改变采样分布与奖励/验证信号，低比特模型上的测试时扩展收益需要重新测量，不能直接套用 FP16 的曲线。
+- **第 22 章（投机解码）**：量化草稿改变 $$q$$、量化目标改变 $$p$$，接受率 $$\alpha=\sum\min(p,q)$$ 会下降；两者叠加的加速比必须在真实负载上重测。
+- **第 21 章（推理加速）**：带宽账本 (23.21) 是第 21 章 roofline 的直接延伸；KV 量化的尺度表必须与分页缓存、连续批处理兼容。
+- **第 20 章（解码策略）**：温度、Top-k/Top-p 改变激活与输出分布，量化误差对不同采样策略的敏感度不同，评测要固定解码配置。
+- **第 15 章（参数高效微调）**：NF4 与双重量化是 QLoRA 的存储基础，本章从推理侧解释了同一条“4 比特存储、16 比特计算”路线。
+- **第 19 章（蒸馏）**：量化可看作一种受限容量下的压缩；蒸馏出的小模型与量化后的大模型在质量—成本前沿上可以相互替代，选型时要一起比较。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全。
+- [x] 字数：正文 10276 个中文字符（剔除代码块与公式），在核心章 10,000–12,000 预算内。
+- [x] 公式编号 (23.1)–(23.22) 连续；量化/反量化、误差界、噪声方差、SQNR、存储、GPTQ、AWQ、SmoothQuant、动态定标、STE、KV 容量、FP8、加速比与最大并发均有推导或说明。
+- [x] 至少 1 张对比表（表 23-1 粒度、表 23-2 格式、表 23-3 五条路线）；工业案例含 LLM.int8()、GPTQ、AWQ、SmoothQuant、DeepSeek-V3 FP8、llama.cpp/GGUF、QLoRA/NF4；论文导读 5 篇；误区 6 条。
+- [x] 代码可运行：从章内 Markdown 重新提取 `tinylm/inference/quant.py` 与 `examples/ch23_quant.py`，与已验证源文件逐字一致；在 `/tmp/ch23final` 重跑，输出一致，16 项测试通过。
+- [x] 公式与代码对应：`qrange` 标注 (23.1)，`quantize` 标注 (23.2)，`dequantize` 标注 (23.3)，`quant_params` 标注 (23.4)–(23.5)，`sqnr_db` 标注 (23.8)，`theoretical_sqnr` 标注 (23.9)，`storage_bits` 标注 (23.10)，`compression_ratio` 标注 (23.11)，`gptq_quantize` 标注 (23.13)，`smooth_scale`/`smooth_quant` 标注 (23.15)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$x_{\mathrm{int}},\hat{x},q_{\min},q_{\max},b_{\mathrm{eff}},\rho,\mathbf{H},\mathbf{X},\widehat{\mathbf{W}},b_{\mathrm{kv}},b_w,\alpha,\sigma,e,m,M,S,B_{\max}$$ 等，并说明与第 1、3、6、11、15、21、22 章的重名冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：反量化、缩放因子、零点、逐张量/逐通道/逐组量化、PTQ、QAT、直通估计器、量化校准、SQNR、量化误差、块浮点、微缩放格式、W8A8/W4A16、GPTQ、AWQ、SmoothQuant、KV Cache 量化；附录 C 已有的量化、NF4、离群值未重复添加。
+- [x] GitBook 语法：hint 使用 danger/warning/success；1 个 Mermaid、3 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`，无外部图片。
+- [x] 事实性数字可复算：实验数字全部由固定种子程序输出；FP8 E4M3/E5M2 范围、LLM.int8() 的 0.1% 离群特征、GPTQ/AWQ 的论文加速倍数、DeepSeek-V3 的块缩放配置均来自公开论文并在正文标注条件；FP4 生态等时效性内容标注“截至写作时”。
+- [x] 实验诚实报告：明确标注 TinyLM 规模小、合成任务可约损失低、带宽账本为理想下界、困惑度倍数为同验证集上的损失差指数；负结果（$$\alpha=0.7$$ 回落、W2 明显退化）保留。
+- [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名未改；`QuantConfig` 只作推理参数，不进入 `ModelConfig`；所有新逻辑在 `tinylm/inference/quant.py`。
+
+## 第 24 章交接
+
+### 本章摘要
+
+本章把测试时计算扩展拆成“覆盖率”与“选择”两个瓶颈。直觉部分先说明三条路线对应三种信号强度：答案可验证用 Best-of-N，答案可比较用自洽性，过程可打分用树搜索；再把成本拆成采样、打分与搜索开销，并指出样本数、思考长度、模型规模是三条不同的加码轴。数学部分给出覆盖率 (24.1)、达到目标覆盖率的样本下界 (24.2) 与 pass@k 无偏估计 (24.3)；多数投票 (24.4) 及其在 $$p<0.5$$、错误相关时的失效，加权投票 (24.5)。验证器部分给出选择成功率 (24.6)，用 $$q=1$$ 与 $$q=0.5$$ 两个端点说明“选择瓶颈经常比生成瓶颈更紧”，并讨论 ORM、PRM、可执行验证器、模型裁判与奖励作弊。树搜索部分给出 PUCT (24.7) 与节点价值 (24.8)，用陷阱树说明小预算下搜索可能不如随机采样。预算部分给出总成本 (24.9)、边际分配 (24.10)、提前停止 (24.11) 与效用/过度思考 (24.12)。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (24.1) | $$P_{\mathrm{cov}}(N)=1-(1-p)^N$$ | 覆盖率 |
+| (24.2) | $$N\ge\ln\delta/\ln(1-p)\approx-\ln\delta/p$$ | 达到目标覆盖率的样本下界 |
+| (24.3) | $$\mathrm{pass@}k=1-\binom{n-c}{k}/\binom{n}{k}$$ | pass@k 无偏估计 |
+| (24.4) | $$A_{\mathrm{vote}}(p,N)=\sum_{i=\lfloor N/2\rfloor+1}^{N}\binom{N}{i}p^i(1-p)^{N-i}$$ | 多数投票准确率 |
+| (24.5) | $$\hat a=\arg\max_a\sum_i w_i\mathbf{1}[a_i=a]$$ | 加权投票 |
+| (24.6) | $$A_{\mathrm{sel}}=\sum_k\binom{N}{k}p^k(1-p)^{N-k}\frac{kq}{kq+(N-k)(1-q)}$$ | 验证器选择成功率 |
+| (24.7) | $$U(s,a)=Q(s,a)+c_{\mathrm{puct}}P(s,a)\frac{\sqrt{N(s)+1}}{1+N(s,a)}$$ | PUCT 选择分数 |
+| (24.8) | $$Q(s,a)=\frac{1}{N(s,a)}\sum_{i=1}^{N(s,a)}v_i$$ | 节点平均价值 |
+| (24.9) | $$C=N(T_{\mathrm{prompt}}+T_{\mathrm{out}})+N_{\mathrm{verify}}T_{\mathrm{verify}}$$ | 测试时总成本 |
+| (24.10) | $$a^\star=\arg\max_a\Delta A_a/\Delta C_a$$ | 边际预算分配 |
+| (24.11) | $$D_n\ge\delta,\ n\ge n_{\min}$$ | 提前停止 |
+| (24.12) | $$U(n)=A(n)-\lambda C(n)$$ | 准确率—成本效用 |
+
+### 实验与关键数字
+
+- 设计：覆盖率与投票用解析公式加 5000 次蒙特卡洛；验证器选择用 20000 次分数模拟；树搜索用 7 叶陷阱树、2000 次随机叶对照；TinyLM 用 29 符号两跳算术（841 题）、`d_model=64`、2 层、4 查询头、2 KV 头，训练 600/1000 步、批 128；提前停止用二选一、$$p=0.65$$、1000 题。
+- 覆盖率：$$p=0.10$$ 时 $$N=1,4,16,64$$ 为 0.100/0.344/0.815/0.999；$$p=0.05$$ 时 $$N=64$$ 为 0.962。
+- 多数投票：$$p=0.65$$、$$N=15$$ 为 0.887；$$p=0.35$$、$$N=15$$ 为 0.113；$$p=0.50$$ 恒为 0.500；模拟单一错误答案 0.891、多个错误答案 0.999。
+- 验证器：$$p=0.10$$、$$N=64$$，$$q=1.0/0.9/0.7/0.5$$ 的选择成功率为 0.999/0.482/0.203/0.100；干净分数模拟 0.984，给错误候选加 1.5 分后 0.705。
+- 陷阱树：贪心 0.800/0.000；随机 8 叶 0.942/0.716；PUCT 预算 4、8 为 0.800/0.000，预算 12、16 为 1.000/1.000（“平均最佳值/找到最优”）。
+- TinyLM：600 步贪心 0.848，投票@1/4/8/16 为 0.559/0.654/0.731/0.775；1000 步贪心 0.918，投票为 0.799/0.851/0.888/0.901；每样本 5 个 Token，训练耗时约 5.4 s 与 9.0 s。
+- 提前停止：不停止 32.0 样本/0.965；$$\delta=2$$ 为 5.0/0.811；$$\delta=3$$ 为 7.9/0.879；$$\delta=5$$ 为 14.6/0.942。
+- 测试：18 项全部通过（约 0.9 s），覆盖配置校验、覆盖率边界与蒙特卡洛、pass@k 端点、投票单调方向、平局、加权投票、Best-of-N 平局、选择率端点、提前停止、预算耗尽、PUCT 公式、预算为 0、陷阱树与终止节点。
+
+### 留给后续章节的伏笔
+
+- **第 25 章（多模态）**：图像/视频 Token 的采样成本更高，验证器要跨模态；覆盖率与选择率的分解仍然成立，但 $$p$$ 与 $$q$$ 的测量方式要重做。
+- **第 26 章（智能体）**：工具调用提供天然的可执行验证器，适合 Best-of-N 与树搜索；长程任务的中间状态更多、回滚更贵，预算分配与提前停止更关键。
+- **第 27 章（评测）**：pass@k 是 oracle 指标，不能当作部署准确率；报告测试时扩展结果时必须同时给出采样预算、温度、验证器与选择率，否则数字不可比。
+- **第 23 章（量化）**：低比特模型改变 $$p$$、样本多样性与验证器校准；INT4 上的覆盖率与最优预算必须重测，不能按 FP16 曲线缩放。
+- **第 20 章（解码策略）**：温度、Top-k/Top-p 决定单次成功率与样本相关性；测试时扩展的“最优温度”是任务相关量，应在验证集上扫描。
+- **第 21、22 章（推理加速）**：$$N$$ 条样本使 KV 占用与调度开销按倍增长；分页缓存、连续批处理与投机解码可以摊薄单条成本，但树搜索的树形注意力与回滚会带来额外复杂度。
+- **第 18 章（RLVR）**：可验证奖励既能训练长思维链，也能充当推理时的验证器；训练时扩展与测试时扩展是互补而非替代关系。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全。
+- [x] 字数：正文 8560 个中文字符（剔除代码块与公式），在其余章 6,000–9,000 预算内，未超过作者放宽的 10,000。
+- [x] 公式编号 (24.1)–(24.12) 连续；覆盖率、样本下界、pass@k、多数/加权投票、选择率、PUCT、节点价值、成本、边际分配、提前停止与效用均有推导或说明。
+- [x] 至少 1 张对比表（表 24-1 六条路线）；工业案例含 AlphaCode、Large Language Monkeys、OpenAI o1、DeepSeek-R1、PRM800K、vLLM/SGLang；论文导读 5 篇；误区 6 条。
+- [x] 代码可运行：从章内 Markdown 重新提取 `tinylm/inference/search.py` 与 `examples/ch24_search.py`，与已验证源文件逐字一致；在 `/tmp/ch24final` 重跑，除训练耗时外输出一致，18 项测试通过。
+- [x] 公式与代码对应：`coverage_probability` 标注 (24.1)，`pass_at_k` 标注 (24.3)，`majority_accuracy` 标注 (24.4)，`majority_vote` 标注 (24.5)，`selection_accuracy` 标注 (24.6)，`puct_score` 标注 (24.7)，`TreeNode.q` 标注 (24.8)，`token_cost` 标注 (24.9)，`should_stop` 标注 (24.11)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$P_{\mathrm{cov}},p,N,\delta,k,c,q,A_{\mathrm{vote}},A_{\mathrm{sel}},w_i,D_n,n_{\min},c_{\mathrm{puct}},P(s,a),N(s),N(s,a),Q(s,a),T_{\mathrm{prompt}},T_{\mathrm{out}},T_{\mathrm{verify}},\lambda$$ 等，并说明与第 11、12、18、20、21 章的重名冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：测试时计算扩展、覆盖率、选择、自洽性、加权投票、Best-of-N、结果/过程奖励模型、验证器、奖励作弊、PUCT、思维树、MCTS、过度思考、提前停止、pass@k；附录 C 已有的测试时计算、Best-of-N、自洽性、树搜索、MCTS、预算控制、过度思考未重复添加。
+- [x] GitBook 语法：hint 使用 warning/success；1 个 Mermaid、1 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`，无外部图片。
+- [x] 事实性数字可复算：解析公式与模拟数字由固定种子程序输出；AlphaCode、Large Language Monkeys、o1/R1、PRM800K 的数字来自公开论文/技术报告并在正文标注条件；时效性内容写“截至写作时”。
+- [x] 实验诚实报告：明确标注 TinyLM 规模小、合成任务可约、训练耗时随机器变化；保留负结果（投票@16 不如强贪心、PUCT 小预算不如随机采样、提前停止降准确率）；选择率公式标注为成对判别近似。
+- [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名未改；`SearchConfig` 只作推理参数，不进入 `ModelConfig`；所有新逻辑在 `tinylm/inference/search.py`。
+
+## 第 25 章交接
+
+### 本章摘要
+
+本章把多模态大模型拆成视觉编码、模态对齐与语言建模三段。图像按 (25.1) 切成块，序列长度 (25.2) 与注意力倍数 (25.3) 决定预填充成本；ViT 用 (25.4) 的块序列编码图像，CLIP 用 (25.5) 的对称 InfoNCE 做图文对比预训练；投影层用线性层、MLP 或 (25.6) 的重采样器完成维度与尺度翻译，压缩比由 (25.7) 给出；语言模型在 (25.8) 的下一 Token 目标下联合训练。理解与生成的统一靠 (25.9)–(25.10) 的离散 VQ Token 化，或 Transfusion 式混合扩散。正文区分晚期融合与早期融合，讨论高分辨率切块、位置编码、标签掩码、幻觉与能力边界，并用 12×12 合成视觉问答核对“去掉图像会退化”与“Token 数不是唯一变量”。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (25.1) | $$N_p=HW/p^2$$ | 图像块数 |
+| (25.2) | $$L=N_p+T_{\mathrm{text}}$$ | 拼接后的序列长度 |
+| (25.3) | $$R_{\mathrm{attn}}=(1+N_p/T_{\mathrm{text}})^2$$ | 相对纯文本的注意力算力倍数 |
+| (25.4) | $$\mathbf{z}_0=[\mathbf{x}_{\mathrm{cls}};\mathbf{E}\mathbf{x}_p^1;\dots]+\mathbf{E}_{\mathrm{pos}}$$ | ViT 输入序列 |
+| (25.5) | $$\mathcal{L}_{\mathrm{CLIP}}$$ 对称 InfoNCE | 图文对比预训练 |
+| (25.6) | $$\mathbf{H}=\mathrm{softmax}(\mathbf{Q}\mathbf{K}^{\top}/\sqrt{d})\mathbf{V}$$ | 重采样器交叉注意力 |
+| (25.7) | $$\rho_{\mathrm{vis}}=N_p/M$$ | 视觉 Token 压缩比 |
+| (25.8) | $$\mathcal{L}_{\mathrm{VLM}}=-\sum_t\log p_\theta(y_t\mid y_{<t},\mathrm{Proj}(\mathrm{ViT}(\mathbf{X})))$$ | 多模态语言建模损失 |
+| (25.9) | $$k^\star=\arg\min_k\lVert\mathbf{z}-\mathbf{e}_k\rVert_2^2$$ | VQ 最近邻量化 |
+| (25.10) | $$\mathcal{L}_{\mathrm{VQ}}=\lVert\mathbf{z}-\mathrm{sg}[\mathbf{z}_q]\rVert_2^2+\beta\lVert\mathrm{sg}[\mathbf{z}]-\mathbf{z}_q\rVert_2^2$$ | 码本损失与承诺损失 |
+
+### 实验与关键数字
+
+- 设计：12×12 合成图，3 形状 × 3 颜色，问题为形状或颜色，6 类答案；4096 训练 / 800 测试，300 步、批 64、3 个种子；`d_model=32`、2 层文本 Transformer、视觉塔 32 维 2 层。
+- Token 预算（文本 128 Token）：336/14 未合并 576 Token、注意力 30.25 倍；2×2 合并 144 Token、4.52 倍；448/14 未合并 1024 Token、81 倍；合并 256 Token、9 倍；896/14 合并 1024 Token、81 倍。
+- InfoNCE（batch 64）：独立随机配对 4.184，对齐配对 0.001，错位配对 14.148，随机水平 $$\ln 64=4.159$$。
+- VQ（2048 个 8 维特征，16 个真实簇）：码本 4/8/16/32 的 MSE 为 2.3056/1.5658/0.5973/0.0816；码字范围 0–14。
+- 合成 VQA：线性投影 0.912±0.016；MLP 投影 0.884±0.046；4 Token 0.907±0.033；36 Token 0.892±0.084；冻结随机视觉塔 0.838±0.064；去掉图像 0.159（六分类随机水平 1/6）。
+- 训练耗时（CPU 单线程，随机器变化）：线性 12.4 s、MLP 12.7 s、4 Token 6.0 s、36 Token 29.7 s、冻结 8.9 s。
+- 测试：12 项全部通过（约 1 s），覆盖 Token 计数与合并、注意力倍数、卷积/线性切块等价、池化形状、三种投影、占位符校验、梯度路径、冻结参数、答案位损失、对比损失、VQ 最近邻。
+
+### 留给后续章节的伏笔
+
+- **第 26 章（智能体）**：图像、截图与工具返回值都是环境观测；多模态观测会放大轨迹长度与上下文成本，工具调用的 Token 预算要按图像 Token 重算。
+- **第 27 章（评测）**：VQA、OCR、图表与幻觉要分维度报告；必须写清分辨率、图像 Token 数、是否使用 OCR 与评测集版本，否则分数不可比。
+- **第 28 章（可解释性）**：图像 Token 与文本 Token 共享残差流，跨模态注意力与视觉特征回路是机制可解释性的新对象。
+- **第 29 章（前沿）**：原生多模态、统一理解与生成、长视频与动态分辨率仍是开放问题；离散 Token 化的细节损失与训练稳定性尚无定论。
+- **第 23 章（量化）**：视觉塔、投影层与图像 Token 的 KV Cache 都可以量化；低比特对细粒度 OCR 的影响需要单独测量。
+- **第 21 章（推理加速）**：图像 Token 进入预填充与 KV 账本；视觉特征可按图像哈希缓存，分块预填充与连续批处理要处理变长图像序列。
+- **第 24 章（测试时扩展）**：高分辨率裁切、多视角与“放大再看”可以看作多模态的测试时计算；验证器要跨模态，覆盖率与选择率的分解仍成立。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全。
+- [x] 字数：正文 7700 个中文字符（剔除代码块与公式），在前沿章 7,000–9,000 预算内。
+- [x] 公式编号 (25.1)–(25.10) 连续；切块、序列长度、注意力倍数、ViT、InfoNCE、重采样器、压缩比、VLM 损失、VQ 量化与损失均有推导或说明。
+- [x] 至少 1 张对比表（表 25-1 六条路线）；工业案例含 CLIP、Flamingo、BLIP-2、LLaVA、Qwen-VL、InternVL、Chameleon、Emu3、Transfusion；论文导读 5 篇；误区 5 条。
+- [x] 代码可运行：从章内 Markdown 重新提取 `tinylm/multimodal.py` 与 `examples/ch25_multimodal.py`，在 `/tmp/ch25final` 运行，除训练耗时外输出一致；12 项测试通过。
+- [x] 公式与代码对应：`image_token_count` 标注 (25.1)/(25.7)，`attention_multiplier` 标注 (25.3)，`PatchEmbed`/`VisionEncoder` 标注 (25.4)，`contrastive_loss` 标注 (25.5)，`TokenResampler` 标注 (25.6)，拼接标注 (25.8)，`vq_quantize` 标注 (25.9)，`vq_loss` 标注 (25.10)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$N_p,H,W,p,C,d_v,T_{\mathrm{text}},L,R_{\mathrm{attn}},z_0,\mathbf{E},\mathbf{E}_{\mathrm{pos}},z_l,\tau,L_{\mathrm{CLIP}},K,Z_v,M,m,\rho_{\mathrm{vis}},L_{\mathrm{VLM}},e_k,z_q,\beta,\mathrm{sg},L_{\mathrm{VQ}}$$ 等，并说明与第 3、6、14、16、21、23、24 章的重名冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：晚期融合、早期融合、模态对齐、视觉塔、连接器、图像占位符、视觉指令微调、重采样器、动态分辨率、码本、向量量化、视觉问答、码本坍塌；附录 C 已有的多模态大模型、视觉编码器、投影层、视觉语言模型、原生多模态、图像 Token 化未重复添加。
+- [x] GitBook 语法：hint 使用 info/danger/success；1 个 Mermaid、1 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`（代码块内的 shell 提示符除外），无外部图片。
+- [x] 事实性数字有来源或可复算：Token 预算、InfoNCE、VQ 与 VQA 数字由固定种子程序输出；CLIP、LLaVA、BLIP-2、Qwen-VL、InternVL、Chameleon、Emu3、Transfusion 的配置来自公开论文/技术报告并在正文标注条件；GPT-4V/Gemini 未公开细节已标注为推测。
+- [x] 实验诚实报告：明确标注 12×12、4096 样本、300 步的玩具规模；保留负结果（MLP 不优于线性、4 Token 不劣于 16 Token、36 Token 方差大）；冻结视觉塔一行明确是随机初始化冻结，不得外推为预训练冻结策略。
+- [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 的现有签名未改；`VisionConfig` 只作视觉分支配置，不进入 `ModelConfig`；所有新逻辑在 `tinylm/multimodal.py`。
+
+## 第 26 章交接
+
+### 本章摘要
+
+本章把智能体写成“策略—工具—观测”的闭环。工具由 (26.1) 的名字、参数模式与函数三元组给出；模型看到的是观测历史 (26.2)，对应部分可观测决策过程；轨迹概率与期望回报由 (26.3)–(26.4) 定义，与第 18 章策略梯度同形，但动作空间是自然语言与结构化调用的混合。成本侧，上下文按 (26.5) 逐步增长，前 $$T$$ 步输入 Token 总数由 (26.6) 给出，成本 (26.7) 因而近似随步数平方增长；可靠性侧，重试成功率 (26.8) 与多步任务成功率 (26.9) 解释“任务越长越脆弱”，并强调失败相关性与副作用对独立假设的破坏；工具选择用单位成本期望收益 (26.10) 排序。训练上，SFT 只对动作 Token 计损 (26.11)，RL 用轨迹回报加 KL 约束 (26.12)。正文对比六条路线，给出参数模式、最小权限、沙箱超时、幂等重试、输出截断、注入防线与可观测性等上线约束，并用脚本策略验证控制流。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (26.1) | $$\mathcal{T}=\{(n_j,\sigma_j,f_j)\}_{j=1}^{J},\ f_j:\mathcal{A}_j\to\mathcal{O}_j\cup\{\bot\}$$ | 工具三元组：名字、模式、函数 |
+| (26.2) | $$h_t=(q,a_1,o_1,\dots,a_{t-1},o_{t-1})$$ | 观测历史 |
+| (26.3) | $$p_\theta(\tau\mid q)=\prod_{t=1}^{T}\pi_\theta(a_t\mid h_t)P_{\mathrm{env}}(o_t\mid h_t,a_t)$$ | 轨迹概率 |
+| (26.4) | $$J(\theta)=\mathbb{E}_{\tau\sim p_\theta}[R(\tau)]$$ | 期望回报 |
+| (26.5) | $$L_{t+1}=L_t+\lvert a_t\rvert+\lvert o_t\rvert$$ | 上下文递推 |
+| (26.6) | $$\sum_{t=1}^{T}L_t=T L_0+\sum_{t=1}^{T}(T-t)(\lvert a_t\rvert+\lvert o_t\rvert)$$ | 输入 Token 总数 |
+| (26.7) | $$C=c_{\mathrm{in}}\sum_t L_t+c_{\mathrm{out}}\sum_t\lvert a_t\rvert$$ | 轨迹成本 |
+| (26.8) | $$P_{\mathrm{retry}}(p,b)=1-(1-p)^b$$ | 重试后单步成功率 |
+| (26.9) | $$P_{\mathrm{task}}(p,b,K)=[1-(1-p)^b]^K$$ | 多步任务成功率 |
+| (26.10) | $$\mathrm{VoI}(j)=(\mathbb{E}[u(o)\mid a_j]-u_0)/C_j$$ | 单位成本期望收益 |
+| (26.11) | $$\mathcal{L}_{\mathrm{SFT}}=-\sum_t m_t\log\pi_\theta(a_t\mid h_t)$$ | 动作掩码监督损失 |
+| (26.12) | $$J_{\mathrm{RL}}(\theta)=\mathbb{E}_{\tau\sim\pi_\theta}[R(\tau)]-\beta\,\mathrm{KL}(\pi_\theta\Vert\pi_{\mathrm{ref}})$$ | 带 KL 的轨迹级 RL |
+
+### 实验与关键数字
+
+- 设计：纯标准库实现 `tinylm/agent/loop.py`；参数校验、重复调用拦截、上下文预算、步数上限、可选“工具错误即停”；成本按 UTF-8 字节数除以 4 估算 Token，仅用于相对账本。
+- 两步工具调用：17×6=102，再乘 1.08 得 110.16，最终答案 110；3 步，轨迹成本 250.0（`c_in=1, c_out=4`）。
+- 重复调用：`max_steps=4, max_repeat=1`，第 2–4 步均返回 `repeated call rejected: calc`，以 `max_steps` 停止。
+- 参数校验：传入 `expression: 42`（int）被拒，错误作为观测回填，模型下一步给出“无法计算”。
+- 注入演示：最小权限注册表把 `delete_file` 变成 `unknown tool`；过度授权注册表执行了演示桩，返回 `simulated delete: /tmp/report`（不触碰文件系统）。
+- 蒙特卡洛：每格 20,000 次、固定种子；`p∈{0.5,0.7,0.9}`、`b∈{1,2,3}`、`K=3`，经验值与 (26.8)–(26.9) 的偏差不超过约 0.004。例：`p=0.9,b=1,K=3` 经验 0.729 / 公式 0.729；`p=0.7,b=2` 的 `K=1..4` 为 0.910/0.830/0.756/0.688，公式为 0.910/0.828/0.754/0.686。
+- 成本随深度增长：`K=1→3` 时步数 2→4，上下文 Token 34→162，轨迹成本 98.0→322.0，验证 (26.6)/(26.7) 的二次效应。
+- VoI：工具 A（+0.3/100 Token）为 0.0030，工具 B（+0.4/1000 Token）为 0.0004。
+- 重试阈值：`p=0.9` 时达到 0.99 成功率至少需 `b=2`。
+- 测试：15 项全部通过（约 0.03 s），覆盖配置校验、带推理的 JSON 解析、歧义/畸形动作拒绝、未知工具、缺参/多参/类型错误、工具异常转观测、正常作答、步数上限、重复拦截、错误即停、上下文上限、观测截断、重试与任务公式端点、成本复算、VoI 与 Token 估算。
+
+### 留给后续章节的伏笔
+
+- **第 27 章（评测方法论）**：智能体要按轨迹评测，报告成功率、步数分布、成本分布、工具错误率与副作用次数；固定任务集、工具版本与初始状态，否则分数不可比。本章的 `AgentResult` 与逐步日志正是轨迹级指标的最小载体。
+- **第 21 章（推理加速）**：前缀缓存只能降低重复计算的算力，不能消除 (26.6) 的输入 Token 账本；连续批处理要处理智能体轨迹的变长与暂停/恢复。
+- **第 24 章（测试时计算）**：Best-of-N 与树搜索可作用在“每一步动作”或“整条轨迹”上；搜索宽度与深度直接放大 (26.7) 的成本，验证器质量决定收益。
+- **第 18 章（RLVR/GRPO）**：轨迹级回报稀疏且延迟，信用分配比单轮生成更难；可执行验证器是智能体 RL 的关键基础设施。
+- **第 16–17 章（RLHF/DPO）**：动作格式与安全行为可用偏好数据修正，但工具调用的正确性更适合用可执行反馈而非人工偏好判断。
+- **第 14 章（SFT）**：工具输出必须做损失掩码，否则模型会学会复述观测；对话模板要能容纳 `tool_use`/`tool_result` 这类结构化块。
+- **第 25 章（多模态）**：截图、图像与视频都是环境观测，图像 Token 会放大 (26.5)–(26.7) 的成本；多模态智能体的轨迹预算要按视觉 Token 重算。
+- **第 19 章（蒸馏）**：用小模型执行高频、低风险的子步骤（如动作解析、工具选择）可以降低单步成本，但错误会沿轨迹累积。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全。
+- [x] 字数：正文 7871 个中文字符（剔除代码块与公式），在前沿章 7,000–9,000 预算内。
+- [x] 公式编号 (26.1)–(26.12) 连续，习题答案另有 (26.13)–(26.15)；工具定义、历史、轨迹概率、回报、上下文递推、Token 总数、成本、重试、任务成功率、VoI、SFT 与 RL 目标均有推导或说明。
+- [x] 至少 1 张对比表（表 26-1 六条路线）；工业案例含 OpenAI function calling/tools、Anthropic tool use、MCP、ReAct、Toolformer、ToolLLM、SWE-agent、AgentBench；论文导读 5 篇；误区 5 条。
+- [x] 代码可运行：从章内 Markdown 重新提取 `tinylm/agent/loop.py` 与 `examples/ch26_agent.py`，在 `/tmp/ch26verify` 运行；15 项测试通过，示例输出与正文逐字一致（`diff` 为 0）。
+- [x] 公式与代码对应：`ToolSpec` 标注 (26.1)，上下文初值与追加标注 (26.2)/(26.5)，`trajectory_cost`/`result_cost` 标注 (26.7)，`retry_success` 标注 (26.8)，`task_success` 标注 (26.9)，`value_of_information` 标注 (26.10)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$q,a_t,o_t,h_t,s_t,\pi_\theta,P_{\mathrm{env}},\tau,R(\tau),L_t,C,c_{\mathrm{in}},c_{\mathrm{out}},p,b,K,u,\mathrm{VoI},m_t,\beta$$ 等，并说明与 top-k、bias、VQ/KL、采样概率、温度的冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：智能体、工具调用、ReAct、轨迹、环境、智能体强化学习、提示注入、最小权限、幂等、沙箱、人工确认、计划—执行、动作空间、观测、停止条件、信息价值、工具模式；附录 C 已有的智能体相关词条未重复添加。
+- [x] GitBook 语法：hint 使用 info/warning/success；1 个 Mermaid、1 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`，无外部图片。
+- [x] 事实性数字有来源或可复算：Retry/成本/VoI 数字由固定种子程序输出；OpenAI、Anthropic、MCP、ReAct、Toolformer、ToolLLM、SWE-agent、AgentBench 的配置与结论来自公开文档/论文并在正文标注条件；API 时效性已用 warning 提示。
+- [x] 实验诚实报告：脚本策略验证的是控制流而非模型能力；蒙特卡洛固定种子、2 万次；独立性假设、失败相关性、幂等与副作用限制均明确讨论；`delete_file` 是演示桩，不触碰文件系统。
+- [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 未改；智能体模块独立于模型，策略以 `Callable[[str], str]` 注入，接 TinyLM 只需包装 `generate`。
+
+## 第 27 章交接
+
+### 本章摘要
+
+本章把评测写成“带噪声的测量”。指标侧，准确率 (27.1)、macro-F1 (27.2) 与 pass@k (27.3) 分别对应逐样本、按类别与多次采样；不确定性侧，标准误 (27.4)、Wilson 区间 (27.5)、配对 bootstrap (27.6) 与 McNemar (27.7) 回答“差距是否真实”，Bonferroni (27.8) 与样本量公式 (27.9) 处理多重比较与功效；数据侧，n-gram 污染率 (27.10) 只是第一道检查，还需扰动对照、时间切分与私有留出集；校准侧，ECE (27.11) 与覆盖率—风险曲线描述置信度质量；偏好侧，Bradley–Terry (27.12)、Elo (27.13) 与 Cohen kappa (27.14) 处理排名与标注一致性；决策侧，成本感知效用 (27.15) 把质量与代价放在同一尺度。智能体评测强调 pass^k (27.16) 与聚类有效样本量 (27.17)，而不是只看 pass@k。正文给出可复现报告的字段清单与常见误区。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (27.1) | $$\mathrm{Acc}=\frac{1}{n}\sum_i\mathbf{1}[\hat y_i=y_i]$$ | 准确率 |
+| (27.2) | $$\mathrm{F1}_{\mathrm{macro}}=\frac{1}{C}\sum_c\frac{2\mathrm{TP}_c}{2\mathrm{TP}_c+\mathrm{FP}_c+\mathrm{FN}_c}$$ | 宏平均 F1 |
+| (27.3) | $$\mathrm{pass@}k=1-\binom{n-c}{k}/\binom{n}{k}$$ | pass@k 无偏估计 |
+| (27.4) | $$\mathrm{SE}(\hat p)=\sqrt{\hat p(1-\hat p)/n}$$ | 二项比例标准误 |
+| (27.5) | $$\frac{\hat p+\frac{z^2}{2n}\pm z\sqrt{\frac{\hat p(1-\hat p)}{n}+\frac{z^2}{4n^2}}}{1+\frac{z^2}{n}}$$ | Wilson 置信区间 |
+| (27.6) | $$\Delta^{*}=\frac{1}{n}\sum_i(s_i^{A*}-s_i^{B*})$$ | 配对 bootstrap 差值 |
+| (27.7) | $$p=2\sum_{i=0}^{\min(b,c)}\binom{b+c}{i}2^{-(b+c)}$$ | McNemar 精确双侧 p |
+| (27.8) | $$\alpha'=\alpha/m$$ | Bonferroni 阈值 |
+| (27.9) | $$n\approx2(z_{1-\alpha/2}+z_{1-\beta})^2p(1-p)/\Delta^2$$ | 每组样本量估算 |
+| (27.10) | $$r_n=\frac{1}{M}\sum_i\mathbf{1}[\mathcal{G}_n(x_i^{\mathrm{eval}})\cap\mathcal{G}_n(\mathcal{D}_{\mathrm{train}})\neq\varnothing]$$ | n-gram 污染率 |
+| (27.11) | $$\mathrm{ECE}=\sum_b\frac{n_b}{n}\lvert\mathrm{acc}(b)-\mathrm{conf}(b)\rvert$$ | 期望校准误差 |
+| (27.12) | $$P(i\succ j)=\frac{1}{1+10^{-(R_i-R_j)/400}}$$ | Bradley–Terry 胜率 |
+| (27.13) | $$R_i'=R_i+K(1-E_i),\ E_i=\frac{1}{1+10^{(R_j-R_i)/400}}$$ | Elo 更新 |
+| (27.14) | $$\kappa=\frac{p_o-p_e}{1-p_e}$$ | Cohen kappa |
+| (27.15) | $$U=\mathrm{score}-\lambda\cdot\mathrm{cost}$$ | 成本感知效用 |
+| (27.16) | $$\mathrm{pass}^k=p_{\mathrm{task}}^{\,k}$$ | 每次尝试都成功 |
+| (27.17) | $$n_{\mathrm{eff}}=n/\mathrm{DEFF},\ \mathrm{DEFF}=1+(m-1)\rho$$ | 聚类设计效应 |
+| (27.18) | $$\mathrm{SE}=\sqrt{0.7\times0.3/1000}\approx0.0145$$ | 习题：标准误实算 |
+
+### 实验与关键数字
+
+- 设计：纯标准库实现 `tinylm/eval/metrics.py`；逐样本输入、固定种子；bootstrap 4000 次；pass@k 模拟 20000 次。
+- 配对比较（n=1000）：A 准确率 0.700，标准误 0.0145，Wilson [0.671, 0.728]；B 0.720，Wilson [0.691, 0.747]；配对差 B-A=-0.020，bootstrap 95% 区间 [-0.035, -0.005]；不一致对 b=20、c=40，McNemar 精确 p=0.0135。
+- pass@k（n=10, c=2）：k=1..5 的公式值 0.2000/0.3778/0.5333/0.6667/0.7778；2 万次模拟值 0.2034/0.3735/0.5332/0.6679/0.7790。
+- 污染检测：3 条评测文档，n=5 命中 0.667，n=13 命中 0.333。
+- 裁判位置偏差：只按 A 在前时 A 胜率 0.603；交换顺序后 0.503。Bradley–Terry 分差 0/100/200 的概率 0.500/0.640/0.760；1500 战胜 1700 后 Elo 为 1524.3/1675.7。
+- 校准：构造每箱准确率比置信度低 0.05，ECE=0.050。
+- 一致性：一致率 0.800、机会一致率 0.500 时 kappa=0.600；macro-F1 0.778 对应准确率 0.750。
+- 成本效用（λ=0.02）：A 0.70，B 0.68。
+- 测试：12 项全部通过（约 0.4 s，耗时随机器变化，章内用 `sed` 去掉耗时以便逐字复现），覆盖每个指标的端点、边界与错误输入。
+
+### 留给后续章节的伏笔
+
+- **第 28 章（可解释性）**：探针与因果干预同样需要置信区间、对照与显著性；“某个头重要”必须有可复现的干预实验，而不是只看注意力权重。
+- **第 29 章（前沿与开放问题）**：持续学习、合成数据与智能体 RL 的进展都要用本章的评测框架衡量；基准饱和与 Goodhart 效应会直接影响“前沿”判断。
+- **第 26 章（智能体）**：`AgentResult` 的逐步记录是轨迹级评测的数据源；成功率之外还要报步数、成本、工具错误率与副作用次数。
+- **第 24 章（测试时计算）**：pass@k 与预算控制共享同一套抽样统计；比较不同采样预算时必须固定 k、n 与成本口径。
+- **第 10 章（数据工程）**：MinHash/LSH 去重可直接用于训练—评测污染检测；n-gram 只是最便宜的初筛。
+- **第 18 章（RLVR/GRPO）**：可执行验证器既是训练信号也是评测器；验证器偏差会被策略利用，需用独立留出集与对抗样本检查。
+- **第 19 章（蒸馏）**：学生模型的评测要同时看能力、成本与校准，不能只比平均分。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全。
+- [x] 字数：正文 7664 个中文字符（剔除代码块与公式），在前沿章 7,000–9,000 预算内。
+- [x] 公式编号 (27.1)–(27.18) 按正文出现顺序连续；指标、区间、检验、污染、校准、排名、智能体统计均有推导或说明。
+- [x] 至少 1 张对比表（表 27-1 七类路线）；工业案例含 HELM、MMLU/MMLU-Pro、GSM8K/MATH、HumanEval/MBPP、MT-Bench、Chatbot Arena、SWE-bench/AgentBench/WebArena、LiveBench；论文导读 5 篇；误区 5 条。
+- [x] 代码可运行：从章内 Markdown 重新提取 `tinylm/eval/metrics.py` 与 `examples/ch27_eval.py`，在 `/tmp/ch27verify` 运行；12 项测试通过，示例输出与正文逐字一致。
+- [x] 公式与代码对应：`accuracy` (27.1)、`macro_f1` (27.2)、`pass_at_k` (27.3)、`binomial_se` (27.4)、`wilson_interval` (27.5)、`paired_bootstrap_diff` (27.6)、`mcnemar_test` (27.7)、`contamination_rate` (27.10)、`expected_calibration_error` (27.11)、`bradley_terry_prob` (27.12)、`elo_update` (27.13)、`cohen_kappa` (27.14)、`cost_aware_utility` (27.15)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$n,M,C,\mathrm{TP}_c,\mathrm{FP}_c,\mathrm{FN}_c,\hat p,p,k,z,\Delta,b,c,\alpha,m,\mathcal{G}_n,r_n,B,n_b,\mathrm{ECE},R_i,K,E_i,\kappa,p_o,p_e,U,\lambda,\rho,\mathrm{DEFF},n_{\mathrm{eff}}$$ 等，并说明与 top-k、专家数、KL 系数、切块边长、尝试次数的冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：基准、评测协议、数据污染、提示词敏感性、配对比较、Bradley–Terry、Elo、Cohen kappa、期望校准误差、选择性预测、聚类 bootstrap、效应量、基准饱和、系统卡、标准误、Wilson 区间；附录 C 已有的 LLM 作为裁判、竞技场未重复添加。
+- [x] GitBook 语法：hint 使用 info/warning/success；1 个 Mermaid、1 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`，无外部图片。
+- [x] 事实性数字有来源或可复算：配对、pass@k、污染、校准、kappa 与成本效用数字由固定种子程序输出；MMLU/MMLU-Pro、GSM8K/MATH、HumanEval/MBPP、MT-Bench、Chatbot Arena、SWE-bench/AgentBench/WebArena、HELM 的配置与结论来自公开论文/文档并在正文标注条件；排行榜时效性已加 warning。
+- [x] 实验诚实报告：配对数据是构造的确定性样本，不是真实模型输出；pass@k 与位置偏差是模拟；污染示例只有 3 条文档，明确为演示；未把玩具数字外推为真实基准分数。
+- [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 未改；评测模块独立于模型，只接收逐样本结果。
+
+## 第 28 章交接
+
+### 本章摘要
+
+本章把可解释性写成“带干预的假设检验”。探针侧，线性分类器 (28.1) 只回答某属性是否可线性解码，必须用打乱标签或随机特征构造对照，并以选择性 (28.2) 扣除分类器自身学到的部分。注意力侧，(28.3) 表明权重只是值向量的混合系数，实际贡献还取决于值向量与输出投影；单头消融 (28.4) 给出因果影响的直接度量，但单头零效应可能来自其他头补偿，必须做组消融。激活修补侧，以对数几率差 (28.5) 为平滑指标，恢复率 (28.6) 量化反事实干预；损坏方式、位点、位置与指标这四个选择都会改变结论，选错位点会产生假阴性。SAE 侧，重构加 L1 的目标 (28.7) 把叠加激活分解为稀疏特征，用 L0 (28.8) 与特征纯度 (28.9) 评价，但特征可读不等于因果有效。最后强调模型版本、损坏分布、种子、样本量与多重比较校正等可复现要求。玩具复制任务展示了三个关键现象：可解码的信息可能不被使用、注意力权重高的头可能完全冗余、修补位点选错会产生零结果。
+
+### 关键公式
+
+| 编号 | 公式 | 说明 |
+| --- | --- | --- |
+| (28.1) | $$\min_{W}\ \frac{1}{n}\sum_{i=1}^{n}\mathrm{CE}\left(\mathrm{softmax}(Wh_i),y_i\right)+\lambda\lVert W\rVert_2^2$$ | 线性探针目标 |
+| (28.2) | $$\mathrm{Sel}=\mathrm{Acc}_{\mathrm{probe}}-\mathrm{Acc}_{\mathrm{control}}$$ | 探针选择性 |
+| (28.3) | $$\mathrm{Attn}_h(x)_t=\sum_{j\le t}\alpha_{tj}^{(h)}v_j^{(h)},\ \alpha_{tj}^{(h)}=\mathrm{softmax}_j\left(\frac{q_t^\top k_j}{\sqrt{d_h}}\right)$$ | 注意力输出分解 |
+| (28.4) | $$\Delta_h=\mathcal{L}(x)-\mathcal{L}\left(x;\ \text{head }h\leftarrow 0\right)$$ | 单头消融的指标变化 |
+| (28.5) | $$\mathrm{LD}(x)=\log p(y_{\mathrm{target}}\mid x)-\log p(y_{\mathrm{distractor}}\mid x)$$ | 对数几率差 |
+| (28.6) | $$R=\frac{S_{\mathrm{patch}}-S_{\mathrm{corrupt}}}{S_{\mathrm{clean}}-S_{\mathrm{corrupt}}}$$ | 激活修补恢复率 |
+| (28.7) | $$\mathcal{L}_{\mathrm{SAE}}=\left\lVert x-\left(fW_d+b_d\right)\right\rVert_2^2+\lambda\lVert f\rVert_1,\ f=\mathrm{ReLU}\left(W_e x+b_e\right)$$ | SAE 重构加稀疏目标 |
+| (28.8) | $$\mathrm{L0}=\frac{1}{n}\sum_{i=1}^{n}\left\lVert f_i\right\rVert_0$$ | 平均非零特征数 |
+| (28.9) | $$P_k=\frac{\max_c\lvert\{i:\arg\max_j f_{ij}=k,\ y_i=c\}\rvert}{\lvert\{i:\arg\max_j f_{ij}=k\}\rvert}$$ | 特征纯度 |
+| (28.10) | $$R_A=\frac{1.0-(-2.0)}{4.0-(-2.0)}=\frac{3.0}{6.0}=0.5$$ | 习题：恢复率实算 |
+
+### 实验与关键数字
+
+- 设计：`tinylm/interpret/core.py` 提供探针、注意力、消融、修补、SAE 与方向投影工具；`examples/ch28_interpret.py` 在 2 层、4 头、`d_model=64`、词表 16 的 TinyLM 上训练复制首 Token 任务（200 步、批 128、AdamW lr 3e-3、wd 0.01、seed 0），1000 条留出样本（seed 99），准确率 1.000。
+- 探针（层 1，训练 800 / 测试 200，300 步）：位置 1/2/5 准确率 1.000/0.975/1.000；打乱标签对照（位置 10）0.060，选择性 +0.940。
+- 因果交换：改位置 5 填充词，仍复制原答案 1.000；改位置 1 被复制词，改为复制新词 1.000。说明位置 5 的信息可解码但不被读取。
+- 最后一层对位置 1 的平均注意力：层 0 四个头均 1.000；层 1 为 0.103/0.162/0.120/0.128。
+- 单头消融：层 0 四个头的平均 margin 变化约 -0.002/-0.001/-0.001/-0.001；层 1 均约 -0.000；层 0 四头同时消融准确率 0.136、margin -4.103，显示高度冗余。
+- 激活修补恢复率：`tok_emb`@pos1 +1.000；`attn[0]`@pos10 +0.999；`attn[0]`@pos1 +0.017；`block[0]`@pos1 +0.019；`block[0]`@pos2 +0.032；`block[0]`@pos10 +0.999；`block[1]`@pos10 +1.000。错误位点给出零结果，作为假阴性示例。
+- SAE（4000 条末位激活，字典 128）：λ=0/0.005/0.020/0.050 时 MSE 1.73e-4/1.43e-4/1.56e-4/2.22e-4，L0 56.05/55.89/43.60/27.24，死特征 0/0/0/1；λ=0.020 的特征纯度 1.000。
+- 特征消融（负结果）：Token 4 最强特征 #57 平均激活 2.951；投影掉后 margin -7.853（原 -8.598，随机方向 -8.466），准确率 0.984（随机方向 1.000），特征可读但因果作用与随机方向接近。
+- 测试：15 项全部通过，覆盖 margin、探针、注意力归一化与因果性、MLA 拒绝、hook 恢复、激活形状、恢复率端点、SAE 形状/范数/训练、特征纯度、方向投影与方向消融。
+
+### 留给后续章节的伏笔
+
+- **第 29 章（前沿与开放问题）**：持续学习、智能体强化学习与合成数据的“进展”都需要可解释性审计；解释工具能指出能力来自哪些部件，但不能替代评测与因果验证。
+- **第 27 章（评测方法论）**：探针准确率、修补恢复率与特征效应的区间估计、配对比较与多重比较校正直接复用其 bootstrap 与效应量框架；只报点估计不足以支撑机制结论。
+- **第 3、6 章（Transformer 与注意力变体）**：注意力的头粒度决定消融与修补的单位；GQA/MQA/MLA 的 K/V 共享会改变“头”的独立性，解释工具需按实际参数化调整。
+- **第 21、23 章（推理加速与量化）**：KV Cache 量化与权重仅量化会改变激活分布，解释结论必须在目标推理配置下复现；量化误差可能放大或掩盖小效应。
+- **第 18 章（RLVR/GRPO）**：策略更新会改变回路权重；训练前后同一探针或修补结论是否稳定，是检验解释是否抓住算法而非伪相关的关键。
+- **第 26 章（智能体）**：工具选择与多步轨迹的信用分配可用激活修补与路径修补定位；轨迹级解释必须区分“某步读取了信息”与“整条轨迹因此成功”。
+- **第 25 章（多模态）**：视觉 Token 与文本 Token 的跨模态回路可用同样的探针与修补工具研究；图像 Token 数会放大干预成本。
+- **第 19 章（蒸馏）**：学生是否继承教师的回路是一个可检验问题；仅比较输出分布不足以说明机制被迁移。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全。
+- [x] 字数：正文 7195 个中文字符（剔除代码块与公式），在前沿章 7,000–9,000 预算内。
+- [x] 公式编号 (28.1)–(28.10) 按正文出现顺序连续；探针、选择性、注意力分解、消融、对数几率差、恢复率、SAE、L0、纯度与习题实算均有推导或说明。
+- [x] 至少 1 张对比表（表 28-1 七条路线）；工业案例含 Transformer Circuits、归纳头、IOI 回路、单层 SAE、Claude 3 Sonnet 的 Scaling Monosemanticity、SAE 缩放规律、拒绝方向与 ROME；论文导读 5 篇；误区 5 条。
+- [x] 代码可运行：从章内 Markdown 重新提取 `tinylm/interpret/core.py` 与 `examples/ch28_interpret.py`，在 `/tmp/ch28verify` 运行；15 项测试通过，示例输出与正文逐字一致。
+- [x] 公式与代码对应：`linear_probe_accuracy` (28.1)、`probe_selectivity` (28.2)、`attention_maps` (28.3)、`ablate_heads` (28.4)、`logit_margin` (28.5)、`recovery` (28.6)、`SparseAutoencoder`/`train_sae` (28.7)、`sae_metrics` (28.8)、`feature_purity` (28.9)、习题 (28.10)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$h_i,W,C,\mathrm{Sel},\alpha_{tj},v_j,q_t,k_j,d_h,\Delta_h,\mathrm{LD},S_{\mathrm{clean/corrupt/patch}},R,W_e,W_d,b_e,b_d,K,\lambda,f,\mathrm{L0},P_k$$ 等，并说明与第 3、6、7、15、16、17、18、21、23、25、27 章的重名冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：线性探针、探针选择性、注意力可视化、头消融、组消融、路径修补、回路发现、因果擦除、叠加、特征纯度、死特征、特征吸收、特征分裂、拒绝方向、归纳头、IOI 回路、特征钳制、分布外修补；附录 C 已有的探针、机制可解释性、回路、稀疏自编码器、特征、激活修补未重复添加。
+- [x] GitBook 语法：hint 使用 info/warning/success；1 个 Mermaid、1 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`，无外部图片。
+- [x] 事实性数字有来源或可复算：探针、注意力、消融、修补、SAE 与特征消融数字由固定种子程序输出；Elhage、Olsson、Wang、Bricken、Templeton、Gao、Arditi、Meng、Hase 的配置与结论来自公开论文/技术报告并在正文标注条件；机制可解释性缺少统一基准的时效性用 warning 提示。
+- [x] 实验诚实报告：明确标注 2 层 64 维、200 步、1000 条留出样本的玩具规模；保留特征消融不显著的负结果；错误位点修补产生的假阴性被写成教学点；不得把复制任务的结论外推为真实 LLM 的回路结构。
+- [x] 接口未破坏：`TinyLM.forward`、`CausalLMOutput` 与 `ModelConfig` 未改；解释逻辑全部在 `tinylm/interpret/`，以 hook 与只读分析实现，不改变模型输出。
+
+## 第 29 章交接
+
+### 本章摘要
+
+本章作为全书收束章，把前沿问题放回“能力 = 架构 × 数据 × 算力 × 训练目标”的四因子框架，说明前沿不是第五个因子，而是四项同时逼近边界时的取舍。智能体强化学习部分把训练目标从下一个 Token 拉长到整条轨迹，推导长度 $$K$$、单步成功率 $$p$$ 下的轨迹成功率 $$p^K$$ 与看到一次成功所需样本数 $$n\approx\log(1/\delta)/p^K$$，指出稀疏奖励的采样成本随轨迹长度指数增长；比较终端奖励、过程奖励与势函数塑形 (29.4)，说明只有势函数差分形式能保证最优策略不变。持续学习部分区分稳定性与可塑性，推导 EWC 的 Fisher 二次惩罚 (29.5)，比较回放 (29.6) 与参数隔离，给出 ACC 与 BWT 两个评价指标 (29.7)。合成数据部分用一维高斯的递归最大似然推出方差收缩 $$((N-1)/N)^t$$ (29.8)，说明模型崩溃是长尾被逐代削掉；加入真实数据锚定后不动点回到真实方差 (29.9)，并讨论验证器过滤的分布倾斜 (29.10)。高效架构部分用算力账本比较全注意力、线性注意力/SSM 与混合架构 (29.11)，并说明架构会改变缩放定律常数与指数 (29.12)。理论部分用阈值型指标 (29.13) 说明部分“涌现”可能是度量非线性造成的幻觉，用能力定义 (29.14) 说明损失与能力分离，最后讨论可解释性边界、基准饱和与古德哈特定律。
+
+### 关键公式
+
+| 编号 | 公式 | 含义 |
+| --- | --- | --- |
+| (29.1) | $$G_t=\sum_{k=t}^{T}\gamma^{k-t}r_k$$ | 折扣回报 |
+| (29.2) | $$P(\mathrm{success})=\prod_{t=1}^{K}p_t=p^{K}$$ | 稀疏奖励下的轨迹成功率 |
+| (29.3) | $$n\ge\frac{\log\delta}{\log(1-p^{K})}\approx\frac{\log(1/\delta)}{p^{K}}$$ | 看到一次成功所需样本数 |
+| (29.4) | $$r'_t=r_t+\gamma\Phi(s_{t+1})-\Phi(s_t)$$ | 势函数塑形，最优策略不变 |
+| (29.5) | $$\mathcal{L}_{\mathrm{EWC}}=\mathcal{L}_{B}+\frac{\lambda}{2}\sum_iF_i(\theta_i-\theta_{A,i}^{*})^2$$ | EWC 二次惩罚 |
+| (29.6) | $$\mathcal{L}_{\mathrm{replay}}=(1-\rho)\mathcal{L}_{B}+\rho\mathcal{L}_{A}$$ | 回放损失 |
+| (29.7) | $$\mathrm{ACC}=\frac{1}{T}\sum_i R_{T,i},\quad \mathrm{BWT}=\frac{1}{T-1}\sum_i(R_{T,i}-R_{i,i})$$ | 持续学习评价指标 |
+| (29.8) | $$\sigma_{t+1}^{2}=\frac{N-1}{N}\sigma_t^{2}$$ | 纯合成自举的方差收缩 |
+| (29.9) | $$\sigma_{t+1}^{2}=(1-\alpha)\sigma_t^{2}+\alpha\sigma_{\mathrm{real}}^{2}$$ | 真实数据锚定的不动点 |
+| (29.10) | $$p_{\mathrm{filter}}(x)=\frac{p(x)q(x)}{Z},\quad Z=\mathbb{E}_p[q]$$ | 验证器过滤后的分布 |
+| (29.11) | $$F_{\mathrm{hybrid}}(T)=aF_{\mathrm{attn}}(T)+(1-a)F_{\mathrm{state}}(T)$$ | 混合架构算力 |
+| (29.12) | $$L(N,D)=L_{\infty}+\frac{A}{N^{\alpha}}+\frac{B}{D^{\beta}}$$ | 缩放定律经验形式 |
+| (29.13) | $$M(L)=\sigma\left(\frac{L^{\star}-L}{\tau}\right)$$ | 阈值型指标制造“涌现” |
+| (29.14) | $$C(\theta)=\mathbb{E}_{x}\left[\mathbf{1}[m(x,\theta)\ge\tau]\right]$$ | 任务能力定义 |
+
+### 实验与关键数字
+
+- 设计：本章不新增 TinyLM 模块，接口保持冻结；`examples/ch29_frontier.py` 为独立数值实验，只依赖 PyTorch，CPU 约 8 秒，全部由固定种子控制。
+- 持续学习：2→64→64→1 的 Tanh MLP，先学 $$y=\sin(2\pi x)$$ 再学 $$y=\cos(2\pi x)$$，任务标识作为第二维输入，每任务 200 点、各 500 步 Adam lr 1e-2，3 个种子。任务 A 的 MSE：顺序训练 0.0018→0.8741（遗忘 0.8722±0.1535），EWC $$\lambda=10^4$$ 后 0.1010（遗忘 0.0991±0.0869），回放 $$\rho=0.5$$ 后 0.0004（遗忘 -0.0014±0.0025）；任务 B 的 MSE 分别为 0.0001/0.0004/0.0004。
+- 合成数据自举：一维标准高斯，$$N=100$$，200 代，200 次模拟；报告的是每次模拟方差的均值再开方。纯合成的标准差为 1.0000/0.8068/0.6416/0.3682（第 0/50/100/200 代），理论值 $$(0.99)^{t/2}$$ 为 1.0000/0.7778/0.6050/0.3660；加入 10% 真实数据后稳定在 1.0000/0.9640/0.9843/0.9594，不再收缩到零。
+- 稀疏奖励：8 步独立伯努利链，4000 条轨迹/次，200 次更新，lr 0.5，3 个种子；报告解析成功率 $$\prod_t p_t$$ 与 2 万次采样的经验成功率。终端奖励 0.0129±0.0000 / 0.0129±0.0005（几乎没学动）；逐步验证器 0.9171 / 0.9181±0.0017；势函数塑形 0.9171 / 0.9181±0.0017。逐步奖励与势函数塑形在本任务中重合，因为“每步正确得 1 分”正好等于以累计正确步数为势函数的差分。
+- 复现：从章内 Markdown 提取 Python 块到 `/tmp/ch29final/ch29_frontier.py` 运行，退出码 0，输出与正文 `text` 块逐字一致；提取脚本另核对正文 18 行输出块与实跑输出 `match=True`。
+
+### 全书收束与待验证清单
+
+- 本章是全书最后一章，没有“下一章”接口任务；`tinylm-state.md` 只登记独立性说明与不变量，不新增模块。
+- **四因子复查**：第 1–7 章给架构与训练目标，第 8–13 章给算力与长上下文账本，第 9–10、14–19 章给数据与后训练目标，第 20–24 章给推理侧的算力交换，第 25–28 章把能力扩展到多模态、智能体、评测与可解释性，第 29 章把四项放回同一张取舍表。
+- **待验证假设（发布前必须补证据）**：智能体 RL 的验证器偏差与跨环境泛化；持续学习的长期在线更新与可验证遗忘度量；合成数据的自举上限与可证明防坍塌；高效架构的长程检索与统一评价协议；涌现真实性、损失—能力映射与可控性边界。
+- **时效性**：DeepSeek-R1、Phi-3、Constitutional AI、Mamba-2、Jamba、Griffin、DeepSeek-V3 的规模、上下文与分数只代表论文发布时的配置，正文已用 warning 提示截至写作时。
+- **可复用工具**：第 27 章的 Wilson 区间、配对 bootstrap、McNemar、污染检测，与第 28 章的探针、修补、SAE 审计，是判断任何“前沿进展”是否成立的最低工具箱。
+
+### 自检清单
+
+- [x] 模板结构完整：导读、难度、目标、直觉、数学、方案对比、代码、工业实践、论文导读、常见误区、「本章的取舍」、习题齐全；五个前沿方向各有一节，收束到四因子框架。
+- [x] 字数：正文 7712 个中文字符（剔除代码块与公式），在前沿章 7,000–9,000 预算内；未为凑字数注水。
+- [x] 公式编号 (29.1)–(29.14) 按正文出现顺序连续；无落单编号；无编号的 `aligned` 推导按规范独立成行，其余随文行内。
+- [x] 至少 1 张对比表：表 29-1 架构账本（五种架构的算力、状态、检索与风险），表 29-2 五个方向的综合对照；工业案例覆盖 DeepSeek-R1、过程监督、Phi-3/Constitutional AI、Mamba-2/Jamba/Griffin/DeepSeek-V3 与评测工程；论文导读 5 篇；误区 5 条。
+- [x] 代码可运行：从最终 Markdown 提取 `examples/ch29_frontier.py`，在 `/tmp/ch29final` 运行，退出码 0，CPU 约 8 秒；三组实验的输出与正文逐字一致。
+- [x] 公式与代码对应：终端奖励注释 (29.1)–(29.2)、EWC 注释 (29.5)、回放注释 (29.6)、方差递推注释 (29.8)–(29.9)、势函数塑形注释 (29.4)。
+- [x] 新符号已登记 `notation.md` 与附录 B：$$G_t,p,K,\delta,n,\Phi,r',F_i,\theta^{*},\lambda,\rho,R_{t,i},\mathrm{ACC},\mathrm{BWT},\sigma_t^2,\alpha,q(x),Z,F_{\mathrm{attn}},F_{\mathrm{state}},F_{\mathrm{hybrid}},a,L_{\infty},A,B,M(L),\tau,C(\theta)$$ 等，并说明与第 9、13、16–19、26–28 章的重名冲突。
+- [x] 新术语已登记 `glossary.md` 与附录 C：智能体强化学习、长程信用分配、稀疏奖励、过程奖励模型、势函数塑形、奖励作弊、灾难性遗忘、弹性权重固化、回放、参数隔离、后向迁移、模型崩溃、真实数据锚定、验证器偏差、混合架构、选择性状态空间、古德哈特定律、损失—能力分离、基准饱和等；已有术语不重复添加。
+- [x] GitBook 语法：hint 使用 warning/success；1 个 Mermaid、2 张表、1 个 `<details>`；代码块均标注语言；无落单 `$`，无外部图片；每个文件一个 H1。
+- [x] 事实性数字有来源或可复算：三组实验数字由固定种子程序输出；R1 的 AIME 15.6%→71.0%、Jamba 52B/12B/256K、DeepSeek-V3 671B/37B、EWC/Shumailov/Schaeffer 的结论来自公开论文并在正文标注条件；时效性内容已标注“截至写作时”。
+- [x] 实验诚实报告：明确标注玩具规模（2 层 64 维 MLP、一维高斯、8 步独立链）与不能外推的边界；保留 EWC 高方差、逐步奖励与势函数塑形重合等细节；负结果与巧合都写进正文。
+- [x] 接口未破坏：未改动 `TinyLM.forward`、`CausalLMOutput` 与已有 `ModelConfig` 字段；本章代码为独立脚本，不进入 `tinylm/` 包。
+
+## 附录 A 交接
+
+### 本附录摘要
+
+《数学基础速览》按“定义—常用形式—成立条件—正文落点”组织，覆盖线性代数与分解、矩阵微积分与反向传播、概率与统计、信息论、优化、数值稳定与浮点、常用近似与不等式七个主题，最后给出与正文的对应关系表。全书正文的公式引用均有落点：交叉熵分解对应第 1 章式 (1.4)，Adam 与解耦权重衰减对应第 11 章式 (11.6)–(11.7)，方差递推对应第 29 章式 (29.8)。
+
+### 结构与自检
+
+- 一级标题 1 个，分节 A.1–A.8；导语 + `info` 提示开头，与附录 B、C 的组织方式一致。
+- 共 9 张速查表；关键推导（交叉熵分解）用 `aligned` 独立成行，其余公式随表或随文行内。
+- 正文 4470 个中文字符（剔除公式）；无落单 `$`；hint 使用 info/warning/danger/success。
+- 新增算子已登记 `notation.md` 与附录 B.22：$$\operatorname{tr},\det,\operatorname{rank},\sigma_i,\lambda_i,\kappa,\mathbf{H},\operatorname{Cov},\operatorname{Var},\operatorname{Bias},\bar b,\nu_i$$，并说明与第 11、15、23、27 章的重名冲突。
+- 事实性内容：SVD/Eckart–Young、Jacobian/VJP、MLE 的 $$N$$ 与 $$N-1$$、交叉熵分解、KL 非负性、GD 收敛率、Adam/AdamW、log-sum-exp、FP16/BF16/FP8 的范围均按标准结果给出；近似公式标注了成立条件。
+- 本附录不涉及 TinyLM 代码与接口，`TinyLM.forward`、`CausalLMOutput`、`ModelConfig` 未改动。
+
+## 附录 D 交接
+
+### 本附录摘要
+
+《必读论文清单》按部分与章节组织，汇总正文“论文导读”的 145 篇论文，每章 5 篇，共 D.1–D.7 七节。D.1–D.6 对应全书六个部分，表列为“章、作者（年份）、论文、出处、一句话贡献”；D.7 给出五条按目标的阅读路线。作者统一缩写为“第一作者 等”，出处优先会议或期刊，其次 arXiv；没有 arXiv 的技术报告注明载体。
+
+### 结构与自检
+
+- 一级标题 1 个；D.1 20 篇、D.2 20 篇、D.3 25 篇、D.4 30 篇、D.5 25 篇、D.6 25 篇，合计 145 篇；每章恰好 5 篇，29 章全部覆盖。
+- 6 张论文表与 1 张阅读路线表：前六节各 1 张 5 列表，D.7 为 1 张 3 列表；行内无未转义 `|`，无 `$`，无 HTML 标签。
+- 重复论文按章节分别列出，贡献按该章的阅读角度改写，不简单复制：Vaswani（第 1/3/4 章）、Kaplan（第 3/9 章）、RoFormer（第 4/6 章）、PI 与 YaRN（第 4/13 章）、Mamba（第 8/29 章）、Schaeffer（第 9/29 章）、InstructGPT（第 14/16 章）、R1（第 18/19/29 章）、HumanEval（第 20/27 章）。
+- 标题与出处逐条回查 29 章原文：145 条的标题词元全部命中原文；arXiv 编号与原文一致，唯一例外是第 1 章 Vaswani 原文未给编号，按第 3/4 章同一论文补为 arXiv:1706.03762。
+- GitBook 语法：仅使用 `info` 与 `warning` 两种 hint；无外部图片；表格单元格内无换行。
+- 事实性：作者、年份、标题、会议与 arXiv 编号均取自正文，不新增未在正文出现的论文；一句话贡献不引入新的数字或结论。
+- 本附录不涉及 TinyLM 代码与接口，`TinyLM.forward`、`CausalLMOutput`、`ModelConfig` 未改动。
+
+## 附录 E 交接
+
+### 本附录摘要
+
+《主流开源模型架构参数对照表》把第 3–7 章的架构分析落到具体配置，共 E.1–E.6 六节。E.1 列 8 个稠密模型（Llama 2 7B/13B/70B、Llama 3 8B/70B、Llama 3.1 405B、Mistral 7B、PaLM 540B†），字段为层数、$$d_{model}$$、Q/KV 头、$$d_{ff}$$、词表、上下文、参数量；E.2 列 5 个 MoE 模型（Mixtral 8x7B、DeepSeek-V2/V3、Qwen3-235B-A22B、Kimi K2），增加总参数、激活参数、激活比、专家配置与专家宽度；E.3 按归一化、门控前馈、位置编码、注意力、偏置、权重绑定、块结构、长上下文扩展八个维度横纵对照九类模型；E.4 给出参数、权重显存与 KV Cache 的闭式估算，并用六个代表模型实算；E.5 列出五条读表注意事项；E.6 汇总 11 份技术报告与 arXiv 编号。
+
+### 结构与自检
+
+- 一级标题 1 个；二级标题 6 个（E.1–E.6）；表格 5 张（稠密 8 行、MoE 5 行、结构对照 9 行、预算账本 6 行、技术报告 11 行），列数分别为 8/10/9/4/3，逐行管道符计数一致。
+- GitBook 语法：2 个 hint（`info`、`warning`），配平；行内公式 44 处，`$$` 成对，无落单 `$`；无代码块、无外部图片；表格单元格内无换行与未转义 `|`。
+- 事实性来源：稠密与 MoE 的逐层几何参数取自第 5–7 章已核对表格与技术报告；PaLM 非开源，用 `†` 标注且仅作架构参照；Qwen3-235B-A22B 与 Kimi K2 的层数、$$d_{model}$$、专家宽度在正文与公开材料中无同口径数据，一律填“—”，不推测。
+- 数值复算：Llama 2 7B 参数逐位加总为 6,738,415,616，四项拆分为注意力 2.147B、前馈 4.329B、归一化 0.266M、嵌入与输出 0.262B，前馈占非嵌入参数 66.8%；Llama 3 8B 相对增量 1.292B 可由前馈 +1.309B、词表 +0.789B、GQA −0.805B 对上。
+- 推理账本：8K、FP16、批量 1 下，Llama 2 7B 4 GiB、Llama 3 8B 1 GiB、Mistral 1 GiB、Mixtral 1 GiB、DeepSeek-V2 540 MiB、DeepSeek-V3 约 549 MiB；权重显存 12.6 GiB/15.0 GiB/13.5 GiB/87 GiB/440 GiB/1.22 TiB，均按总参数而非激活参数计。
+- 口径说明：DeepSeek-V3 激活比 5.5% 以 671B 总参数为分母，若以未扣前 3 层稠密的 702.9B 为分母则为 5.2%，文中两口径并列。
+- 符号与术语：本附录未引入新符号或新术语，`notation.md`、`glossary.md`、附录 B、附录 C 无需改动。
+- TinyLM：无代码与接口变更，`TinyLM.forward`、`CausalLMOutput`、`ModelConfig` 未改动。
+- 中文正文字符数（剔除代码块与 `$$` 公式）约 2,022，符合附录体量。
+
+## 全书统筹记录（2026-11-12）
+
+### 契约与账本
+
+- 附录 F.1 的 TinyLM 目录树与会话交接、各章 `tinylm/*.py` 的实际路径对齐：模型模块改为平铺的 `config.py`、`norm.py`、`position.py`、`attention.py`、`ffn.py`、`moe.py`、`block.py`、`ssm.py`、`model.py`、`scaling.py`，补齐 `data/filter.py`、`data/mixture.py`、`data/collate.py`、`train/parallel.py`、`train/long_context.py`、`inference/kv_cache.py`、`inference/flash.py`、`inference/paged.py`；F.4 演进表同步改到这些文件。
+- 附录 F.3.1 的参数量公式由 `d² + 2d·d_kv + 2d·d_h + 3d·d_ff` 修正为 `2d² + 2d·d_kv + 3d·d_ff`，与第 6 章 `attention_params` 及第 5 章式 (5.11) 一致；F.3.2 表格与 F.3.3 的 FLOPs 估算按绑定词表重算为 tiny_cpu≈2M、s≈6.5M、m≈16M、l≈32M、xl≈56M、tiny_24g≈100M（不绑定时约 125M），并注明绑定假设。
+- 附录 F.2.2 补入第 8 章已实现的架构开关 `block_type`、`ssm_d_state`、`ssm_expand`、`hybrid_attn_every`，默认值保持既有行为，冻结接口未改。
+
+### 术语与符号
+
+- 统一“曝光偏差”（原 `progress.md` 与 `glossary.md` 的“暴露偏差”）。
+- 统一“多样性坍缩”（第 14 章正文与术语表的“多样性塌缩”）。
+- 统一 `PagedAttention` 拼写（原术语表“Paged Attention”）。
+- 术语表去重：合并第 10/14 章重复的“多样性坍缩”、第 20/27 章重复的 `pass@k`、第 21/23 章重复的 KV Cache 与 KV Cache 量化、第 21 章内部的预填充/分页注意力/前缀缓存重复项。
+- 区分专家路由 `Top-K` 与采样 `Top-k`，全书保持该大小写约定。
+
+### 排版与引用
+
+- `progress.md` 公式索引表中 17 行的未转义 `|` 改为 `\lvert/\rvert`、`\lVert/\rVert`、`\parallel`，表格列数恢复一致；全书表格逐行管道符计数 0 异常。
+- 章节难度标签统一为 `⭐ 等级 ｜ 前置/数学要求 ｜ 代码要求` 形式；第 3 章 `⭐⭐⭐ 核心` 改为 `⭐⭐⭐ 进阶`，其余章的 `；` 与句号分隔统一为 ` ｜ `。
+- `preface.md` 的 12 处 ASCII 双引号改为中文弯引号。
+- `README.md` 的阅读时间口径改为“每章约 1–1.5 小时阅读，再加动手时间”，TinyLM 覆盖面补上“线性注意力与 SSM 块”。
+
+### 复核结果
+
+- 29 章均含 12 部分与“本章的取舍”；本章导读均 ≤200 字；每章 1 个 `<details>`；论文导读每章 5 篇；习题三类型齐全。
+- 公式编号逐章从 1 连续、不重号；`第 X 章式 (X.Y)`、`第 X.Y 节`、附录 A–F 小节引用全部可解析。
+- GitBook 语法：hint 类型合法且配平，代码围栏成对，tabs 与 details 配平，无落单 `$`；`SUMMARY.md` 37 条链接全部指向存在的文件，无未登记章节。
+- 编辑项已按作者确认处理：`CLAUDE.md` 把第 11、17 章并入核心章（10,000–12,000），误区规范放宽为 3–6 条；第 11–29 章论文导读统一为“加粗编号段落”，第 15–29 章习题统一为 `### 习题 N（推导/编程/开放思考）`，原有题干逐条回填并复核无丢失。
+- 全书统一后复算：15 个改造章的中文字符数各增加 5 个，全部来自习题小标题（`习题 N（类型）` 替代行内粗体标签），正文题干无增删；论文条目仍为每章 5 篇，编号 1–5 连续。

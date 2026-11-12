@@ -287,7 +287,6 @@ import torch
 from ch06 import VariantAttention
 from ch07 import TransformerBlock
 
-
 class KVCache:
     """按层预分配的 K/V 缓冲区，形状 (B, n_kv_heads, max_len, d_head)。
 
@@ -335,7 +334,6 @@ class KVCache:
     def reset(self):
         self.length = 0
 
-
 def cache_bytes(cfg, batch_size, seq_len, b_elem=2):
     """(21.1)：KV Cache 显存；MLA 只存压缩潜向量与解耦 RoPE 键。"""
     if cfg.attention == "mla":
@@ -350,18 +348,15 @@ def cache_bytes(cfg, batch_size, seq_len, b_elem=2):
         n_attn = 0
     return n_attn * batch_size * seq_len * per_token * b_elem
 
-
 def cache_tokens_per_gib(cfg, b_elem=2):
     """反向计算：每 GiB 显存能缓存多少 Token。"""
     one = cache_bytes(cfg, 1, 1, b_elem)
     return (1 << 30) / one if one else float("inf")
 
-
 def weight_bytes(cfg, b_elem=2):
     from ch08 import model_params
 
     return model_params(cfg) * b_elem
-
 
 def arithmetic_intensity(cfg, batch_size, seq_len, b_elem=2):
     """公式 (21.5)：解码一步的 FLOPs / 搬运字节数；批越大越接近算力上限。"""
@@ -371,7 +366,6 @@ def arithmetic_intensity(cfg, batch_size, seq_len, b_elem=2):
     moved = weight_bytes(cfg, b_elem) + cache_bytes(cfg, batch_size, seq_len,
                                                     b_elem)
     return flops / moved
-
 
 def roofline_time(cfg, batch_size, seq_len, peak_flops, bandwidth,
                   b_elem=2):
@@ -383,21 +377,17 @@ def roofline_time(cfg, batch_size, seq_len, peak_flops, bandwidth,
                                                     b_elem)
     return max(flops / peak_flops, moved / bandwidth), flops, moved
 
-
 def ttft(prefill_tokens, prefill_tps):
     """公式 (21.17)：首 Token 延迟。"""
     return prefill_tokens / prefill_tps
-
 
 def tpot(decode_seconds, decode_tokens):
     """公式 (21.18)：平均每输出 Token 时间。"""
     return decode_seconds / decode_tokens
 
-
 def throughput(batch_size, tpot_seconds):
     """公式 (21.19)：稳态吞吐，条/秒。"""
     return batch_size / tpot_seconds
-
 
 def cached_attention(attn, x, cache, layer, attention_mask=None,
                      position_ids=None):
@@ -443,7 +433,6 @@ def cached_attention(attn, x, cache, layer, attention_mask=None,
     out = out.transpose(1, 2).reshape(B, T, attn.n_heads * attn.d_head)
     return attn.out_proj(out)
 
-
 def cached_forward(model, input_ids, cache, *, attention_mask=None,
                    position_ids=None, logits_to_keep=None):
     """与 ``TinyLM.forward`` 等价，但读写 Cache；返回 logits。"""
@@ -486,11 +475,9 @@ def cached_forward(model, input_ids, cache, *, attention_mask=None,
         x = x[:, -logits_to_keep:]
     return model.lm_head(x)
 
-
 def cached_prefill(model, input_ids, cache, **kwargs):
     """整段提示词一次写入 Cache，返回最后位置的 logits。"""
     return cached_forward(model, input_ids, cache, logits_to_keep=1, **kwargs)
-
 
 @torch.no_grad()
 def cached_greedy_decode(model, input_ids, max_new_tokens, cache=None,
@@ -525,7 +512,6 @@ import math
 
 import torch
 
-
 def dense_attention(q, k, v, causal=True, q_start=None):
     """参考实现：一次算完整个注意力矩阵，形状 (B, H, Tq, Tk)。"""
     Tq, Tk = q.size(-2), k.size(-2)
@@ -537,7 +523,6 @@ def dense_attention(q, k, v, causal=True, q_start=None):
         ki = torch.arange(Tk, device=q.device)
         scores = scores.masked_fill(ki[None, :] > qi[:, None], float("-inf"))
     return scores.softmax(dim=-1) @ v
-
 
 def flash_attention(q, k, v, block_q=64, block_k=64, causal=True):
     """公式 (21.8)–(21.11)：分块读取 K/V，在线 Softmax 累积输出。"""
@@ -578,7 +563,6 @@ def flash_attention(q, k, v, block_q=64, block_k=64, causal=True):
 """第 21 章：分页 KV Cache 与碎片账本（tinylm/inference/paged.py）。"""
 import math
 from dataclasses import dataclass, field
-
 
 @dataclass
 class BlockTable:
@@ -625,13 +609,11 @@ class BlockTable:
     def used(self):
         return self.num_blocks - len(self.free)
 
-
 def internal_fragmentation(lengths, block_size):
     """公式 (21.13)：块内未用槽位 / 已预留槽位。"""
     reserved = sum(math.ceil(n / block_size) * block_size for n in lengths)
     used = sum(lengths)
     return 0.0 if reserved == 0 else 1.0 - used / reserved
-
 
 def padded_fragmentation(lengths, block_size):
     """朴素预分配：每条序列按 batch 内最长序列预留。"""
@@ -639,7 +621,6 @@ def padded_fragmentation(lengths, block_size):
     reserved = math.ceil(longest / block_size) * block_size * len(lengths)
     used = sum(lengths)
     return 1.0 - used / reserved
-
 
 def fragmentation_table(lengths, block_size):
     total = sum(lengths)
@@ -654,7 +635,6 @@ def fragmentation_table(lengths, block_size):
         "paged_waste": 1 - total / paged_slots,
         "naive_waste": 1 - total / naive_slots,
     }
-
 
 def batch_capacity(free_bytes, cfg, seq_len, b_elem=2):
     """公式 (21.16)：给定剩余显存能同时驻留多少条等长序列。"""
@@ -684,13 +664,11 @@ from tinylm.inference.kv_cache import (KVCache, arithmetic_intensity,
                                        cached_prefill, roofline_time)
 from tinylm.inference.paged import fragmentation_table
 
-
 def human(nbytes):
     for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
         if nbytes < 1024 or unit == "TiB":
             return f"{nbytes:.1f} {unit}" if unit != "B" else f"{nbytes:.0f} B"
         nbytes /= 1024
-
 
 def check_equivalence():
     cfg = ModelConfig(vocab_size=64, d_model=64, n_layers=3, n_heads=8,
@@ -727,7 +705,6 @@ def check_equivalence():
     print(f"  分块预填充      {d_chunk:.2e}")
     print(f"  逐 Token 解码    {d_decode:.2e}")
 
-
 def kv_ledger():
     common = dict(vocab_size=32000, max_seq_len=32768, norm="rmsnorm",
                   ffn="swiglu", bias=False, pos_encoding="rope")
@@ -752,7 +729,6 @@ def kv_ledger():
         max_b = int(20 * (1 << 30) // b4)
         print(f"{name:<16s}{human(b4):>10s}{human(b32):>10s}"
               f"{per_gib:>14,.0f}{max_b:>12d}")
-
 
 @torch.no_grad()
 def speed_compare():
@@ -785,7 +761,6 @@ def speed_compare():
     print(f"  KV Cache 增量   {cache_time:8.3f} s")
     print(f"  加速比          {full_time / cache_time:8.2f}×")
 
-
 def flash_check():
     torch.manual_seed(0)
     q, k, v = (torch.randn(2, 8, 256, 64) for _ in range(3))
@@ -794,7 +769,6 @@ def flash_check():
     print("\nFlashAttention 与稠密注意力")
     print(f"  T=256 最大绝对误差 { (dense - tiled).abs().max().item():.2e}")
     print(f"  输出形状          {tuple(tiled.shape)}")
-
 
 def paged_ledger():
     lengths = [2048, 17, 4000, 256, 1, 512]
@@ -805,7 +779,6 @@ def paged_ledger():
           f"{row['paged_util']:.3%}")
     print(f"  朴素预留槽位        {row['naive_slots']}，利用率 "
           f"{row['naive_util']:.3%}")
-
 
 def roofline_ledger():
     cfg = ModelConfig(vocab_size=32000, d_model=4096, n_layers=32,
@@ -820,7 +793,6 @@ def roofline_ledger():
         sec, flops, moved = roofline_time(cfg, batch, 4096, peak, bw)
         print(f"{batch:>4d}{ai:>10.1f} F/B{moved / 2**30:>8.1f}G"
               f"{sec * 1e3:>8.1f}ms{batch / sec:>10.0f} tok/s")
-
 
 if __name__ == "__main__":
     check_equivalence()
@@ -893,11 +865,15 @@ python -m pytest tests/test_kv_cache.py -q
 
 ## 21.6 论文导读
 
-1. **Dao, Fu, Ermon, Rudra, Ré (2022). _FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness_. arXiv:2205.14135.** 读第 2.2–2.3 节看分块与在线 Softmax 的推导，第 3.2 节看 HBM 访问复杂度的证明，重点理解“精确”与“IO 感知”两个限定词。
-2. **Dao (2023). _FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning_. arXiv:2307.08691.** 读第 2–3 节，看它如何沿序列维增加并行、减少非矩阵乘 FLOPs 与共享内存通信；对照第一代理解为什么同样的算法还能再快一倍。
-3. **Kwon, Li, Zhuang, Sheng, Zheng, Yu, Gonzalez, Zhang, Stoica (2023). _Efficient Memory Management for Large Language Model Serving with PagedAttention_. arXiv:2309.06180.** 读第 4 节看块表、写时复制与碎片账本，第 5 节看调度与分布式执行；重点核对 20.4%–38.2% 的利用率测量口径。
-4. **Agrawal, Kedia, Panwar, Mohan, Kwatra, Gulavani, Tumanov, Ramjee (2024). _Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve_. arXiv:2403.02310.** 读第 3–4 节，看分块预填充与无停顿调度如何把迭代时间与提示长度解耦；注意 2.6 倍是在尾延迟 SLO 下相对 vLLM 的容量，不是无条件加速。
-5. **Zhong, Liu, Chen, Hu, Zhu, Liu, Jin, Zhang (2024). _DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving_. arXiv:2401.09670.** 读第 3–4 节，看 PD 分离的资源分配与放置策略，以及 goodput 的定义；7.4 倍对应 OSDI 版本的“更多请求”，不是单请求延迟。
+**1. Dao, Fu, Ermon, Rudra, Ré (2022). _FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness_. arXiv:2205.14135.** 读第 2.2–2.3 节看分块与在线 Softmax 的推导，第 3.2 节看 HBM 访问复杂度的证明，重点理解“精确”与“IO 感知”两个限定词。
+
+**2. Dao (2023). _FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning_. arXiv:2307.08691.** 读第 2–3 节，看它如何沿序列维增加并行、减少非矩阵乘 FLOPs 与共享内存通信；对照第一代理解为什么同样的算法还能再快一倍。
+
+**3. Kwon, Li, Zhuang, Sheng, Zheng, Yu, Gonzalez, Zhang, Stoica (2023). _Efficient Memory Management for Large Language Model Serving with PagedAttention_. arXiv:2309.06180.** 读第 4 节看块表、写时复制与碎片账本，第 5 节看调度与分布式执行；重点核对 20.4%–38.2% 的利用率测量口径。
+
+**4. Agrawal, Kedia, Panwar, Mohan, Kwatra, Gulavani, Tumanov, Ramjee (2024). _Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve_. arXiv:2403.02310.** 读第 3–4 节，看分块预填充与无停顿调度如何把迭代时间与提示长度解耦；注意 2.6 倍是在尾延迟 SLO 下相对 vLLM 的容量，不是无条件加速。
+
+**5. Zhong, Liu, Chen, Hu, Zhu, Liu, Jin, Zhang (2024). _DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving_. arXiv:2401.09670.** 读第 3–4 节，看 PD 分离的资源分配与放置策略，以及 goodput 的定义；7.4 倍对应 OSDI 版本的“更多请求”，不是单请求延迟。
 
 这五篇可以按“单算子 → 显存管理 → 请求调度”串起来读。前两篇解决注意力内部的 IO，第三篇解决 KV 在请求之间的组织方式，后两篇解决请求在时间与机器之间的编排。它们共享同一个前提：解码受带宽与显存容量约束，而不是受算力约束。读的时候先问“它减少了哪一类字节的搬运”，再问“代价落在哪里”，就不容易被论文里的倍数带走。
 
@@ -940,7 +916,9 @@ python -m pytest tests/test_kv_cache.py -q
 
 ## 21.9 习题
 
-**推导题.** 证明 (21.8)–(21.11) 的在线 Softmax 与一次性 Softmax 等价。进一步，对 7B GQA（32 层、8 个 KV 头、头维 128、FP16）在 4K 上下文下，求批大小趋于无穷时的算术强度 $$I_\infty$$，并说明为什么仅靠增大批无法让解码达到 H100 的 295 FLOP/Byte；若要达到，需要把上下文缩到多短（忽略注意力项随 T 的变化）？
+### 习题 1（推导）
+
+证明 (21.8)–(21.11) 的在线 Softmax 与一次性 Softmax 等价。进一步，对 7B GQA（32 层、8 个 KV 头、头维 128、FP16）在 4K 上下文下，求批大小趋于无穷时的算术强度 $$I_\infty$$，并说明为什么仅靠增大批无法让解码达到 H100 的 295 FLOP/Byte；若要达到，需要把上下文缩到多短（忽略注意力项随 T 的变化）？
 
 <details><summary>展开参考答案</summary>
 
@@ -975,6 +953,10 @@ $$
 
 </details>
 
-**编程题.** 实现一个前缀缓存：用 Token 元组到 `KVCache` 快照的映射保存已算过的前缀，命中时复制快照并只对新后缀做 `cached_forward`。构造两条共享 32 Token 前缀的提示词，验证命中后的最后位置 logits 与全量重算一致，统计节省的预填充 Token 数，并讨论缓存淘汰策略与显存占用。
+### 习题 2（编程）
 
-**开放题.** 在单张 24 GB 显卡上部署 7B（4-bit 权重、GQA、8K 上下文），要求 TTFT ≤ 1 s、TPOT ≤ 50 ms、输入 2K/输出 256 Token。给出你的批大小、预填充分块大小、KV 精度与是否启用 PD 分离的方案，用 (21.1)、(21.16)–(21.19) 做账，并说明当到达率翻倍时哪条约束最先被打破、你会先调哪个参数。
+实现一个前缀缓存：用 Token 元组到 `KVCache` 快照的映射保存已算过的前缀，命中时复制快照并只对新后缀做 `cached_forward`。构造两条共享 32 Token 前缀的提示词，验证命中后的最后位置 logits 与全量重算一致，统计节省的预填充 Token 数，并讨论缓存淘汰策略与显存占用。
+
+### 习题 3（开放思考）
+
+在单张 24 GB 显卡上部署 7B（4-bit 权重、GQA、8K 上下文），要求 TTFT ≤ 1 s、TPOT ≤ 50 ms、输入 2K/输出 256 Token。给出你的批大小、预填充分块大小、KV 精度与是否启用 PD 分离的方案，用 (21.1)、(21.16)–(21.19) 做账，并说明当到达率翻倍时哪条约束最先被打破、你会先调哪个参数。

@@ -1,10 +1,27 @@
 # 附录 C 术语表（中英对照）
 
-按主题分组，每组内按首次出现的章节顺序排列。"首次出现"指本书正文中第一次系统定义该术语的章节。
+按主题分组，每组内按首次出现的章节顺序排列。“首次出现”指本书正文中第一次系统定义该术语的章节。
 
 {% hint style="info" %}
-同一个英文术语在不同文献中可能有不同译法（例如 token 也译作"词元"、context 也译作"语境"）。本书的选择以本表为准，正文首次出现时会附英文原文。
+同一个英文术语在不同文献中可能有不同译法（例如 token 也译作“词元”、context 也译作“语境”）。本书的选择以本表为准，正文首次出现时会附英文原文。
 {% endhint %}
+
+## C.0 数学基础
+
+| 中文 | 英文 | 一句话定义 | 首次出现 |
+| --- | --- | --- | --- |
+| 奇异值分解 | Singular Value Decomposition (SVD) | 把任意矩阵分解为旋转—缩放—旋转，用于低秩近似与条件数 | 附录 A |
+| 特征分解 | Eigendecomposition | 把方阵分解为特征向量与特征值 | 附录 A |
+| 奇异值 | Singular Value | 矩阵在某个方向上的非负缩放系数 | 附录 A |
+| 特征值 | Eigenvalue | 方阵在特征向量方向上的缩放系数 | 附录 A |
+| 条件数 | Condition Number | 最大与最小奇异值之比，衡量误差放大与优化难度 | 附录 A |
+| 正定性 | Positive Definiteness | 对所有非零向量二次型都为正的矩阵性质 | 附录 A |
+| 最大似然估计 | Maximum Likelihood Estimation (MLE) | 选择使观测数据概率最大的参数 | 附录 A |
+| 偏差—方差分解 | Bias–Variance Decomposition | 把平方误差拆成偏差平方、方差与不可约噪声 | 附录 A |
+| 梯度下降 | Gradient Descent | 沿负梯度方向更新参数的优化方法 | 附录 A |
+| 牛顿法 | Newton's Method | 用 Hessian 逆乘以梯度确定更新方向的二阶方法 | 附录 A |
+| 凸函数 | Convex Function | 图像位于任意两点连线之下的函数 | 附录 A |
+| 对数求和指数 | Log-Sum-Exp | 在数值上稳定地计算对数域求和 | 附录 A |
 
 ## C.1 语言建模与分词
 
@@ -20,7 +37,7 @@
 | 填充中间 | Fill-in-the-Middle (FIM) | 将文本切为前、中、后三段，训练模型补全中间部分 | 第 1 章 |
 | 多 Token 预测 | Multi-Token Prediction (MTP) | 一次前向同时预测未来多个 Token 的训练目标 | 第 1 章 |
 | 教师强制 | Teacher Forcing | 训练时用真实前文而非模型自己的输出作为输入 | 第 1 章 |
-| 暴露偏差 | Exposure Bias | 训练与推理的输入分布不一致导致的误差累积 | 第 1 章 |
+| 曝光偏差 | Exposure Bias | 训练用教师前缀、推理用学生前缀导致的逐步误差累积 | 第 1 章 |
 | 马尔可夫假设 | Markov Assumption | 假设下一个 Token 只依赖最近 $$n-1$$ 个 Token | 第 1 章 |
 | 神经语言模型 | Neural Language Model | 用参数化函数而非计数表估计条件概率的语言模型 | 第 1 章 |
 | 分布式表示 | Distributed Representation | 用低维稠密向量表示词，使相似词共享统计强度 | 第 1 章 |
@@ -106,7 +123,7 @@
 | 算术强度 | Arithmetic Intensity | 每搬运一字节所执行的浮点运算数 | 第 6 章 |
 | 解耦 RoPE | Decoupled RoPE | 把位置键拆到独立小通路的 MLA 位置编码方案 | 第 6 章 |
 | 权重吸收 | Weight Absorption | 把上投影合并进查询与输出投影的推理变换 | 第 6 章 |
-| 分页注意力 | Paged Attention | 按固定大小块管理 KV 缓存、减少碎片的机制 | 第 6 章 |
+| 分页注意力 | PagedAttention | 用固定大小块管理 KV Cache、减少碎片 | 第 6 章 |
 | 前缀缓存 | Prefix Caching | 多个请求共享相同前缀 KV 的计算复用 | 第 6 章 |
 | 继续训练转换 | Uptraining | 从 MHA 检查点均值池化 KV 头后少量继续训练 | 第 6 章 |
 | 滑动窗口注意力 | Sliding Window Attention | 每个位置只关注最近 $$W$$ 个位置 | 第 6 章 |
@@ -203,7 +220,7 @@
 | 退火 | Annealing | 训练末段切换到高质量数据并衰减学习率 | 第 10 章 |
 | WSD 调度 | Warmup-Stable-Decay | 预热、稳定、衰减三段式学习率调度 | 第 10 章 |
 | 合成数据 | Synthetic Data | 由模型生成的教科书、问答、代码或改写文本 | 第 10 章 |
-| 模型坍缩 | Model Collapse | 反复自训练导致分布尾部丢失、多样性下降 | 第 10 章 |
+| 多样性坍缩 | Diversity Collapse | 自训练或去重筛选导致分布尾部丢失、生成多样性下降 | 第 10、14 章 |
 | 评测污染 | Benchmark Contamination | 评测样本或近似副本出现在训练集中 | 第 10 章 |
 | 去污染 | Decontamination | 从训练集删除与评测集重叠超阈值的文档 | 第 10 章 |
 | n-gram 覆盖率 | n-gram Coverage | 评测文档的 n-gram 中出现在训练集的比例 | 第 10 章 |
@@ -291,13 +308,12 @@
 | 指令微调 | Instruction Tuning | 用指令-回答数据让模型学会遵循指令 | 第 14 章 |
 | 对话模板 | Chat Template | 把多轮对话序列化为固定格式的规则 | 第 14 章 |
 | 损失掩码 | Loss Masking | 只在目标回答部分计算损失 | 第 14 章 |
-| 拒绝采样 | Rejection Sampling | 采样多条输出并只保留通过验证的样本 | 第 14 章 |
+| 拒绝采样 | Rejection Sampling | 采样多条候选并只保留通过验证的样本，用于数据筛选或教师轨迹筛选 | 第 14 章 |
 | 灾难性遗忘 | Catastrophic Forgetting | 学习新任务时丢失旧能力 | 第 14 章 |
 | 监督比例 | Supervision Ratio | 监督 Token 占总 Token 的比例 | 第 14 章 |
 | Token 平均 | Token Mean | 对整个批次的监督 Token 统一平均 | 第 14 章 |
 | 序列平均 | Sequence Mean | 先对每条样本平均，再对样本平均 | 第 14 章 |
 | 系统性标签噪声 | Systematic Label Noise | 错误与任务规则相关、不会被平均掉的标签噪声 | 第 14 章 |
-| 多样性塌缩 | Diversity Collapse | 采样数据去重后种类极少、输出分布收窄 | 第 14 章 |
 | 回放 | Replay | 在微调中混入预训练数据以保持旧能力 | 第 14 章 |
 | 表面对齐 | Surface Alignment | SFT 主要学习回答格式与风格，而非注入新知识 | 第 14 章 |
 | 参数高效微调 | Parameter-Efficient Fine-Tuning (PEFT) | 只训练少量新增参数完成适配 | 第 15 章 |
@@ -313,15 +329,13 @@
 | 分块量化 | Block-wise Quantization | 每个小块独立按 absmax 缩放后量化 | 第 15 章 |
 | 双重量化 | Double Quantization | 把第一层量化尺度再量化到 8 比特 | 第 15 章 |
 | 分页优化器 | Paged Optimizer | 用统一内存把优化器状态换出以吸收显存尖峰 | 第 15 章 |
-| 适配器 | Adapter | 插入 Transformer 块的瓶颈前馈模块 | 第 15 章 |
-| 前缀微调 | Prefix-Tuning | 在每层键值前拼接可学习前缀 | 第 15 章 |
+| 适配器 | Adapter | 插入 Transformer 块的瓶颈前馈模块，只训练新增参数 | 第 15 章 |
+| 前缀微调 | Prefix-Tuning | 在每层键值前拼接可学习前缀向量 | 第 15 章 |
 | 提示微调 | Prompt Tuning | 只在输入嵌入前拼接可学习软提示 | 第 15 章 |
 | 多适配器服务 | Multi-LoRA Serving | 一份基座批量服务多个 LoRA 适配器 | 第 15 章 |
-| Adapter | Adapter | 插入 Transformer 层的可训练瓶颈模块 | 第 15 章 |
-| 前缀微调 | Prefix Tuning | 在每层前拼接可训练的前缀向量 | 第 15 章 |
 | 基于人类反馈的强化学习 | RLHF | 用人类偏好训练的奖励模型指导策略优化 | 第 16 章 |
 | 奖励模型 | Reward Model | 给回答打分的模型，通常由偏好数据训练 | 第 16 章 |
-| Bradley-Terry 模型 | Bradley-Terry Model | 用成对比较建模偏好概率的经典模型 | 第 16 章 |
+| Bradley–Terry 模型 | Bradley–Terry Model | 用成对比较建模偏好概率的经典模型 | 第 16 章 |
 | 策略梯度 | Policy Gradient | 用奖励的梯度估计直接优化策略 | 第 16 章 |
 | TRPO | Trust Region Policy Optimization | 用信赖域约束策略更新幅度的算法 | 第 16 章 |
 | PPO | Proximal Policy Optimization | 用裁剪替代硬约束的近似信赖域算法 | 第 16 章 |
@@ -387,17 +401,15 @@
 | 暗知识 | Dark Knowledge | 软标签中非目标类别的相对概率所携带的结构信息 | 第 19 章 |
 | Logit 蒸馏 | Logit Distillation | 让学生匹配教师的完整输出分布 | 第 19 章 |
 | 序列级蒸馏 | Sequence-Level Distillation | 用教师生成的序列作硬标签训练学生 | 第 19 章 |
-| 曝光偏差 | Exposure Bias | 训练用教师前缀、推理用学生前缀导致的分步误差累积 | 第 19 章 |
 | On-policy 蒸馏 | On-policy Distillation | 在学生自己生成的序列上做蒸馏 | 第 19 章 |
 | 广义知识蒸馏 | Generalized Knowledge Distillation (GKD) | 在教师数据与学生数据间插值、用 JSD 统一 KL 方向的蒸馏框架 | 第 19 章 |
-| 拒绝采样 | Rejection Sampling | 只保留验证正确的教师轨迹，兼顾正确性与多样性 | 第 19 章 |
 | Top-k 蒸馏 | Top-k Distillation | 只在教师概率最高的 k 个类别上计算蒸馏损失 | 第 19 章 |
 | 剪枝 | Pruning | 移除不重要权重、通道或层 | 第 19 章 |
 | 幅度剪枝 | Magnitude Pruning | 按权重绝对值排序并删除最小的一批 | 第 19 章 |
 | 非结构化剪枝 | Unstructured Pruning | 把任意单个权重置零，稀疏率高但不改变张量形状 | 第 19 章 |
 | 结构化剪枝 | Structured Pruning | 删除整个头、神经元或通道，张量形状真实变小 | 第 19 章 |
 | 恢复微调 | Recovery Fine-tuning | 剪枝后继续训练以恢复精度，常用蒸馏作监督 | 第 19 章 |
-| 压缩比 | Compression Ratio | 教师参数量除以学生或剪枝后参数量 | 第 19 章 |
+| 参数压缩比 | Parameter Compression Ratio | 教师参数量除以学生或剪枝后参数量 | 第 19 章 |
 | long2short | Long-to-Short Distillation | 用长思维链教师教短回答学生，缩短推理长度 | 第 19 章 |
 
 ## C.8 推理与效率
@@ -428,14 +440,13 @@
 | 文本退化 | Neural Text Degeneration | 最大化序列似然时生成平淡、重复甚至循环文本的现象 | 第 20 章 |
 | 长度惩罚 | Length Penalty | 束搜索中按长度归一化得分以比较不同长度候选 | 第 20 章 |
 | 局部典型采样 | Locally Typical Sampling | 按信息量接近熵的程度排序并截断采样 | 第 20 章 |
-| pass@k | Pass at k | 采样 n 条回答、随机取 k 条至少一条正确的概率估计 | 第 20 章 |
+| pass@k | Pass at k | 采样 n 条回答、随机取 k 条至少一条正确的概率估计 | 第 20、27 章 |
 | 频率惩罚 | Frequency Penalty | 按 Token 出现次数线性降低其 logit | 第 20 章 |
 | 存在惩罚 | Presence Penalty | 只要 Token 出现过就固定降低其 logit | 第 20 章 |
 | 结构化输出 | Structured Output | 用语法或 schema 约束模型输出为可解析格式 | 第 20 章 |
 | 语法约束解码 | Grammar-Constrained Decoding | 用有限状态机逐步限制允许 Token 的约束解码 | 第 20 章 |
 | FlashAttention | FlashAttention | 用分块与在线 Softmax 把注意力 IO 降到线性量级 | 第 21 章 |
 | 在线 Softmax | Online Softmax | 分块累加时动态维护最大值与分母的算法 | 第 21 章 |
-| PagedAttention | PagedAttention | 用分页管理 KV Cache 以消除碎片 | 第 21 章 |
 | 连续批处理 | Continuous Batching | 每步动态加入与移除请求的批处理方式 | 第 21 章 |
 | 分块预填充 | Chunked Prefill | 把长提示的预填充拆成多块与解码混合执行 | 第 21 章 |
 | 预填充/解码分离 | Prefill-Decode Disaggregation (PD) | 把预填充与解码放到不同资源上执行 | 第 21 章 |
@@ -463,13 +474,38 @@
 | AWQ | Activation-aware Weight Quantization | 根据激活重要性保护显著权重通道 | 第 23 章 |
 | SmoothQuant | SmoothQuant | 把激活的量化难度迁移到权重上 | 第 23 章 |
 | 离群值 | Outlier | 数值显著大于同组其他元素的激活或权重 | 第 23 章 |
+| 离群通道 | Outlier Channel | 在多数 Token 上持续偏大的特征维度 | 第 23 章 |
+| 反量化 | Dequantization | 把整数码点还原为实数 | 第 23 章 |
+| 缩放因子 | Scale | 相邻量化格点的间距 | 第 23 章 |
+| 零点 | Zero Point | 实数零对应的整数码点偏移 | 第 23 章 |
+| 逐张量量化 | Per-tensor Quantization | 整个张量共享一组量化参数 | 第 23 章 |
+| 逐 Token 量化 | Per-token Quantization | 每个序列位置单独计算量化参数 | 第 23 章 |
+| 量化校准 | Quantization Calibration | 用代表性输入估计缩放因子与激活范围 | 第 23 章 |
+| 假量化 | Fake Quantization | 在浮点中模拟量化—反量化 | 第 23 章 |
+| 直通估计器 | Straight-Through Estimator | 反向传播时近似恒等地传递舍入梯度 | 第 23 章 |
+| 量化误差 | Quantization Error | 量化值与原值之差 | 第 23 章 |
+| 信噪比 | Signal-to-Quantization-Noise Ratio | 信号功率与量化噪声功率之比 | 第 23 章 |
+| 块浮点 | Block Floating Point | 一组元素共享指数的低比特格式 | 第 23 章 |
+| 微缩放格式 | Micro-scaling Format | 用小块共享指数定义的低比特浮点格式 | 第 23 章 |
+| W8A8/W4A16 | W8A8/W4A16 | 权重与激活的量化位宽组合 | 第 23 章 |
+| 混合精度分解 | Mixed-precision Decomposition | 把离群通道抽出用高精度计算的推理技巧 | 第 23 章 |
 | KV Cache 量化 | KV Cache Quantization | 对缓存的键值做低精度存储 | 第 21 章 |
 | 测试时计算扩展 | Test-time Scaling | 在推理阶段投入更多计算提升质量 | 第 24 章 |
-| Best-of-N | Best-of-N | 采样 N 条输出并选最优 | 第 24 章 |
+| 覆盖率 | Coverage | N 条样本中至少一条正确的概率 | 第 24 章 |
+| 选择 | Selection | 从多条候选里挑出正确答案的过程 | 第 24 章 |
 | 自洽性 | Self-Consistency | 多次采样并对最终答案投票 | 第 24 章 |
+| 多数投票 | Majority Voting | 取出现次数最多的答案 | 第 24 章 |
+| 加权投票 | Weighted Voting | 按似然或验证器分数加权求和后取最大 | 第 24 章 |
+| 答案归一化 | Answer Normalization | 把同义写法抽取成规范答案后再计票 | 第 24 章 |
+| 结果奖励模型 | Outcome Reward Model (ORM) | 只对最终答案打分的验证器 | 第 24 章 |
+| 过程奖励模型 | Process Reward Model (PRM) | 对推理每一步分别打分的验证器 | 第 24 章 |
+| PUCT | Predictor UCT | 用价值、先验与访问次数平衡探索与利用 | 第 24 章 |
 | 树搜索 | Tree Search | 把推理展开为树并搜索高价值路径 | 第 24 章 |
+| 思维树 | Tree of Thoughts (ToT) | 用少量思维节点做广度或深度优先搜索 | 第 24 章 |
 | 蒙特卡洛树搜索 | Monte Carlo Tree Search (MCTS) | 用模拟估计节点价值并平衡探索与利用 | 第 24 章 |
-| 预算控制 | Budget Forcing | 强制模型在给定 Token 预算内思考或收束 | 第 24 章 |
+| 提前停止 | Early Stopping | 领先优势足够大时提前结束采样 | 第 24 章 |
+| 预算控制 | Budget Control | 用样本数、Token 或延迟约束测试时计算 | 第 24 章 |
+| 预算强制 | Budget Forcing | 通过提示或规则强制在给定 Token 预算内收束 | 第 24 章 |
 | 过度思考 | Overthinking | 简单问题也生成冗长推理，浪费计算 | 第 24 章 |
 
 ## C.9 多模态、智能体与前沿
@@ -482,22 +518,99 @@
 | 视觉语言模型 | Vision-Language Model (VLM) | 能理解图像并生成文本的模型 | 第 25 章 |
 | 原生多模态 | Native Multimodality | 从预训练起就在统一表示中混合多模态 | 第 25 章 |
 | 图像 Token 化 | Image Tokenization | 把图像离散化为 Token 序列 | 第 25 章 |
+| 晚期融合 | Late Fusion | 视觉与文本先各自编码，再在语言模型内部拼接或交叉注意 | 第 25 章 |
+| 早期融合 | Early Fusion | 原始模态尽早进入同一序列、由同一主干联合建模 | 第 25 章 |
+| 模态对齐 | Modality Alignment | 把图像与文本映射到可互操作的表示空间 | 第 25 章 |
+| 视觉塔 | Vision Tower | 负责把图像编码成特征序列的视觉主干 | 第 25 章 |
+| 连接器 | Connector | 把视觉特征翻译成语言模型隐藏维度的模块 | 第 25 章 |
+| 图像占位符 | Image Placeholder | 文本序列中预留给视觉 Token 的特殊位置 | 第 25 章 |
+| 视觉指令微调 | Visual Instruction Tuning | 用图文指令—回答数据训练多模态指令遵循 | 第 25 章 |
+| 重采样器 | Resampler | 用少量可学习查询把变长视觉特征压到固定长度 | 第 25 章 |
+| 动态分辨率 | Dynamic Resolution | 按图像长宽比或内容切块以匹配 Token 预算 | 第 25 章 |
+| 码本 | Codebook | 一组可学习的离散码字，用于向量量化 | 第 25 章 |
+| 向量量化 | Vector Quantization (VQ) | 把连续特征映射到码本中最近的码字 | 第 25 章 |
+| 视觉问答 | Visual Question Answering (VQA) | 给定图像与问题生成或选择答案的任务 | 第 25 章 |
+| 码本坍塌 | Codebook Collapse | 只有少数码字被使用、大部分收不到梯度 | 第 25 章 |
 | 智能体 | Agent | 能感知环境、调用工具并多步完成任务的系统 | 第 26 章 |
 | 工具调用 | Tool Use / Function Calling | 模型输出结构化调用请求并使用返回结果 | 第 26 章 |
 | ReAct | ReAct | 交替进行推理与行动的模式 | 第 26 章 |
 | 轨迹 | Trajectory | 智能体一次任务中的完整思考与动作序列 | 第 26 章 |
 | 环境 | Environment | 智能体可交互并给出反馈的外部系统 | 第 26 章 |
 | 智能体强化学习 | Agentic RL | 在交互环境中用 RL 训练多步智能体 | 第 26 章 |
+| 工具模式 | Tool Schema | 工具名、描述、参数名与类型的结构化声明 | 第 26 章 |
+| 动作空间 | Action Space | 智能体可选动作的集合，包括工具调用与最终答案 | 第 26 章 |
+| 观测 | Observation | 环境或工具返回给智能体的信息，是数据而非指令 | 第 26 章 |
+| 计划—执行 | Plan-and-Execute | 先生成多步计划再逐步执行并按结果修正的结构 | 第 26 章 |
+| 停止条件 | Stopping Condition | 结束循环的判据，如步数、上下文上限或最终答案 | 第 26 章 |
+| 提示注入 | Prompt Injection | 把恶意指令藏在输入或工具返回值中诱导模型执行 | 第 26 章 |
+| 最小权限 | Least Privilege | 只向智能体注册完成任务所必需的工具与权限 | 第 26 章 |
+| 沙箱 | Sandbox | 隔离代码执行、文件写入与网络访问的受限环境 | 第 26 章 |
+| 幂等 | Idempotent | 同一请求重复执行与执行一次效果相同 | 第 26 章 |
+| 人工确认 | Human Confirmation | 高风险动作执行前要求人审核或批准 | 第 26 章 |
+| 信息价值 | Value of Information (VoI) | 调用工具带来的期望效用增量与成本之比 | 第 26 章 |
 | 基准 | Benchmark | 用于横向比较模型能力的标准化测试集 | 第 27 章 |
 | LLM 作为裁判 | LLM-as-Judge | 用强模型给其他模型的输出打分 | 第 27 章 |
 | 竞技场 | Arena | 用人类两两投票排出模型名次 | 第 27 章 |
 | 提示词敏感性 | Prompt Sensitivity | 分数随提示措辞大幅波动的现象 | 第 27 章 |
+| 评测协议 | Evaluation Protocol | 数据、提示、解码参数与判定规则的完整组合 | 第 27 章 |
+| 标准误 | Standard Error (SE) | 统计量在重复采样下的标准差 | 第 27 章 |
+| Wilson 区间 | Wilson Interval | 二项比例在小样本下更稳的置信区间 | 第 27 章 |
+| 配对比较 | Paired Comparison | 在同一批样本上比较两模型，只统计判定不一致的样本 | 第 27 章 |
+| 配对 bootstrap | Paired Bootstrap | 以样本对为单位重采样，估计差值分布 | 第 27 章 |
+| McNemar 检验 | McNemar's Test | 配对二分类下检验两模型错误率是否相同的精确检验 | 第 27 章 |
+| 多重比较 | Multiple Comparisons | 同时检验多个假设导致假阳性率膨胀的问题 | 第 27 章 |
+| 效应量 | Effect Size | 差异的实际幅度，与“是否显著”互补 | 第 27 章 |
+| 期望校准误差 | Expected Calibration Error (ECE) | 分箱后准确率与平均置信度之差的加权和 | 第 27 章 |
+| 选择性预测 | Selective Prediction | 允许模型弃答，用覆盖率—风险曲线评价 | 第 27 章 |
+| 数据污染 | Data Contamination | 训练数据含评测样本或近似副本，使分数虚高 | 第 27 章 |
+| 基准饱和 | Benchmark Saturation | 前沿模型分数接近上限，基准失去区分度 | 第 27 章 |
+| 古德哈特定律 | Goodhart's Law | 指标成为优化目标后就不再是好的度量 | 第 27 章 |
+| Elo 分数 | Elo Rating | 按胜负与期望胜率迭代更新的相对评分 | 第 27 章 |
+| Cohen's kappa | Cohen's Kappa | 扣除随机一致后两名标注者的一致性 | 第 27 章 |
+| 聚类 bootstrap | Cluster Bootstrap | 以整簇为单位重采样，处理样本间相关 | 第 27 章 |
+| 设计效应 | Design Effect (DEFF) | 聚类导致方差相对独立样本的放大倍数 | 第 27 章 |
+| 有效样本量 | Effective Sample Size | 在独立样本数目意义上等价的样本量 | 第 27 章 |
+| 系统卡 | System Card | 模型发布时附带的评测与风险评估文档 | 第 27 章 |
+| pass^k | pass^k | k 次独立试验全部成功的概率 | 第 27 章 |
+| 成本感知效用 | Cost-Aware Utility | 用分数减去系数乘成本后的综合指标 | 第 27 章 |
 | 探针 | Probing | 用简单分类器读取模型内部表示 | 第 28 章 |
 | 机制可解释性 | Mechanistic Interpretability | 逆向工程模型内部的计算回路 | 第 28 章 |
 | 回路 | Circuit | 完成特定功能的神经元与注意力头子图 | 第 28 章 |
 | 稀疏自编码器 | Sparse Autoencoder (SAE) | 把激活分解为稀疏特征的字典学习模型 | 第 28 章 |
 | 特征 | Feature | 模型内部可解释的方向或概念 | 第 28 章 |
 | 激活修补 | Activation Patching | 替换局部激活观察输出变化以定位因果作用 | 第 28 章 |
-| 幻觉 | Hallucination | 模型生成看似合理但事实错误的内容 | 第 29 章 |
-| 校准 | Calibration | 模型置信度与实际正确率的一致性 | 第 29 章 |
+| 线性探针 | Linear Probe | 用线性分类器从内部表示解码属性 | 第 28 章 |
+| 探针选择性 | Probe Selectivity | 探针准确率减去对照探针准确率 | 第 28 章 |
+| 对照探针 | Control Probe | 用打乱标签或随机特征训练的基线探针 | 第 28 章 |
+| 注意力可视化 | Attention Visualization | 把注意力权重画成热力图以提示信息流向 | 第 28 章 |
+| 头消融 | Head Ablation | 把某个注意力头的输出置零观察行为变化 | 第 28 章 |
+| 组消融 | Group Ablation | 一次去掉一组头以检测冗余与补偿 | 第 28 章 |
+| 路径修补 | Path Patching | 只替换计算图特定边上的信息流 | 第 28 章 |
+| 因果擦除 | Causal Scrubbing | 按可执行解释假设保留信息并检验行为复现 | 第 28 章 |
+| 回路发现 | Circuit Discovery | 在计算图上搜索对指标影响最大的子图 | 第 28 章 |
+| 叠加 | Superposition | 用低维空间编码远多于维数的概念 | 第 28 章 |
+| 特征纯度 | Feature Purity | 某特征最强激活样本的标签一致度 | 第 28 章 |
+| 死特征 | Dead Feature | 在数据上几乎不激活的 SAE 特征 | 第 28 章 |
+| 特征吸收 | Feature Absorption | 一般特征吞并更具体特征的现象 | 第 28 章 |
+| 特征分裂 | Feature Splitting | 同一概念被拆成多个特征 | 第 28 章 |
+| 特征钳制 | Feature Clamping | 固定某特征激活以观察行为变化 | 第 28 章 |
+| 拒绝方向 | Refusal Direction | 中介模型拒答行为的激活方向 | 第 28 章 |
+| 归纳头 | Induction Head | 复制前文匹配位置之后 Token 的注意力头 | 第 28 章 |
+| IOI 回路 | IOI Circuit | GPT-2 small 中间接宾语识别任务的注意力头回路 | 第 28 章 |
+| 分布外修补 | Out-of-Distribution Patching | 修补制造训练中未见的激活组合 | 第 28 章 |
+| 幻觉 | Hallucination | 模型生成看似合理但事实错误的内容 | 第 25 章 |
+| 校准 | Calibration | 模型置信度与实际正确率的一致性 | 第 27 章 |
 | 持续学习 | Continual Learning | 在不遗忘旧知识的前提下持续更新模型 | 第 29 章 |
+| 长程信用分配 | Long-Horizon Credit Assignment | 把轨迹末端的成败归因到早期动作的问题 | 第 29 章 |
+| 稀疏奖励 | Sparse Reward | 只在少数状态或轨迹结束时给出的奖励信号 | 第 29 章 |
+| 势函数塑形 | Potential-Based Reward Shaping | 用势函数差分构造额外奖励，保证最优策略不变 | 第 29 章 |
+| 弹性权重固化 | Elastic Weight Consolidation (EWC) | 用 Fisher 信息加权二次惩罚保护旧任务参数的持续学习方法 | 第 29 章 |
+| 参数隔离 | Parameter Isolation | 为不同任务分配独立适配器或专家以避免参数冲突 | 第 29 章 |
+| 后向迁移 | Backward Transfer (BWT) | 学完新任务后旧任务表现的变化量；负值表示遗忘 | 第 29 章 |
+| 稳定性—可塑性权衡 | Stability–Plasticity Trade-off | 保持旧知识稳定与吸收新知识灵活之间的取舍 | 第 29 章 |
+| 自举 | Self-Bootstrapping | 用模型自身生成的样本继续训练下一代模型 | 第 29 章 |
+| 模型崩溃 | Model Collapse | 递归训练在生成数据上导致分布尾部逐代消失的现象 | 第 29 章 |
+| 真实数据锚定 | Real-Data Anchoring | 每轮训练混入固定比例真实数据以稳定生成分布 | 第 29 章 |
+| 验证器偏差 | Verifier Bias | 验证器的偏好与真实任务正确性不一致，过滤会放大该偏差 | 第 29 章 |
+| 可验证环境 | Verifiable Environment | 能对动作或答案给出确定性判定的任务环境 | 第 29 章 |
+| 损失—能力分离 | Loss–Capability Gap | 平均对数似然下降不保证下游任务能力同步提升 | 第 29 章 |

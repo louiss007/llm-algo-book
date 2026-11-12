@@ -6,7 +6,7 @@
 ## 第一部分：基础篇
 
 * [第 1 章 语言模型的本质：从预测下一个 Token 到压缩与智能](part1/chapter01.md)
-* [第 2 章 分词：Tokenization](part1/chapter02.md)
+* [第 2 章 分词：模型看到的世界](part1/chapter02.md)
 * [第 3 章 Transformer 架构详解](part1/chapter03.md)
 * [第 4 章 位置编码与长度外推](part1/chapter04.md)
 
@@ -28,7 +28,7 @@
 ## 第四部分：后训练篇
 
 * [第 14 章 监督微调（SFT）](part4/chapter14.md)
-* [第 15 章 参数高效微调](part4/chapter15.md)
+* [第 15 章 参数高效微调（PEFT）](part4/chapter15.md)
 * [第 16 章 基于人类反馈的强化学习（RLHF）](part4/chapter16.md)
 * [第 17 章 直接偏好优化与相关变体](part4/chapter17.md)
 * [第 18 章 可验证奖励强化学习与推理模型](part4/chapter18.md)
@@ -54,7 +54,7 @@
 
 * [附录 A 数学基础速览](appendix/a-math.md)
 * [附录 B 符号表](appendix/b-notation.md)
-* [附录 C 术语表](appendix/c-glossary.md)
+* [附录 C 术语表（中英对照）](appendix/c-glossary.md)
 * [附录 D 必读论文清单](appendix/d-papers.md)
 * [附录 E 主流开源模型架构参数对照表](appendix/e-models.md)
 * [附录 F TinyLM：设计、接口与复现指南](appendix/f-tinylm.md)
