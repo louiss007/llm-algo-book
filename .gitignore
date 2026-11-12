@@ -220,3 +220,4 @@ __marimo__/
 .streamlit/secrets.toml
 prompt.md
 _writing/*
+CLAUDE.md
