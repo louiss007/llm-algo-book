@@ -1,0 +1,13 @@
+$schema: https://api.gitbook.com/gitbook-docs.yaml
+version: 1
+site:
+  title: 大语言模型算法：从 Transformer 到推理模型
+  structure:
+    - type: space
+      key: llm-algo-book
+      title: 大语言模型算法：从 Transformer 到推理模型
+      path: llm-algo-book
+      default: true
+      content:
+        directory: ./
+        language: zh
