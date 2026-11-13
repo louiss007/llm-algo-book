@@ -1,0 +1,14 @@
+# 缩放曲线 xl 点（≈56M）
+vocab_size: 8192
+d_model: 640
+n_layers: 12
+n_heads: 10
+n_kv_heads: 2
+d_ff: 1712
+max_seq_len: 512
+attention: gqa
+norm: rmsnorm
+ffn: swiglu
+pos_encoding: rope
+bias: false
+tie_embeddings: true
