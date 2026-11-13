@@ -1,0 +1,16 @@
+# 单张 24GB 显卡的主实验配置（绑定词表约 100M 参数）
+vocab_size: 32000
+d_model: 768
+n_layers: 12
+n_heads: 12
+n_kv_heads: 4
+d_ff: 2048
+max_seq_len: 1024
+attention: gqa
+norm: rmsnorm
+ffn: swiglu
+pos_encoding: rope
+rope_theta: 10000.0
+bias: false
+tie_embeddings: true
+dropout: 0.0
